@@ -180,16 +180,54 @@ When working on a branch:
 - Use `git commit --amend` for all subsequent changes
 - Use `git push --force-with-lease` when updating remote branches after amending
 
+### Working Branches for Multi-Phase Epics
+
+For large, multi-phase efforts where work fans out into multiple parallel sessions and must re-converge before the next fan-out — the one-commit-per-branch rule does **not** apply. Use a dedicated **staging branch** named `Working-Branch/<identifier>` to incubate the entire epic before final review.
+
+**When to use a `Working-Branch/*`:**
+
+- The work decomposes into multiple phases that each require parallel sub-agents/sessions
+- Each phase must complete and merge before the next phase can begin (fan-out → sync → fan-out)
+- The end state is too large or interdependent for a single PR, but the intermediate boundaries are not the natural review boundaries
+- The real human review pass should happen at the **end** of the epic, not at every intermediate checkpoint
+
+**Branch identity and rules:**
+
+- Naming: `Working-Branch/<identifier>` (e.g., `Working-Branch/auth-rewrite`, `Working-Branch/observability-v2`)
+- A `Working-Branch/*` is **mine**, not collaborative — it has the same force-push freedom as `Iron-Ham/*` branches. The "any branch NOT matching `Iron-Ham/*` is shared" rule (see Edge Cases below) does **not** apply to `Working-Branch/*`
+- **Multiple commits are allowed and expected.** Do NOT amend, squash, or rewrite history on the working branch during the epic — phase branches need a stable target to rebase against
+- Branched from `main` (or the appropriate base) at the start of the epic
+- Lives until the epic is fully complete, validated, and verified — then dies after the split (see below)
+
+**Phase workflow:**
+
+1. Create `Working-Branch/<id>` from `main` and push it
+2. For each phase, spawn parallel sub-branches off the working branch using standard `Iron-Ham/<id>-N-<phase>` naming
+3. Each phase opens its own draft PR **targeting the working branch** (not `main`), gets a light validation pass, and merges into the working branch
+4. Subsequent phases rebase against the updated working branch before opening their PRs
+5. Repeat until the epic is functionally complete
+
+**Closing the epic:**
+
+1. Confirm the working branch is fully validated and verified end-to-end (tests pass, feature works)
+2. Use the `split` skill to break the working branch into _n_ logically stacked PRs targeting `main`
+3. The **real** review pass happens here — each split PR is a coherent, reviewable unit
+4. Use the `rebase-stack` skill to cascade changes through the stack as upstream merges land
+5. Once all split PRs are merged into `main`, delete `Working-Branch/<id>`
+
+This pattern trades intermediate-PR review rigor for end-of-epic review coherence: the in-epic PRs are checkpoints, not the review surface.
+
 ### Edge Cases
 
 **If branch already has multiple commits:**
 - Do NOT squash or rewrite history without explicit user confirmation
 - Ask user how they want to proceed
+- Exception: `Working-Branch/*` branches are expected to have multiple commits — this rule does not apply to them
 
 **If working on a shared/collaborative branch:**
 - Do NOT force push without explicit user instruction
 - Use regular `git push` and handle conflicts normally
-- **Assume any branch NOT matching `Iron-Ham/*` is shared/collaborative** (e.g., someone else's PR, a release branch, etc.)
+- **Assume any branch NOT matching `Iron-Ham/*` or `Working-Branch/*` is shared/collaborative** (e.g., someone else's PR, a release branch, etc.)
 
 **If branch is stale and needs updating:**
 - Use `git pull --rebase` to keep history linear
