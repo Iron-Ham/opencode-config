@@ -276,3 +276,14 @@ This file and the surrounding config (`settings.json`, `agents/`, `codex/agents/
 - Update existing documentation (README, docstrings) when changing public APIs
 - Do NOT create new documentation files unless explicitly requested
 - Match the documentation style already present in the project
+
+## Comments
+
+Every code comment must **stand alone** — fully understandable to a reader who has no access to the conversation, branch, ticket, date, or author that produced it. A comment describes the code as it is, for whoever reads it next. The following are strictly disallowed:
+
+- **No temporal references.** A comment must not anchor to a moment in time or to the act of changing the code. Banned phrasing includes "now", "new", "old", "recently", "previously", "as of `<date>`", "for now", "temporary", "changed to", and "used to". State what the code does — never what it used to do or what it just became.
+- **No references to local or ephemeral materials.** Do not point at anything a future reader cannot resolve from the code alone: "see the file we discussed", "per the conversation above", "as in the sibling branch", a colleague's name, or local-only paths. If it only makes sense in the authoring context, it does not belong in a comment.
+- **External references must be durable links, never tracker IDs.** When a comment genuinely needs to cite an external source, use a full, durable URL (a spec, RFC, standards page, or permalink). Do NOT cite bare tracker IDs such as `JIRA-1234`, `#567`, or `TICKET-89` — they are opaque, mutable, and unresolvable out of context.
+- **No references to merged work — at all.** Comments must never reference merged, landed, or shipped changes, whether **temporally** ("after the auth rewrite merged", "since the v2 migration") or **referentially** ("see PR #123", "introduced in commit `abc123`", "from the cache refactor"). Merged work lives in git history, not in source comments.
+
+The test: if stripping away all surrounding context — the PR, the ticket, the date, the author, the discussion — would make the comment confusing or meaningless, rewrite it to describe the code itself.
