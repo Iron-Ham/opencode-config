@@ -5,15 +5,13 @@
   "model": "opus[1m]",
   "enabledPlugins": {
     "swift-lsp@claude-plugins-official": true,
-    "explanatory-output-style@claude-plugins-official": true,
-    "gopls-lsp@claude-plugins-official": true,
+    "gopls-lsp@claude-plugins-official": false,
     "deep-review@claude-deep-review": true,
     "preview-build@preview-build": true,
     "split@split": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "impeccable@impeccable": true,
-    "slack@claude-plugins-official": true,
-    "warp@claude-code-warp": true
+    "slack@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "impeccable": {
