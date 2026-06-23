@@ -60,33 +60,6 @@ Beyond engineering, remember these specialist clusters exist:
 - **Spatial Computing:** visionOS Spatial Engineer, macOS Spatial/Metal Engineer, XR agents
 - **Game Development:** Unity, Unreal, Godot, Roblox specialists + Narrative/Game/Level designers
 
-## Semantic Git Tooling (`sem`)
-
-[`sem`](https://ataraxy-labs.github.io/sem/) is installed globally and provides entity-level (function/class/method) understanding of code rather than line-level diffs. After `sem setup`, `git diff` is already routed through sem — so the guidance below is about the *other* sem subcommands that raw git can't express.
-
-### Reach for sem when
-
-| Task | Command |
-|---|---|
-| Blast radius before editing an entity | `sem impact <entity> [--file <path>] --json` |
-| Per-entity authorship in a file | `sem blame <file>` |
-| History of a single function/class | `sem log <entity>` |
-| Discover entities in an unfamiliar file | `sem entities <file>` |
-| Build an LLM-ready context block | `sem context <entity> --budget <tokens> --json` |
-
-### Agent workflow rules
-
-- **Before editing a non-trivial function**, run `sem impact <entity> --json` and fold dependents/affected tests into your plan.
-- **When spawning a sub-agent that needs code context**, prefer `sem context <entity> --budget 4000 --json` over pasting whole files — it stays within the target agent's prompt budget and includes only the relevant dependency graph.
-- **Always pass `--json`** when output feeds a programmatic consumer (another tool call, a sub-agent prompt). Plain output is for terminal rendering only.
-- **Prefer the MCP integration** (`sem mcp` is an MCP stdio server) for repos you touch often — wire it into `.mcp.json` rather than shelling out repeatedly.
-
-### Caveats
-
-- sem supports ~26 languages; on unsupported files, fall back to standard git.
-- **Do not** run `sem setup` or `sem unsetup` without explicit user confirmation — both mutate global git config.
-- If you specifically need a raw unified line diff (patch application, parser expecting `--- +++` headers), use `git diff --no-ext-diff` to bypass the sem wrapper.
-
 ## Git Commit Guidelines
 
 When creating git commits:
