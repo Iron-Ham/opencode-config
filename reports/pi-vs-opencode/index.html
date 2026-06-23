@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An evidence-backed comparison of Pi and OpenCode, plus a tuned OpenCode configuration for an iOS-heavy engineering workflow.">
+  <meta name="color-scheme" content="light dark">
+  <title>Pi vs OpenCode — Decision memo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,650&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f4f0e7;
+      --paper-strong: #ebe5d8;
+      --ink: #181916;
+      --muted: #63645e;
+      --line: #cbc5b8;
+      --line-strong: #999387;
+      --blue: #2455db;
+      --blue-soft: #dce5ff;
+      --green: #176b4d;
+      --green-soft: #dcece5;
+      --orange: #a34a19;
+      --orange-soft: #f3e1d4;
+      --focus: #f06b30;
+      --serif: "Newsreader", Georgia, serif;
+      --sans: "Manrope", "Helvetica Neue", sans-serif;
+      --content: 1180px;
+      --shadow: 0 18px 60px rgb(46 40 28 / 9%);
+    }
+
+    html[data-theme="dark"] {
+      --paper: #171815;
+      --paper-strong: #22231f;
+      --ink: #f0ede4;
+      --muted: #b4b2a9;
+      --line: #3c3e38;
+      --line-strong: #666960;
+      --blue: #8ba9ff;
+      --blue-soft: #26355f;
+      --green: #78c7a6;
+      --green-soft: #203c32;
+      --orange: #f2a375;
+      --orange-soft: #4b3024;
+      --focus: #ff9c69;
+      --shadow: 0 18px 60px rgb(0 0 0 / 20%);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: var(--blue); text-underline-offset: 0.18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, button:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 4px;
+    }
+    button { font: inherit; }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      transform: translateY(-180%);
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .reading-progress {
+      position: fixed;
+      z-index: 90;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 3px;
+      background: var(--blue);
+    }
+
+    .masthead {
+      border-bottom: 1px solid var(--line);
+    }
+    .masthead-inner {
+      width: min(calc(100% - 40px), var(--content));
+      min-height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .wordmark {
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .masthead-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .theme-toggle {
+      min-width: 44px;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .hero {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      padding: clamp(64px, 10vw, 132px) 0 68px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.5fr);
+      gap: clamp(40px, 8vw, 110px);
+      align-items: end;
+    }
+    .eyebrow, .section-kicker {
+      margin: 0 0 18px;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, blockquote { font-family: var(--serif); }
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-size: clamp(50px, 7.3vw, 94px);
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      line-height: 0.94;
+    }
+    .hero-deck {
+      max-width: 780px;
+      margin: 30px 0 0;
+      color: var(--muted);
+      font-family: var(--serif);
+      font-size: clamp(21px, 2vw, 28px);
+      line-height: 1.35;
+    }
+    .verdict-mark {
+      padding: 24px 0 6px;
+      border-top: 4px solid var(--blue);
+    }
+    .verdict-mark strong {
+      display: block;
+      margin-bottom: 10px;
+      font-family: var(--serif);
+      font-size: 31px;
+      font-weight: 500;
+      line-height: 1.08;
+    }
+    .verdict-mark span { color: var(--muted); font-size: 13px; }
+
+    .decision-strip {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .decision-strip-inner {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      padding: 30px 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 30px;
+      align-items: center;
+    }
+    .decision-strip b {
+      color: #a8bdff;
+      font-size: 11px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .decision-strip p { margin: 0; font-family: var(--serif); font-size: 21px; line-height: 1.35; }
+
+    .report-grid {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: clamp(44px, 7vw, 96px);
+    }
+    .contents {
+      position: sticky;
+      top: 36px;
+      align-self: start;
+      padding: 78px 0;
+    }
+    .contents-label {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .contents ol { margin: 0; padding: 0; list-style: none; }
+    .contents a {
+      display: block;
+      padding: 8px 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .contents a[aria-current="true"] { color: var(--blue); }
+    main { min-width: 0; padding-bottom: 120px; }
+    .report-section {
+      padding: 78px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 24px;
+    }
+    .section-number {
+      display: block;
+      margin-bottom: 20px;
+      color: var(--line-strong);
+      font-family: var(--serif);
+      font-size: 15px;
+    }
+    h2 {
+      max-width: 760px;
+      margin: 0 0 24px;
+      font-size: clamp(36px, 5vw, 58px);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1.02;
+    }
+    h3 {
+      margin: 42px 0 12px;
+      font-size: 27px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .lede {
+      max-width: 780px;
+      margin: 0 0 38px;
+      color: var(--muted);
+      font-family: var(--serif);
+      font-size: 22px;
+      line-height: 1.45;
+    }
+    .measure { max-width: 760px; }
+    .measure p { margin: 0 0 18px; }
+    .callout {
+      margin: 42px 0;
+      padding: 30px 34px;
+      border-left: 5px solid var(--blue);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow);
+    }
+    .callout p { margin: 0; font-family: var(--serif); font-size: 22px; line-height: 1.45; }
+    .callout small { display: block; margin-top: 14px; color: var(--muted); }
+
+    .edge-list { margin: 36px 0 0; border-top: 1px solid var(--line-strong); }
+    .edge-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 1fr) minmax(120px, 0.55fr) minmax(0, 1.7fr);
+      gap: 24px;
+      padding: 19px 0;
+      border-bottom: 1px solid var(--line);
+      align-items: baseline;
+    }
+    .edge-row b { font-size: 13px; }
+    .edge-winner {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .edge-row span:last-child { color: var(--muted); font-size: 13px; }
+
+    .catalog-number {
+      margin: 42px 0 10px;
+      font-family: var(--serif);
+      font-size: clamp(76px, 12vw, 144px);
+      font-weight: 500;
+      letter-spacing: -0.06em;
+      line-height: 0.8;
+    }
+    .catalog-caption { max-width: 620px; color: var(--muted); font-size: 14px; }
+    .catalog-contrast {
+      margin-top: 44px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .catalog-contrast > div { padding: 30px 32px 30px 0; }
+    .catalog-contrast > div + div { padding-left: 32px; border-left: 1px solid var(--line); }
+    .catalog-contrast h3 { margin-top: 0; }
+
+    .prompt-stack { margin: 38px 0; }
+    .prompt-row {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr) 86px;
+      gap: 18px;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .prompt-label { font-size: 13px; font-weight: 700; }
+    .prompt-track { height: 9px; overflow: hidden; background: var(--paper-strong); }
+    .prompt-fill { height: 100%; width: var(--fill); background: var(--blue); }
+    .prompt-row:nth-child(3) .prompt-fill { background: var(--green); }
+    .prompt-row:nth-child(4) .prompt-fill { background: var(--orange); }
+    .prompt-note { color: var(--muted); font-size: 11px; text-align: right; }
+    .fine-print { color: var(--muted); font-size: 12px; }
+
+    .table-wrap { margin: 36px 0; overflow-x: auto; border-top: 1px solid var(--line-strong); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 17px 15px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th:first-child, td:first-child { padding-left: 0; }
+    th { color: var(--muted); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+    td strong { font-size: 14px; }
+    .yes { color: var(--green); font-weight: 700; }
+    .qualified { color: var(--orange); font-weight: 700; }
+
+    .routing {
+      margin: 42px 0;
+      border-top: 1px solid var(--line-strong);
+    }
+    .route {
+      display: grid;
+      grid-template-columns: 110px minmax(190px, 0.8fr) minmax(0, 1.3fr);
+      gap: 24px;
+      padding: 23px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .route-code { color: var(--blue); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .route-model { font-family: var(--serif); font-size: 22px; line-height: 1.15; }
+    .route-why { color: var(--muted); font-size: 13px; }
+
+    .ios-verdict {
+      margin: 40px 0;
+      padding: clamp(28px, 5vw, 48px);
+      background: var(--blue);
+      color: #fff;
+    }
+    .ios-verdict .section-kicker { color: #d6e0ff; }
+    .ios-verdict blockquote { margin: 0; font-size: clamp(30px, 5vw, 52px); line-height: 1.06; letter-spacing: -0.035em; }
+    .ios-verdict p { max-width: 700px; margin: 24px 0 0; color: #e2e8ff; }
+
+    .bench {
+      margin: 42px 0;
+      padding: 30px 0;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .bench-header { display: flex; justify-content: space-between; gap: 24px; align-items: baseline; margin-bottom: 28px; }
+    .bench-header h3 { margin: 0; }
+    .bench-header span { color: var(--muted); font-size: 11px; }
+    .bench-grid { display: grid; grid-template-columns: 110px 1fr 1fr 1fr; gap: 12px 20px; align-items: center; }
+    .bench-grid .head { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .bench-model { font-size: 12px; font-weight: 700; }
+    .metric { position: relative; height: 34px; background: var(--paper-strong); }
+    .metric i { display: block; height: 100%; width: var(--w); background: var(--green); }
+    .metric.orange i { background: var(--orange); }
+    .metric span { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 9px; color: var(--ink); font-size: 11px; font-weight: 700; }
+    .metric.solid span { color: #fff; }
+
+    .risk-list { margin: 38px 0 0; padding: 0; list-style: none; counter-reset: risk; }
+    .risk-list li {
+      counter-increment: risk;
+      position: relative;
+      padding: 22px 0 22px 58px;
+      border-top: 1px solid var(--line);
+    }
+    .risk-list li::before {
+      content: "0" counter(risk);
+      position: absolute;
+      left: 0;
+      top: 22px;
+      color: var(--orange);
+      font-family: var(--serif);
+      font-size: 17px;
+    }
+    .risk-list b { display: block; margin-bottom: 4px; }
+    .risk-list span { color: var(--muted); font-size: 13px; }
+
+    details { margin-top: 28px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    summary { min-height: 48px; padding: 14px 0; cursor: pointer; font-weight: 700; }
+    details > div { padding: 0 0 24px; color: var(--muted); font-size: 13px; }
+    .sources { margin: 30px 0 0; padding-left: 20px; }
+    .sources li { margin-bottom: 12px; padding-left: 8px; color: var(--muted); font-size: 13px; }
+
+    footer {
+      padding: 36px 0 52px;
+      border-top: 1px solid var(--line);
+    }
+    .footer-inner {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .verdict-mark { max-width: 420px; }
+      .report-grid { grid-template-columns: 1fr; }
+      .contents { position: static; padding: 34px 0 0; border-bottom: 1px solid var(--line); }
+      .contents ol { display: flex; gap: 8px 18px; padding-bottom: 24px; overflow-x: auto; }
+      .contents a { white-space: nowrap; }
+      .prompt-row { grid-template-columns: 130px minmax(0, 1fr) 70px; }
+    }
+    @media (max-width: 620px) {
+      .masthead-meta > span { display: none; }
+      .hero { padding-top: 58px; }
+      .decision-strip-inner { grid-template-columns: 1fr; gap: 8px; }
+      .edge-row { grid-template-columns: 1fr auto; gap: 4px 16px; }
+      .edge-row span:last-child { grid-column: 1 / -1; }
+      .catalog-contrast { grid-template-columns: 1fr; }
+      .catalog-contrast > div { padding: 26px 0; }
+      .catalog-contrast > div + div { padding-left: 0; border-top: 1px solid var(--line); border-left: 0; }
+      .prompt-row { grid-template-columns: 1fr 54px; }
+      .prompt-track { grid-row: 2; grid-column: 1 / -1; }
+      .route { grid-template-columns: 90px 1fr; }
+      .route-why { grid-column: 1 / -1; }
+      .bench-grid { grid-template-columns: 90px 1fr; }
+      .bench-grid .head { display: none; }
+      .metric::before { content: attr(data-label); position: absolute; z-index: 1; top: -18px; color: var(--muted); font-size: 9px; text-transform: uppercase; }
+      .bench-model { align-self: start; padding-top: 8px; }
+      .footer-inner { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+    @media print {
+      :root { --paper: #fff; --ink: #000; --muted: #444; --line: #bbb; --paper-strong: #f3f3f3; }
+      .theme-toggle, .contents, .reading-progress { display: none; }
+      .hero, .report-grid, .decision-strip-inner, .footer-inner { width: 100%; }
+      .report-grid { display: block; }
+      .report-section { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#report">Skip to report</a>
+  <div class="reading-progress" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="wordmark" href="#top">Harness field notes</a>
+      <div class="masthead-meta">
+        <span>Decision memo · 14 July 2026</span>
+        <button class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">◐</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="top" class="hero">
+    <div>
+      <p class="eyebrow">Pi versus OpenCode</p>
+      <h1>OpenCode wins. Luna gets the keyboard.</h1>
+      <p class="hero-deck">For an overwhelmingly iOS workload, the sensible default is Luna xhigh without routine review: full measured Swift quality at the lowest cost. Sonnet remains the research and recovery lane; Sol remains an approval-gated advisor.</p>
+    </div>
+    <div class="verdict-mark">
+      <strong>Choose OpenCode.<br>Default to Luna.</strong>
+      <span>Build / general: GPT-5.6 Luna xhigh<br>Research: Sonnet 5, provider default<br>Advisor: GPT-5.6 Sol xhigh, approval-gated</span>
+    </div>
+  </div>
+
+  <div class="decision-strip">
+    <div class="decision-strip-inner">
+      <b>Bottom line</b>
+      <p>Luna, Terra, and Sonnet each passed all three hidden Swift trials at 100/100. Luna cost 69% less than Sonnet on average; Terra was fastest but cost about twice as much as Luna.</p>
+    </div>
+  </div>
+
+  <div class="report-grid">
+    <nav class="contents" aria-label="Report sections">
+      <p class="contents-label">In this memo</p>
+      <ol>
+        <li><a href="#decision">01 · Decision</a></li>
+        <li><a href="#catalog">02 · Harnesses</a></li>
+        <li><a href="#prompts">03 · Prompts</a></li>
+        <li><a href="#features">04 · Swift trials</a></li>
+        <li><a href="#models">05 · Advisors</a></li>
+        <li><a href="#ios">06 · Routing</a></li>
+        <li><a href="#installed">07 · Installed</a></li>
+        <li><a href="#risks">08 · Limits</a></li>
+        <li><a href="#sources">09 · Sources</a></li>
+      </ol>
+    </nav>
+
+    <main id="report">
+      <section id="decision" class="report-section">
+        <span class="section-number">01</span>
+        <p class="section-kicker">Recommendation</p>
+        <h2>Optimize the routine path, preserve strong escape hatches.</h2>
+        <p class="lede">OpenCode is the daily driver. Luna xhigh owns routine iOS implementation. The expensive models are available on purpose, not paid on every task.</p>
+        <div class="measure">
+          <p><strong>Default:</strong> use GPT-5.6 Luna xhigh for <code>build</code> and <code>general</code>, without an advisor. It matched Terra and Sonnet on every public and hidden Swift behavior in three controlled runs while posting the lowest mean and median cost.</p>
+          <p><strong>Escalation:</strong> use <code>/terra</code> when turnaround matters, <code>/sonnet</code> for broad repository forensics or after Luna stalls, and <code>/ultra</code> for the highest-risk work. Sol review is approval-gated because it improved two of three drafts but materially harmed one.</p>
+        </div>
+
+        <div class="edge-list" role="list" aria-label="Category winners">
+          <div class="edge-row" role="listitem"><b>Harness</b><span class="edge-winner">OpenCode</span><span>Native agents, permissions, model routing, and a clean migration path for the Codex-shaped setup.</span></div>
+          <div class="edge-row" role="listitem"><b>Routine implementer</b><span class="edge-winner">Luna xhigh</span><span>3/3 quality-floor passes; $0.103 mean cost versus $0.329 for Sonnet.</span></div>
+          <div class="edge-row" role="listitem"><b>Speed lane</b><span class="edge-winner">Terra xhigh</span><span>132-second mean, 34% lower mean wall time than Luna, at roughly twice Luna's mean cost.</span></div>
+          <div class="edge-row" role="listitem"><b>Research lane</b><span class="edge-winner">Sonnet 5</span><span>The only controller to finish the broad monorepo forensic screen inside ten minutes.</span></div>
+          <div class="edge-row" role="listitem"><b>Advisor</b><span class="edge-winner">Sol xhigh</span><span>Stronger than Terra across the small blind sample, but too inconsistent for automatic routine use.</span></div>
+        </div>
+      </section>
+
+      <section id="catalog" class="report-section">
+        <span class="section-number">02</span>
+        <p class="section-kicker">Harness and ecosystem</p>
+        <h2>Pi has a catalog. OpenCode has the better daily-driver fit.</h2>
+        <p class="lede">Both are open source. Pi is a deliberately small core with an unusually rich extension surface; OpenCode offers more of the agent, permission, and provider machinery this workflow needs before customization.</p>
+        <div class="catalog-number">5,296</div>
+        <p class="catalog-caption">Packages visible in the official <a href="https://pi.dev/packages">Pi catalog</a> on 14 July 2026. The live count will change.</p>
+
+        <div class="catalog-contrast">
+          <div>
+            <h3>Pi</h3>
+            <p>Packages bundle extensions, skills, prompt templates, and themes, with searchable type, popularity, recency, and install metadata. Goal loops, subagents, permission layers, and multi-agent orchestration are discoverable products rather than scattered examples.</p>
+          </div>
+          <div>
+            <h3>OpenCode</h3>
+            <p><a href="https://github.com/awesome-opencode/awesome-opencode">Awesome OpenCode</a> is a curated GitHub list, not a first-party package catalog. OpenCode can install npm plugins and discover skills, but it does not match Pi's unified registry experience.</p>
+          </div>
+        </div>
+        <div class="callout">
+          <p>Pi wins extension discovery; OpenCode wins this deployment.</p>
+          <small>Pi's own documentation warns that packages run with full system access. This setup benefits more from OpenCode's native allow/ask/deny permissions and a smaller curated plugin set.</small>
+        </div>
+      </section>
+
+      <section id="prompts" class="report-section">
+        <span class="section-number">03</span>
+        <p class="section-kicker">Source review</p>
+        <h2>The same model is not the same agent in a different harness.</h2>
+        <p class="lede">Default prompts change persistence, tool vocabulary, edit discipline, delegation, verification, and how much behavior must be supplied by user rules or extensions.</p>
+
+        <div class="prompt-stack" aria-label="Relative default prompt prescriptiveness, directional">
+          <div class="prompt-row"><span class="prompt-label">Codex runtime</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 100%"></span></span><span class="prompt-note">densest policy</span></div>
+          <div class="prompt-row"><span class="prompt-label">OpenCode · GPT</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 82%"></span></span><span class="prompt-note">closest fit</span></div>
+          <div class="prompt-row"><span class="prompt-label">OpenCode · Claude</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 68%"></span></span><span class="prompt-note">Task-heavy</span></div>
+          <div class="prompt-row"><span class="prompt-label">OpenCode · generic</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 60%"></span></span><span class="prompt-note">GLM fallback</span></div>
+          <div class="prompt-row"><span class="prompt-label">Pi · raw</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 14%"></span></span><span class="prompt-note">blank canvas</span></div>
+        </div>
+        <p class="fine-print">Bar lengths express relative prompt prescriptiveness from source review, not model quality scores.</p>
+
+        <h3>What the source actually does</h3>
+        <div class="measure">
+          <p>OpenCode 1.17.20 routes GPT-family models to its Codex-derived prompt, Claude models to an Anthropic-specific Task/Todo prompt, and unrecognized families such as GLM to a generic prompt. A custom agent body replaces the family prompt; repository instructions and skills are then added.</p>
+          <p>The GPT lane is closest to Codex's autonomy and dirty-worktree discipline, though it names a parallel tool OpenCode does not expose. The Claude lane matches OpenCode's Read/Edit/Task/Todo tools more literally but carries less of Codex's persistence and completion contract. The generic lane asks more of the model.</p>
+          <p>Pi's raw prompt is intentionally tiny—roughly tools, command preferences, and concision. That is an excellent substrate for extension authors and the least governed out-of-box environment for long, mutation-heavy work.</p>
+          <p><strong>Model implication:</strong> proprietary models with strong native tool use can compensate for a thinner harness; open-weight models are more sensitive to prompt/tool mismatch. GLM 5.2 therefore remains a bounded opt-in worker with deterministic verification, not a silent controller default.</p>
+        </div>
+        <div class="callout">
+          <p>Predicted out-of-box reliability: Codex first; OpenCode's GPT lane next; OpenCode's Claude lane after that; OpenCode generic and raw Pi most dependent on added policy.</p>
+          <small>This is a source-based inference, not a controlled cross-harness score. A carefully composed Pi package stack can change the ordering.</small>
+        </div>
+      </section>
+
+      <section id="features" class="report-section">
+        <span class="section-number">04</span>
+        <p class="section-kicker">Controlled Swift implementation trials</p>
+        <h2>Luna's measured output quality was not worse.</h2>
+        <p class="lede">Nine valid runs implemented the same concurrency-sensitive Swift pager. Every model passed all ten public and hidden behaviors, every compliance check, and the 85-point quality floor on its first model turn.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Implementer</th><th>Quality</th><th>Mean cost</th><th>Median cost</th><th>Mean wall</th><th>Median wall</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Luna xhigh</strong></td><td class="yes">3/3 · 100/100</td><td><strong>$0.103</strong></td><td>$0.081</td><td>200 s</td><td>153 s</td><td class="yes">Default</td></tr>
+              <tr><td><strong>Terra xhigh</strong></td><td class="yes">3/3 · 100/100</td><td>$0.203</td><td>$0.224</td><td><strong>132 s</strong></td><td>140 s</td><td class="qualified">Speed lane</td></tr>
+              <tr><td><strong>Sonnet 5 default</strong></td><td class="yes">3/3 · 100/100</td><td>$0.329</td><td>$0.354</td><td>213 s</td><td>243 s</td><td>Research lane</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bench">
+          <div class="bench-header">
+            <h3>Mean task economics</h3>
+            <span>lower is better · n=3 per model</span>
+          </div>
+          <div class="bench-grid" aria-label="Mean implementation cost and wall time">
+            <span></span><span class="head">Cost</span><span class="head">Wall time</span><span class="head">Quality floor</span>
+            <span class="bench-model">Luna</span>
+            <span class="metric solid" data-label="Cost"><i style="--w: 31%"></i><span>$0.103</span></span>
+            <span class="metric" data-label="Wall time"><i style="--w: 94%"></i><span>200 s</span></span>
+            <span class="metric" data-label="Quality"><i style="--w: 100%"></i><span>3 / 3</span></span>
+            <span class="bench-model">Terra</span>
+            <span class="metric orange solid" data-label="Cost"><i style="--w: 62%"></i><span>$0.203</span></span>
+            <span class="metric orange" data-label="Wall time"><i style="--w: 62%"></i><span>132 s</span></span>
+            <span class="metric orange" data-label="Quality"><i style="--w: 100%"></i><span>3 / 3</span></span>
+            <span class="bench-model">Sonnet</span>
+            <span class="metric solid" data-label="Cost"><i style="--w: 100%"></i><span>$0.329</span></span>
+            <span class="metric" data-label="Wall time"><i style="--w: 100%"></i><span>213 s</span></span>
+            <span class="metric" data-label="Quality"><i style="--w: 100%"></i><span>3 / 3</span></span>
+          </div>
+        </div>
+        <div class="callout">
+          <p>Luna was 69% cheaper than Sonnet at the same measured quality. Terra had 34% lower mean wall time than Luna but was 97% more expensive.</p>
+          <small>This is enough to choose a personal default, not enough to claim a universal model ranking.</small>
+        </div>
+        <details>
+          <summary>Protocol and invalid-run handling</summary>
+          <div>Each run used a private copy of the same Swift package, Latin-square ordering, read/glob/grep/edit only, a fixed external test harness, a network-denied macOS sandbox, isolated SwiftPM state, and a hidden test added only after the final turn. An earlier v2 run is excluded because inherited <code>PWD</code> caused edits to the canonical fixture. The retained runner fixes <code>--dir</code>, <code>cwd</code>, <code>PWD</code>, and <code>INIT_CWD</code>; guards absolute paths; copies from a read-only private snapshot; and verifies the fixture hash.</div>
+        </details>
+      </section>
+
+      <section id="models" class="report-section">
+        <span class="section-number">05</span>
+        <p class="section-kicker">Advisor combinations</p>
+        <h2>Sol is the advisor to keep—and the advisor not to automate.</h2>
+        <p class="lede">Across three blind-scored Sonnet drafts, Sol improved two and Terra improved one. Both advisors also introduced a material error into the same weaker draft. Review helped selectively, not mechanically.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Route</th><th>Mean quality</th><th>Median</th><th>Improved draft</th><th>Score ≥8</th><th>Mean route cost</th><th>Mean review increment</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Matched draft, no advisor</strong></td><td><strong>8.13</strong></td><td>7.63</td><td>—</td><td>1/3</td><td>—</td><td>$0</td></tr>
+              <tr><td><strong>Sonnet + Sol</strong></td><td>7.81</td><td><strong>9.10</strong></td><td class="yes">2/3</td><td class="yes">2/3</td><td>$1.240</td><td>$0.505</td></tr>
+              <tr><td><strong>Sonnet + Terra</strong></td><td>7.40</td><td>8.30</td><td>1/3</td><td class="yes">2/3</td><td><strong>$1.099</strong></td><td><strong>$0.365</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="fine-print">The score-count column does not adjudicate the rubric's separate no-material-error requirement. The important result is conditional lift and failure risk. One capped 5/10 final in each advisor route pulls both advisor means below the matched draft mean. The retained rubric required a cap but did not assign its numeric ceiling; all three graders independently used the conventional 5.0/10 maximum, and the aggregates preserve that evaluator convention.</p>
+
+        <h3>Screen outcomes for every requested combination</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Implementer + advisor</th><th>Outcome on forensic screen</th><th>What can be concluded</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Sonnet + Sol</strong></td><td class="yes">Completed</td><td>9.10 blind quality; $1.901 route cost. Advanced to two more trials.</td></tr>
+              <tr><td><strong>Sonnet + Terra</strong></td><td class="yes">Completed</td><td>8.30 blind quality; $1.518 route cost. Advanced to two more trials.</td></tr>
+              <tr><td><strong>Luna + Sol / Sonnet / Opus / Fable</strong></td><td class="qualified">Draft timed out at 600 s</td><td>Advisor never ran. End-to-end route failed this broad task; advisor quality is unmeasured.</td></tr>
+              <tr><td><strong>Terra + Sonnet / Opus</strong></td><td class="qualified">Draft timed out at 600 s</td><td>Advisor never ran. Same limitation: route failure, not evidence that Sonnet or Opus advises poorly.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <p>Keep Sol because it produced the stronger median and improved 2/3 drafts, for only $0.14 more mean route cost than Terra. Require approval because either advisor can make a good draft worse.</p>
+          <small>Outside Ultra: at most one advisor call, only for consequential work, with the controller required to reconcile advice against source and test evidence.</small>
+        </div>
+        <details>
+          <summary>Advisor protocol limits</summary>
+          <div>This was a staged draft → tool-less critique → controller revision protocol using the installed Advisor's static system prompt and transcript serialization. It was not a native in-turn Advisor tool call. The screen used one offline-pagination investigation; the finalist extension used two bridge-concurrency repetitions. Answers were randomized and blind graded by two or three independent graders. Route costs include the shared draft counterfactually; recorded experiment spend counts each shared draft once. Valid advisor experiment spend was $5.255; valid Swift implementation spend was $1.905.</div>
+        </details>
+      </section>
+
+      <section id="ios" class="report-section">
+        <span class="section-number">06</span>
+        <p class="section-kicker">Final model portfolio</p>
+        <h2>A cheap default with deliberate escalation.</h2>
+        <div class="ios-verdict">
+          <p class="section-kicker">Configured recommendation</p>
+          <blockquote>Luna implements. Sonnet investigates. Terra sprints. Sol challenges.</blockquote>
+          <p>Routine work stays inexpensive and advisor-free. Broad, ambiguous, stalled, or genuinely high-risk work has explicit lanes instead of silently upgrading every request.</p>
+        </div>
+        <div class="routing">
+          <div class="route"><span class="route-code">Build / General</span><span class="route-model">GPT-5.6 Luna<br>xhigh</span><span class="route-why">Routine iOS implementation and substantial independent work. Lowest measured task cost with no observed Swift quality loss.</span></div>
+          <div class="route"><span class="route-code">/terra</span><span class="route-model">GPT-5.6 Terra<br>xhigh</span><span class="route-why">Latency-sensitive implementation. Same measured Swift quality, fastest mean completion, about twice Luna's mean cost.</span></div>
+          <div class="route"><span class="route-code">/sonnet</span><span class="route-model">Claude Sonnet 5<br>provider default</span><span class="route-why">Broad repository forensics, high ambiguity, or recovery after Luna stalls.</span></div>
+          <div class="route"><span class="route-code">Plan / Experts</span><span class="route-model">Claude Sonnet 5<br>high</span><span class="route-why">Read-only planning plus architecture, review, security, testing, accessibility, and documentation specialists.</span></div>
+          <div class="route"><span class="route-code">/ultra</span><span class="route-model">Claude Sonnet 5<br>max</span><span class="route-why">High-risk work with an instruction-enforced four-concurrent/eight-total native subagent policy and direct Sol access.</span></div>
+          <div class="route"><span class="route-code">Advisor</span><span class="route-model">GPT-5.6 Sol<br>xhigh</span><span class="route-why">Approval-gated critic for consequential decisions. At most one call outside Ultra; advice never accepted without reconciliation.</span></div>
+          <div class="route"><span class="route-code">Explore</span><span class="route-model">Kimi K2.7 Code</span><span class="route-why">Shell-free bounded discovery. GLM 5.2 remains a separate explicit open-weight worker.</span></div>
+        </div>
+        <h3>List prices explain the shape, not the outcome</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Model</th><th>Input / 1M</th><th>Output / 1M</th><th>How it is used</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Luna</strong></td><td>$1</td><td>$6</td><td>Default</td></tr>
+              <tr><td><strong>Terra</strong></td><td>$2.50</td><td>$15</td><td>Speed lane</td></tr>
+              <tr><td><strong>Sonnet 5</strong></td><td>$2 intro; $3 after 31 Aug</td><td>$10 intro; $15 after 31 Aug</td><td>Research, plan, specialists, Ultra</td></tr>
+              <tr><td><strong>Opus 4.8</strong></td><td>$5</td><td>$25</td><td>Requested advisor route; advisor stage did not run</td></tr>
+              <tr><td><strong>Sol</strong></td><td>$5</td><td>$30</td><td>Approval-gated advisor</td></tr>
+              <tr><td><strong>Fable 5</strong></td><td>$10</td><td>$50</td><td>Requested advisor route; advisor stage did not run</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="fine-print">OpenAI prices every request above 272k input tokens at 2× input and 1.5× output for the full request, and bills cache writes at 1.25× input. OpenCode 1.17.20 cannot encode that tier cleanly, so the benchmark repriced it externally. A long Luna session still compacts through Sonnet in this configuration.</p>
+      </section>
+
+      <section id="installed" class="report-section">
+        <span class="section-number">07</span>
+        <p class="section-kicker">Implemented setup</p>
+        <h2>The Codex-shaped OpenCode environment is configured.</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Layer</th><th>Installed behavior</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Global rules</strong></td><td>User-level AGENTS instructions shared with project-local precedence preserved; OpenCode-specific routing and editing-tool compatibility added.</td></tr>
+              <tr><td><strong>Agents</strong></td><td>Build/general on Luna xhigh; plan and curated domain specialists on Sonnet high; Kimi explorer; bounded GLM worker.</td></tr>
+              <tr><td><strong>Commands</strong></td><td><code>/luna</code>, <code>/terra</code>, <code>/sonnet</code>, and <code>/ultra</code> target pinned aliases so the UI cannot silently replace their intended effort.</td></tr>
+              <tr><td><strong>Goal</strong></td><td>Pinned version with a 200k-token budget, 25 continuation ceiling, and one-hour duration ceiling.</td></tr>
+              <tr><td><strong>Advisor</strong></td><td>Sol xhigh; primary controllers ask before use, Ultra may call directly, delegated agents cannot multiply calls, and transcript-egress rules are explicit.</td></tr>
+              <tr><td><strong>Notion plugins</strong></td><td>Advisor, mobile, mobile-ios, observability, and Tuist refreshed through supported Notion tooling.</td></tr>
+              <tr><td><strong>Skills</strong></td><td>Claude, Codex, shared third-party, and OpenCode-only locations separated to eliminate nondeterministic duplicate resolution.</td></tr>
+              <tr><td><strong>Config merge</strong></td><td>JSONC-aware atomic writes, private permissions, preflight/runtime validation, backups, unmanaged-provider/MCP preservation, and stale managed-key cleanup.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="risks" class="report-section">
+        <span class="section-number">08</span>
+        <p class="section-kicker">Decision boundaries</p>
+        <h2>Strong evidence, narrow claims.</h2>
+        <ol class="risk-list">
+          <li><b>The Swift sample is small.</b><span>Three runs per model on one concurrency-sensitive package are enough for a personal default, not a general intelligence ranking across all iOS work.</span></li>
+          <li><b>The advisor sample is smaller and staged.</b><span>Three matched drafts across two forensic tasks expose both lift and harm. The protocol mirrors the advisor prompt and transcript shape but is not a native in-turn tool call.</span></li>
+          <li><b>Advisor egress needs consent.</b><span>Luna- or Terra-to-Sol stays inside OpenAI; Sonnet and Ultra cross from Anthropic to OpenAI. The rules skip the gate when the transcript is not approved for that transfer.</span></li>
+          <li><b>Prompt/tool mismatches still exist upstream.</b><span>The GPT prompt names a nonexistent parallel tool. Non-GPT models receive Edit/Write while GPT models receive apply_patch; the user rules normalize that difference.</span></li>
+          <li><b>Compaction changes the cost envelope.</b><span>Long Luna sessions compact through Sonnet, so the default route is not provider-contained and its total cost can include an Anthropic request.</span></li>
+          <li><b>Codex app runtimes do not all port.</b><span>Browser/computer use, documents, spreadsheets, presentations, Gmail, Calendar, Workspace Agents, and GitHub connectors remain Codex-only; compatible skills and Notion MCPs do port.</span></li>
+          <li><b>Pi packages are code, not prose.</b><span>A future Pi experiment should choose one coherent orchestration suite, audit its source, and avoid overlapping lifecycle extensions.</span></li>
+          <li><b>OpenCode is moving quickly.</b><span>Prompt routing, model metadata, plugin APIs, and tool exposure are version-specific observations pinned to OpenCode 1.17.20 and the reviewed source commit.</span></li>
+        </ol>
+      </section>
+
+      <section id="sources" class="report-section">
+        <span class="section-number">09</span>
+        <p class="section-kicker">Evidence</p>
+        <h2>Sources and methodology.</h2>
+        <p class="lede">Source code was reviewed at pinned commits. Product, model, price, and catalog claims were checked against first-party documentation. Local route claims come from retained benchmark artifacts, not vendor charts.</p>
+        <ol class="sources">
+          <li><a href="https://pi.dev/packages">Pi package catalog</a> and <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md">package documentation</a>.</li>
+          <li><a href="https://github.com/earendil-works/pi/blob/0e6909f050eeb15e8f6c05185511f3788357ddb3/packages/coding-agent/src/core/system-prompt.ts#L88-L170">Pi default system-prompt source</a> and <a href="https://github.com/earendil-works/pi/blob/0e6909f050eeb15e8f6c05185511f3788357ddb3/packages/coding-agent/docs/extensions.md#L278-L313">extension lifecycle documentation</a>.</li>
+          <li><a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/system.ts#L27-L41">OpenCode model-family prompt routing</a>, <a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/llm/request.ts#L56-L72">prompt assembly</a>, and the <a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/prompt/gpt.txt#L1-L107">GPT prompt</a>.</li>
+          <li><a href="https://opencode.ai/docs/agents/">OpenCode agent documentation</a>, <a href="https://opencode.ai/docs/plugins/">plugin documentation</a>, and <a href="https://github.com/awesome-opencode/awesome-opencode">Awesome OpenCode</a>.</li>
+          <li><a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a>, <a href="https://developers.openai.com/api/docs/models/gpt-5.6-terra">Terra</a>, and <a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">Sol</a> official model pages.</li>
+          <li><a href="https://www.anthropic.com/news/claude-sonnet-5">Claude Sonnet 5</a>, <a href="https://www.anthropic.com/claude/opus">Opus 4.8</a>, and <a href="https://www.anthropic.com/claude/fable">Fable 5</a> official pages.</li>
+          <li><a href="https://z.ai/blog/glm-5.2">Z.ai's GLM 5.2 announcement</a>.</li>
+          <li><a href="benchmark/README.md">Reproducibility notes, commands, isolation, grading, cost semantics, and invalid-run exclusions</a>.</li>
+          <li>Local inspection: OpenCode 1.17.20 at <code>4473fc3c</code>; Pi at <code>0e6909f0</code>; <code>notion-next</code> advisor source snapshot at <code>840fc9a1</code>; report snapshot 14 July 2026.</li>
+        </ol>
+        <details>
+          <summary>Methodology limits</summary>
+          <div>Vendor benchmark numbers were not used as direct rankings because harnesses, tools, prompts, and evaluation policies differ. The implementation test covers one bounded Swift concurrency task; the advisor test covers two read-only iOS investigations. Timed-out draft costs are lower bounds. The conclusion is deliberately personal and operational: it chooses a default for this workload and configuration rather than claiming one model is universally best.</div>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <span>Pi vs OpenCode · personal engineering decision memo</span>
+      <span>Snapshot: 14 July 2026 · OpenCode 1.17.20</span>
+    </div>
+  </footer>
+
+  <script>
+    const root = document.documentElement;
+    const themeButton = document.querySelector('.theme-toggle');
+    const storedTheme = localStorage.getItem('report-theme');
+    const preferredDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    function setTheme(theme) {
+      root.dataset.theme = theme;
+      themeButton.setAttribute('aria-label', `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`);
+    }
+
+    setTheme(storedTheme || (preferredDark ? 'dark' : 'light'));
+    themeButton.addEventListener('click', () => {
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+      localStorage.setItem('report-theme', next);
+    });
+
+    const progress = document.querySelector('.reading-progress');
+    function updateProgress() {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = `${scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0}%`;
+    }
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+
+    const navLinks = [...document.querySelectorAll('.contents a')];
+    const sections = [...document.querySelectorAll('.report-section')];
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach((link) => link.removeAttribute('aria-current'));
+      document.querySelector(`.contents a[href="#${visible.target.id}"]`)?.setAttribute('aria-current', 'true');
+    }, { rootMargin: '-18% 0px -70% 0px', threshold: [0, 0.2, 0.6] });
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>

@@ -7,9 +7,9 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
 CODEX_AGENTS_DIR="$CODEX_DIR/agents"
-CODEX_SKILLS_DIR="$HOME/.agents/skills"
+CODEX_SKILLS_DIR="$CODEX_DIR/skills"
+LEGACY_SHARED_SKILLS_DIR="$HOME/.agents/skills"
 CODEX_BACKUP_DIR="$CODEX_DIR/backups/setup-codex"
-AGENTS_BACKUP_DIR="$HOME/.agents/backups/setup-codex"
 
 backup_timestamp() {
   date +%Y%m%d%H%M%S
@@ -28,7 +28,8 @@ link_item() {
 
   if [ -e "$dest" ] && [ ! -L "$dest" ]; then
     mkdir -p "$backup_dir"
-    local backup="$backup_dir/$(basename "$dest").bak.$(backup_timestamp)"
+    local backup
+    backup="$backup_dir/$(basename "$dest").bak.$(backup_timestamp)"
     echo "BACKUP $dest -> $backup"
     mv "$dest" "$backup"
   fi
@@ -47,7 +48,7 @@ link_item() {
   echo "LINK   $dest -> $src"
 }
 
-mkdir -p "$CODEX_DIR" "$CODEX_AGENTS_DIR" "$CODEX_SKILLS_DIR"
+mkdir -p "$CODEX_DIR" "$CODEX_AGENTS_DIR" "$CODEX_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$CODEX_DIR/AGENTS.md" "AGENTS.md" "$CODEX_BACKUP_DIR"
 
@@ -69,7 +70,16 @@ if [ -d "$SKILLS_SOURCE_DIR" ]; then
     [ -d "$src" ] || continue
     [ -f "$src/SKILL.md" ] || continue
     name="$(basename "$src")"
-    link_item "$src" "$CODEX_SKILLS_DIR/$name" "skill $name" "$AGENTS_BACKUP_DIR/skills"
+    legacy_dest="$LEGACY_SHARED_SKILLS_DIR/$name"
+    if [ -L "$legacy_dest" ]; then
+      current="$(readlink "$legacy_dest")"
+      if [ "$current" = "$REPO_DIR/codex/skills/$name" ] || \
+        [ "$current" = "$REPO_DIR/skills/$name" ]; then
+        rm "$legacy_dest"
+        echo "UNLINK $legacy_dest (migrated to Codex-only skill discovery)"
+      fi
+    fi
+    link_item "$src" "$CODEX_SKILLS_DIR/$name" "skill $name" "$CODEX_BACKUP_DIR/skills"
   done
 fi
 

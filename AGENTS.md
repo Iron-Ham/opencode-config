@@ -6,32 +6,54 @@
 - **Prefer delegating** to a specialized agent when the task requires domain depth (architecture, security, UX, performance, etc.) — don't do specialist work inline when a purpose-built agent exists
 - **Do work inline** for quick, focused tasks that don't need specialist knowledge
 - **Parallel-spawn** independent agents when a task decomposes into sub-problems in different domains
-- Use `isolation: "worktree"` for agents making code changes in parallel to avoid conflicts
+- Use `isolation: "worktree"` for agents making code changes in parallel when the harness and repository permit it. OpenCode native Task agents share the active workspace, so delegate only non-overlapping writes there.
 - For Claude Code, route to the matching Markdown agent under `agents/`.
 - For Codex, route to the matching custom agent from `codex/agents/*.toml` when one exists; otherwise use the built-in `explorer`, `worker`, or `default` agent roles.
+- For OpenCode, route to the matching global underscore-named subagent when one exists; otherwise use `explore` for bounded discovery and `general` for independent analysis.
 
 ### Task → Agent Routing
 
 When you recognize these patterns, spawn the matching agent:
 
-| Task pattern | Claude Code agent | Codex agent |
-|---|---|---|
-| System design, architecture decisions | Software Architect | `software_architect` |
-| Deep code review | Code Reviewer | `code_reviewer` |
-| Security audit, threat modeling | Security Engineer | `security_engineer` |
-| Database schema/query optimization | Database Optimizer | `database_optimizer` |
-| Complex frontend implementation | Frontend Developer | `frontend_developer` |
-| API design/backend implementation | Backend Architect | `backend_architect` |
-| Comprehensive test execution | Evidence Collector, API Tester | `evidence_collector` |
-| Developer documentation | Technical Writer | `technical_writer` |
-| Git workflow complexity | Git Workflow Master | `git_workflow_master` |
-| Accessibility audit | Accessibility Auditor | `accessibility_auditor` |
-| CI/CD, deployment, infrastructure | DevOps Automator | `worker` |
-| Performance investigation | Performance Benchmarker | `worker` |
-| UX/design decisions | UX Architect, UI Designer | `frontend_developer` or a design skill |
-| Production incident | Incident Response Commander | `worker` |
-| Mobile app work | Mobile App Builder | `worker` |
-| AI/ML features | AI Engineer | `worker` |
+| Task pattern | Claude Code agent | Codex agent | OpenCode agent |
+|---|---|---|---|
+| System design, architecture decisions | Software Architect | `software_architect` | `software_architect` |
+| Deep code review | Code Reviewer | `code_reviewer` | `code_reviewer` |
+| Security audit, threat modeling | Security Engineer | `security_engineer` | `security_engineer` |
+| Database schema/query optimization | Database Optimizer | `database_optimizer` | `database_optimizer` |
+| Complex frontend implementation | Frontend Developer | `frontend_developer` | `frontend_developer` |
+| API design/backend implementation | Backend Architect | `backend_architect` | `backend_architect` |
+| Comprehensive test execution | Evidence Collector, API Tester | `evidence_collector` | `evidence_collector` |
+| Developer documentation | Technical Writer | `technical_writer` | `technical_writer` |
+| Git workflow complexity | Git Workflow Master | `git_workflow_master` | `git_workflow_master` |
+| Accessibility audit | Accessibility Auditor | `accessibility_auditor` | `accessibility_auditor` |
+| CI/CD, deployment, infrastructure | DevOps Automator | `worker` | `general` |
+| Performance investigation | Performance Benchmarker | `worker` | `general` |
+| UX/design decisions | UX Architect, UI Designer | `frontend_developer` or a design skill | `frontend_developer` or a design skill |
+| Production incident | Incident Response Commander | `worker` | `general` |
+| Mobile app work | Mobile App Builder | `worker` | `build` + applicable mobile skill |
+| AI/ML features | AI Engineer | `worker` | `general` |
+
+For mobile verification in OpenCode, use the applicable `verify-mobile-change`, iOS simulator, Android UI, or performance skill before falling back to the generic `evidence_collector`.
+
+### OpenCode Runtime Semantics
+
+When running under OpenCode:
+
+- Use `build` as the GPT-5.6 Luna xhigh controller and owner of routine durable implementation. Use `general` for substantial independent Luna analysis, `plan` for read-only Sonnet 5 high-effort planning, `/terra` for latency-sensitive work, `/sonnet` for broad repository forensics or after Luna stalls, and `explore` for fast bounded discovery.
+- Route specialist work to the matching underscore-named global subagent. When these instructions call for an Agents Orchestrator and no matching OpenCode agent exists, the `build` controller coordinates the specialist subagents directly.
+- Proactively delegate independent, bounded work when it improves latency or confidence. Native Task children share the active workspace, so never assign overlapping writes and keep the controller responsible for reconciling changes.
+- Outside `/ultra`, keep OpenCode delegation to at most two concurrent and four total subagents unless the user explicitly requests broader orchestration. `/ultra` may use its four-concurrent, eight-total cap.
+- Use `glm_worker` only when GLM 5.2 is explicitly requested or a bounded open-weight comparison is useful. Stop after repeated provider errors.
+- The `advisor` tool is the isolated GPT-5.6 Sol xhigh path. Only a primary controller calls it; delegated agents return evidence to the controller instead. Routine work is advisor-free. Call Sol for genuinely high-risk decisions, repeated stalls, or a material change of direction; outside `/ultra`, use at most one advisor call unless primary-source evidence and the advice conflict and require reconciliation. `/ultra` may use separate pre-implementation and post-verification gates.
+- Advisor calls transmit the recent conversation and tool transcript to OpenAI. Luna- or Terra-to-Sol stays within OpenAI; Sonnet and Ultra calls cross from Anthropic. Do not call the advisor when the transcript contains secrets or data that is not approved for OpenAI; report the skipped gate instead.
+- Create a durable goal only after an explicit `/goal`, `/ultra`, or direct request to keep working toward an objective. Keep it active until the requested outcomes have evidence or a concrete blocker requires user authority. Plan cannot execute or resume a goal.
+- `/ultra` means a pinned Sonnet 5 max model alias plus proactive bounded native subagents and the isolated Sol advisor. It approximates Codex Ultra but does not reproduce Codex runtime semantics.
+- `/luna` explicitly selects the same pinned GPT-5.6 Luna xhigh model used by the routine default. `/terra` selects pinned Terra xhigh as a faster but roughly twice-as-expensive measured implementation lane. `/sonnet` selects provider-default Sonnet 5 for deep repository research, high ambiguity, or recovery after Luna stalls. Sol review is same-provider for Luna and Terra and should be reserved for consequential work.
+- OpenCode exposes `apply_patch` to GPT-family models and `Edit`/`Write` to non-GPT models. Use the editing tool that the active model actually receives; a repository instruction naming an unavailable editing tool does not require inventing or shell-emulating it.
+- Skills copied from another harness may spell an MCP tool as `mcp__<server>__<tool>`. Resolve that reference against OpenCode's active tool catalog, whose equivalent is normally `<sanitized-server>_<sanitized-tool>`, and call the exact exposed identifier. Treat a named tool with no catalog match as unavailable; do not invent it. Likewise, route a Claude `general-purpose` child to OpenCode's `general` agent unless a more specific global agent matches.
+- Keep Luna xhigh as the default controller for iOS/Swift implementation: it met the full hidden quality floor in all controlled trials at the lowest mean cost. Escalate broad monorepo forensics to `/sonnet`, because Luna can time out on long source investigations. Keep Sol approval-gated as the higher-upside but inconsistent review path: it outperformed Terra as an advisor and improved two of three drafts, but materially harmed one.
+- Preserve unrelated user changes, inspect the final diff, run verification proportional to risk, and restart OpenCode after configuration-time changes.
 
 ### Multi-Agent Orchestration (NEXUS)
 
@@ -219,7 +241,7 @@ This ensures PRs are always up-to-date and minimizes merge conflicts.
 
 ## Config Sync
 
-This file and the surrounding config (`settings.json`, `agents/`, `codex/agents/`, `skills/`, `codex/skills/`, `commands/`) are backed up to `~/Developer/claude-config/` (repo: `Iron-Ham/claude-config`). Claude Code config is symlinked into `~/.claude/`; Codex instructions, custom agents, and Codex-normalized skills are symlinked by `setup-codex.sh`.
+This file and the surrounding config (`settings.json`, `agents/`, `codex/agents/`, `opencode/agents/`, `opencode/commands/`, `skills/`, `codex/skills/`, `commands/`) are backed up to `~/Developer/claude-config/` (repo: `Iron-Ham/claude-config`). Claude Code config is symlinked into `~/.claude/`; Codex instructions, custom agents, and Codex-normalized skills are symlinked by `setup-codex.sh`; OpenCode rules, agents, commands, and managed defaults are installed by `setup-opencode.sh`.
 
 - After modifying any of these files, **commit and push** the changes:
   ```
@@ -233,6 +255,10 @@ This file and the surrounding config (`settings.json`, `agents/`, `codex/agents/
 - For Codex, also run:
   ```
   cd ~/Developer/claude-config && ./setup-codex.sh
+  ```
+- For OpenCode, also run:
+  ```
+  cd ~/Developer/claude-config && ./setup-opencode.sh
   ```
 
 ## Testing Requirements
