@@ -11,7 +11,13 @@
     "split@split": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "impeccable@impeccable": true,
-    "slack@claude-plugins-official": true
+    "slack@claude-plugins-official": true,
+    "notion-tuist@makenotion-plugins": true,
+    "context-mode@context-mode": true,
+    "frontend-design@claude-plugins-official": true,
+    "notion-mobile@makenotion-plugins": true,
+    "notion-observability@makenotion-plugins": true,
+    "notion-mobile-ios@makenotion-plugins": true
   },
   "extraKnownMarketplaces": {
     "impeccable": {

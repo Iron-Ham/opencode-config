@@ -1,0 +1,438 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openai/gpt-5.6-luna-xhigh-pinned",
+  "default_agent": "build",
+  "share": "disabled",
+  "autoupdate": "notify",
+  "disabled_providers": [
+    "amazon-bedrock",
+    "opencode"
+  ],
+  "provider": {
+    "openai": {
+      "options": {
+        "headerTimeout": false,
+        "timeout": 600000,
+        "chunkTimeout": 120000
+      },
+      "models": {
+        "gpt-5.6-luna": {
+          "cost": {
+            "input": 1,
+            "output": 6,
+            "cache_read": 0.1,
+            "cache_write": 1.25
+          },
+          "limit": {
+            "context": 1050000,
+            "input": 922000,
+            "output": 128000
+          }
+        },
+        "gpt-5.6-sol": {
+          "cost": {
+            "input": 5,
+            "output": 30,
+            "cache_read": 0.5,
+            "cache_write": 6.25
+          },
+          "limit": {
+            "context": 1050000,
+            "input": 922000,
+            "output": 128000
+          }
+        },
+        "gpt-5.6-terra": {
+          "cost": {
+            "input": 2.5,
+            "output": 15,
+            "cache_read": 0.25,
+            "cache_write": 3.125
+          },
+          "limit": {
+            "context": 1050000,
+            "input": 922000,
+            "output": 128000
+          }
+        },
+        "gpt-5.6-luna-xhigh-pinned": {
+          "id": "gpt-5.6-luna",
+          "name": "GPT-5.6 Luna xhigh (pinned)",
+          "options": {
+            "reasoningEffort": "xhigh",
+            "reasoningSummary": "auto",
+            "include": [
+              "reasoning.encrypted_content"
+            ]
+          },
+          "variants": {
+            "none": {
+              "disabled": true
+            },
+            "low": {
+              "disabled": true
+            },
+            "medium": {
+              "disabled": true
+            },
+            "high": {
+              "disabled": true
+            },
+            "xhigh": {
+              "disabled": true
+            },
+            "max": {
+              "disabled": true
+            }
+          }
+        },
+        "gpt-5.6-terra-xhigh-pinned": {
+          "id": "gpt-5.6-terra",
+          "name": "GPT-5.6 Terra xhigh (pinned)",
+          "options": {
+            "reasoningEffort": "xhigh",
+            "reasoningSummary": "auto",
+            "include": [
+              "reasoning.encrypted_content"
+            ]
+          },
+          "variants": {
+            "none": {
+              "disabled": true
+            },
+            "low": {
+              "disabled": true
+            },
+            "medium": {
+              "disabled": true
+            },
+            "high": {
+              "disabled": true
+            },
+            "xhigh": {
+              "disabled": true
+            },
+            "max": {
+              "disabled": true
+            }
+          }
+        }
+      }
+    },
+    "anthropic": {
+      "models": {
+        "claude-sonnet-5-default-pinned": {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5 default effort (pinned)",
+          "variants": {
+            "low": {
+              "disabled": true
+            },
+            "medium": {
+              "disabled": true
+            },
+            "high": {
+              "disabled": true
+            },
+            "xhigh": {
+              "disabled": true
+            },
+            "max": {
+              "disabled": true
+            }
+          }
+        },
+        "claude-sonnet-5-max-pinned": {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5 max (pinned)",
+          "options": {
+            "thinking": {
+              "type": "adaptive",
+              "display": "summarized"
+            },
+            "effort": "max"
+          },
+          "variants": {
+            "low": {
+              "disabled": true
+            },
+            "medium": {
+              "disabled": true
+            },
+            "high": {
+              "disabled": true
+            },
+            "xhigh": {
+              "disabled": true
+            },
+            "max": {
+              "disabled": true
+            }
+          }
+        }
+      }
+    },
+    "baseten": {
+      "whitelist": [
+        "zai-org/GLM-5.2",
+        "moonshotai/Kimi-K2.7-Code"
+      ]
+    }
+  },
+  "agent": {
+    "build": {
+      "model": "openai/gpt-5.6-luna-xhigh-pinned",
+      "steps": 100,
+      "permission": {
+        "advisor": "ask",
+        "create_goal": "allow",
+        "set_goal": "allow",
+        "update_goal_objective": "allow",
+        "update_goal": "allow",
+        "update_goal_status": "allow",
+        "clear_goal": "allow"
+      }
+    },
+    "plan": {
+      "model": "anthropic/claude-sonnet-5",
+      "variant": "high",
+      "steps": 50,
+      "permission": {
+        "*": "ask",
+        "question": "allow",
+        "read": {
+          "*": "allow",
+          ".env": "deny",
+          ".env.*": "deny",
+          "*.env": "deny",
+          "*.env.*": "deny",
+          ".env.example": "allow",
+          "*.env.example": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "skill": "allow",
+        "edit": "deny",
+        "bash": "ask",
+        "todowrite": "allow",
+        "advisor": "ask",
+        "create_goal": "deny",
+        "set_goal": "deny",
+        "update_goal_objective": "deny",
+        "update_goal": "deny",
+        "update_goal_status": "deny",
+        "clear_goal": "deny",
+        "task": {
+          "*": "deny",
+          "accessibility_auditor": "allow",
+          "code_reviewer": "allow",
+          "database_optimizer": "allow",
+          "evidence_collector": "allow",
+          "explore": "allow",
+          "git_workflow_master": "allow",
+          "security_engineer": "allow",
+          "software_architect": "allow"
+        }
+      }
+    },
+    "general": {
+      "model": "openai/gpt-5.6-luna-xhigh-pinned",
+      "steps": 50,
+      "permission": {
+        "*": "ask",
+        "question": "allow",
+        "read": {
+          "*": "allow",
+          ".env": "deny",
+          ".env.*": "deny",
+          "*.env": "deny",
+          "*.env.*": "deny",
+          ".env.example": "allow",
+          "*.env.example": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "skill": "allow",
+        "edit": "allow",
+        "bash": {
+          "*": "allow",
+          "rm -rf *": "ask",
+          "sudo *": "ask",
+          "git reset --hard": "ask",
+          "git reset --hard *": "ask",
+          "git clean *": "ask",
+          "git push": "ask",
+          "git push *": "ask"
+        },
+        "task": "deny",
+        "todowrite": "deny",
+        "advisor": "deny",
+        "create_goal": "deny",
+        "set_goal": "deny",
+        "update_goal_objective": "deny",
+        "update_goal": "deny",
+        "update_goal_status": "deny",
+        "clear_goal": "deny"
+      }
+    },
+    "explore": {
+      "model": "baseten/moonshotai/Kimi-K2.7-Code",
+      "steps": 30,
+      "permission": {
+        "*": "deny",
+        "question": "allow",
+        "read": {
+          "*": "allow",
+          ".env": "deny",
+          ".env.*": "deny",
+          "*.env": "deny",
+          "*.env.*": "deny",
+          ".env.example": "allow",
+          "*.env.example": "allow"
+        },
+        "glob": "allow",
+        "grep": "allow",
+        "webfetch": "allow",
+        "skill": "allow",
+        "edit": "deny",
+        "bash": "deny",
+        "task": "deny",
+        "todowrite": "deny",
+        "advisor": "deny"
+      }
+    },
+    "compaction": {
+      "model": "anthropic/claude-sonnet-5"
+    },
+    "ultra": {
+      "description": "High-effort Sonnet controller with bounded delegation and advisor access.",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-5-max-pinned",
+      "steps": 100,
+      "permission": {
+        "advisor": "allow",
+        "create_goal": "allow",
+        "set_goal": "allow",
+        "update_goal_objective": "allow",
+        "update_goal": "allow",
+        "update_goal_status": "allow",
+        "clear_goal": "allow"
+      }
+    },
+    "luna": {
+      "description": "Explicit GPT-5.6 Luna controller at xhigh effort.",
+      "mode": "primary",
+      "model": "openai/gpt-5.6-luna-xhigh-pinned",
+      "steps": 100,
+      "permission": {
+        "advisor": "ask",
+        "create_goal": "allow",
+        "set_goal": "allow",
+        "update_goal_objective": "allow",
+        "update_goal": "allow",
+        "update_goal_status": "allow",
+        "clear_goal": "allow"
+      }
+    },
+    "sonnet": {
+      "description": "Provider-default Sonnet 5 controller for deep repository research.",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-5-default-pinned",
+      "steps": 100,
+      "permission": {
+        "advisor": "ask",
+        "create_goal": "allow",
+        "set_goal": "allow",
+        "update_goal_objective": "allow",
+        "update_goal": "allow",
+        "update_goal_status": "allow",
+        "clear_goal": "allow"
+      }
+    },
+    "terra": {
+      "description": "Explicit GPT-5.6 Terra controller at xhigh effort for latency-sensitive work.",
+      "mode": "primary",
+      "model": "openai/gpt-5.6-terra-xhigh-pinned",
+      "steps": 100,
+      "permission": {
+        "advisor": "ask",
+        "create_goal": "allow",
+        "set_goal": "allow",
+        "update_goal_objective": "allow",
+        "update_goal": "allow",
+        "update_goal_status": "allow",
+        "clear_goal": "allow"
+      }
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 3,
+    "preserve_recent_tokens": 12000,
+    "reserved": 20000
+  },
+  "mcp": {
+    "notion-dev": {
+      "type": "remote",
+      "url": "https://mcp-dev.notion.com/mcp",
+      "oauth": {
+        "callbackPort": 50001
+      },
+      "timeout": 30000
+    }
+  },
+  "permission": {
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".env.example": "allow",
+      "*.env.example": "allow"
+    },
+    "bash": {
+      "*": "allow",
+      "rm -rf *": "ask",
+      "sudo *": "ask",
+      "git reset --hard": "ask",
+      "git reset --hard *": "ask",
+      "git clean *": "ask",
+      "git push": "ask",
+      "git push *": "ask"
+    },
+    "get_goal": "allow",
+    "get_goal_history": "allow",
+    "create_goal": "deny",
+    "set_goal": "deny",
+    "update_goal_objective": "deny",
+    "update_goal": "deny",
+    "update_goal_status": "deny",
+    "clear_goal": "deny",
+    "advisor": "deny",
+    "doom_loop": "ask"
+  },
+  "plugin": [
+    [
+      "@prevalentware/opencode-goal-plugin@0.1.24",
+      {
+        "auto_continue": true,
+        "defer_while_tasks_active": true,
+        "max_auto_turns": 25,
+        "min_continue_interval_seconds": 3,
+        "max_prompt_failures": 3,
+        "default_token_budget": 200000,
+        "max_goal_duration_seconds": 3600,
+        "no_progress_token_threshold": 50,
+        "max_no_progress_turns": 3,
+        "restricted_agents": [
+          "plan"
+        ],
+        "allow_goal_execution_from_plan": false
+      }
+    ]
+  ]
+}
