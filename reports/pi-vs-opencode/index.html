@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="An evidence-backed comparison of Pi and OpenCode, plus a tuned OpenCode configuration for an iOS-heavy engineering workflow.">
+  <meta name="description" content="An evidence-backed model-routing decision for an iOS-heavy engineering workflow.">
   <meta name="color-scheme" content="light dark">
-  <title>Pi vs OpenCode — Decision memo</title>
+  <title>iOS agent model routing — Decision memo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,650&amp;display=swap" rel="stylesheet">
@@ -292,41 +292,6 @@
     }
     .edge-row span:last-child { color: var(--muted); font-size: 13px; }
 
-    .catalog-number {
-      margin: 42px 0 10px;
-      font-family: var(--serif);
-      font-size: clamp(76px, 12vw, 144px);
-      font-weight: 500;
-      letter-spacing: -0.06em;
-      line-height: 0.8;
-    }
-    .catalog-caption { max-width: 620px; color: var(--muted); font-size: 14px; }
-    .catalog-contrast {
-      margin-top: 44px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      border-top: 1px solid var(--line-strong);
-      border-bottom: 1px solid var(--line-strong);
-    }
-    .catalog-contrast > div { padding: 30px 32px 30px 0; }
-    .catalog-contrast > div + div { padding-left: 32px; border-left: 1px solid var(--line); }
-    .catalog-contrast h3 { margin-top: 0; }
-
-    .prompt-stack { margin: 38px 0; }
-    .prompt-row {
-      display: grid;
-      grid-template-columns: 180px minmax(0, 1fr) 86px;
-      gap: 18px;
-      align-items: center;
-      padding: 16px 0;
-      border-bottom: 1px solid var(--line);
-    }
-    .prompt-label { font-size: 13px; font-weight: 700; }
-    .prompt-track { height: 9px; overflow: hidden; background: var(--paper-strong); }
-    .prompt-fill { height: 100%; width: var(--fill); background: var(--blue); }
-    .prompt-row:nth-child(3) .prompt-fill { background: var(--green); }
-    .prompt-row:nth-child(4) .prompt-fill { background: var(--orange); }
-    .prompt-note { color: var(--muted); font-size: 11px; text-align: right; }
     .fine-print { color: var(--muted); font-size: 12px; }
 
     .table-wrap { margin: 36px 0; overflow-x: auto; border-top: 1px solid var(--line-strong); }
@@ -400,9 +365,6 @@
     .risk-list b { display: block; margin-bottom: 4px; }
     .risk-list span { color: var(--muted); font-size: 13px; }
 
-    details { margin-top: 28px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    summary { min-height: 48px; padding: 14px 0; cursor: pointer; font-weight: 700; }
-    details > div { padding: 0 0 24px; color: var(--muted); font-size: 13px; }
     .sources { margin: 30px 0 0; padding-left: 20px; }
     .sources li { margin-bottom: 12px; padding-left: 8px; color: var(--muted); font-size: 13px; }
 
@@ -427,7 +389,6 @@
       .contents { position: static; padding: 34px 0 0; border-bottom: 1px solid var(--line); }
       .contents ol { display: flex; gap: 8px 18px; padding-bottom: 24px; overflow-x: auto; }
       .contents a { white-space: nowrap; }
-      .prompt-row { grid-template-columns: 130px minmax(0, 1fr) 70px; }
     }
     @media (max-width: 620px) {
       .masthead-meta > span { display: none; }
@@ -435,11 +396,6 @@
       .decision-strip-inner { grid-template-columns: 1fr; gap: 8px; }
       .edge-row { grid-template-columns: 1fr auto; gap: 4px 16px; }
       .edge-row span:last-child { grid-column: 1 / -1; }
-      .catalog-contrast { grid-template-columns: 1fr; }
-      .catalog-contrast > div { padding: 26px 0; }
-      .catalog-contrast > div + div { padding-left: 0; border-top: 1px solid var(--line); border-left: 0; }
-      .prompt-row { grid-template-columns: 1fr 54px; }
-      .prompt-track { grid-row: 2; grid-column: 1 / -1; }
       .route { grid-template-columns: 90px 1fr; }
       .route-why { grid-column: 1 / -1; }
       .bench-grid { grid-template-columns: 90px 1fr; }
@@ -468,7 +424,7 @@
 
   <header class="masthead">
     <div class="masthead-inner">
-      <a class="wordmark" href="#top">Harness field notes</a>
+      <a class="wordmark" href="#top">iOS model routing</a>
       <div class="masthead-meta">
         <span>Decision memo · 14 July 2026</span>
         <button class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle theme">◐</button>
@@ -478,12 +434,12 @@
 
   <div id="top" class="hero">
     <div>
-      <p class="eyebrow">Pi versus OpenCode</p>
-      <h1>OpenCode wins. Luna gets the keyboard.</h1>
+      <p class="eyebrow">iOS model portfolio</p>
+      <h1>Luna gets the keyboard.</h1>
       <p class="hero-deck">For an overwhelmingly iOS workload, the sensible default is Luna xhigh without routine review: full measured Swift quality at the lowest cost. Sonnet remains the research and recovery lane; Sol remains an approval-gated advisor.</p>
     </div>
     <div class="verdict-mark">
-      <strong>Choose OpenCode.<br>Default to Luna.</strong>
+      <strong>Default to Luna.<br>Escalate deliberately.</strong>
       <span>Build / general: GPT-5.6 Luna xhigh<br>Research: Sonnet 5, provider default<br>Advisor: GPT-5.6 Sol xhigh, approval-gated</span>
     </div>
   </div>
@@ -500,14 +456,11 @@
       <p class="contents-label">In this memo</p>
       <ol>
         <li><a href="#decision">01 · Decision</a></li>
-        <li><a href="#catalog">02 · Harnesses</a></li>
-        <li><a href="#prompts">03 · Prompts</a></li>
-        <li><a href="#features">04 · Swift trials</a></li>
-        <li><a href="#models">05 · Advisors</a></li>
-        <li><a href="#ios">06 · Routing</a></li>
-        <li><a href="#installed">07 · Installed</a></li>
-        <li><a href="#risks">08 · Limits</a></li>
-        <li><a href="#sources">09 · Sources</a></li>
+        <li><a href="#swift">02 · Swift results</a></li>
+        <li><a href="#advisors">03 · Advisors</a></li>
+        <li><a href="#routing">04 · Routing</a></li>
+        <li><a href="#risks">05 · Limits</a></li>
+        <li><a href="#sources">06 · Sources</a></li>
       </ol>
     </nav>
 
@@ -516,14 +469,13 @@
         <span class="section-number">01</span>
         <p class="section-kicker">Recommendation</p>
         <h2>Optimize the routine path, preserve strong escape hatches.</h2>
-        <p class="lede">OpenCode is the daily driver. Luna xhigh owns routine iOS implementation. The expensive models are available on purpose, not paid on every task.</p>
+        <p class="lede">Luna xhigh owns routine iOS implementation. More expensive models remain explicit escape hatches, not a tax paid on every task.</p>
         <div class="measure">
           <p><strong>Default:</strong> use GPT-5.6 Luna xhigh for <code>build</code> and <code>general</code>, without an advisor. It matched Terra and Sonnet on every public and hidden Swift behavior in three controlled runs while posting the lowest mean and median cost.</p>
           <p><strong>Escalation:</strong> use <code>/terra</code> when turnaround matters, <code>/sonnet</code> for broad repository forensics or after Luna stalls, and <code>/ultra</code> for the highest-risk work. Sol review is approval-gated because it improved two of three drafts but materially harmed one.</p>
         </div>
 
         <div class="edge-list" role="list" aria-label="Category winners">
-          <div class="edge-row" role="listitem"><b>Harness</b><span class="edge-winner">OpenCode</span><span>Native agents, permissions, model routing, and a clean migration path for the Codex-shaped setup.</span></div>
           <div class="edge-row" role="listitem"><b>Routine implementer</b><span class="edge-winner">Luna xhigh</span><span>3/3 quality-floor passes; $0.103 mean cost versus $0.329 for Sonnet.</span></div>
           <div class="edge-row" role="listitem"><b>Speed lane</b><span class="edge-winner">Terra xhigh</span><span>132-second mean, 34% lower mean wall time than Luna, at roughly twice Luna's mean cost.</span></div>
           <div class="edge-row" role="listitem"><b>Research lane</b><span class="edge-winner">Sonnet 5</span><span>The only controller to finish the broad monorepo forensic screen inside ten minutes.</span></div>
@@ -531,61 +483,9 @@
         </div>
       </section>
 
-      <section id="catalog" class="report-section">
+      <section id="swift" class="report-section">
         <span class="section-number">02</span>
-        <p class="section-kicker">Harness and ecosystem</p>
-        <h2>Pi has a catalog. OpenCode has the better daily-driver fit.</h2>
-        <p class="lede">Both are open source. Pi is a deliberately small core with an unusually rich extension surface; OpenCode offers more of the agent, permission, and provider machinery this workflow needs before customization.</p>
-        <div class="catalog-number">5,296</div>
-        <p class="catalog-caption">Packages visible in the official <a href="https://pi.dev/packages">Pi catalog</a> on 14 July 2026. The live count will change.</p>
-
-        <div class="catalog-contrast">
-          <div>
-            <h3>Pi</h3>
-            <p>Packages bundle extensions, skills, prompt templates, and themes, with searchable type, popularity, recency, and install metadata. Goal loops, subagents, permission layers, and multi-agent orchestration are discoverable products rather than scattered examples.</p>
-          </div>
-          <div>
-            <h3>OpenCode</h3>
-            <p><a href="https://github.com/awesome-opencode/awesome-opencode">Awesome OpenCode</a> is a curated GitHub list, not a first-party package catalog. OpenCode can install npm plugins and discover skills, but it does not match Pi's unified registry experience.</p>
-          </div>
-        </div>
-        <div class="callout">
-          <p>Pi wins extension discovery; OpenCode wins this deployment.</p>
-          <small>Pi's own documentation warns that packages run with full system access. This setup benefits more from OpenCode's native allow/ask/deny permissions and a smaller curated plugin set.</small>
-        </div>
-      </section>
-
-      <section id="prompts" class="report-section">
-        <span class="section-number">03</span>
-        <p class="section-kicker">Source review</p>
-        <h2>The same model is not the same agent in a different harness.</h2>
-        <p class="lede">Default prompts change persistence, tool vocabulary, edit discipline, delegation, verification, and how much behavior must be supplied by user rules or extensions.</p>
-
-        <div class="prompt-stack" aria-label="Relative default prompt prescriptiveness, directional">
-          <div class="prompt-row"><span class="prompt-label">Codex runtime</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 100%"></span></span><span class="prompt-note">densest policy</span></div>
-          <div class="prompt-row"><span class="prompt-label">OpenCode · GPT</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 82%"></span></span><span class="prompt-note">closest fit</span></div>
-          <div class="prompt-row"><span class="prompt-label">OpenCode · Claude</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 68%"></span></span><span class="prompt-note">Task-heavy</span></div>
-          <div class="prompt-row"><span class="prompt-label">OpenCode · generic</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 60%"></span></span><span class="prompt-note">GLM fallback</span></div>
-          <div class="prompt-row"><span class="prompt-label">Pi · raw</span><span class="prompt-track"><span class="prompt-fill" style="--fill: 14%"></span></span><span class="prompt-note">blank canvas</span></div>
-        </div>
-        <p class="fine-print">Bar lengths express relative prompt prescriptiveness from source review, not model quality scores.</p>
-
-        <h3>What the source actually does</h3>
-        <div class="measure">
-          <p>OpenCode 1.17.20 routes GPT-family models to its Codex-derived prompt, Claude models to an Anthropic-specific Task/Todo prompt, and unrecognized families such as GLM to a generic prompt. A custom agent body replaces the family prompt; repository instructions and skills are then added.</p>
-          <p>The GPT lane is closest to Codex's autonomy and dirty-worktree discipline, though it names a parallel tool OpenCode does not expose. The Claude lane matches OpenCode's Read/Edit/Task/Todo tools more literally but carries less of Codex's persistence and completion contract. The generic lane asks more of the model.</p>
-          <p>Pi's raw prompt is intentionally tiny—roughly tools, command preferences, and concision. That is an excellent substrate for extension authors and the least governed out-of-box environment for long, mutation-heavy work.</p>
-          <p><strong>Model implication:</strong> proprietary models with strong native tool use can compensate for a thinner harness; open-weight models are more sensitive to prompt/tool mismatch. GLM 5.2 therefore remains a bounded opt-in worker with deterministic verification, not a silent controller default.</p>
-        </div>
-        <div class="callout">
-          <p>Predicted out-of-box reliability: Codex first; OpenCode's GPT lane next; OpenCode's Claude lane after that; OpenCode generic and raw Pi most dependent on added policy.</p>
-          <small>This is a source-based inference, not a controlled cross-harness score. A carefully composed Pi package stack can change the ordering.</small>
-        </div>
-      </section>
-
-      <section id="features" class="report-section">
-        <span class="section-number">04</span>
-        <p class="section-kicker">Controlled Swift implementation trials</p>
+        <p class="section-kicker">Swift implementation results</p>
         <h2>Luna's measured output quality was not worse.</h2>
         <p class="lede">Nine valid runs implemented the same concurrency-sensitive Swift pager. Every model passed all ten public and hidden behaviors, every compliance check, and the 85-point quality floor on its first model turn.</p>
         <div class="table-wrap">
@@ -623,14 +523,10 @@
           <p>Luna was 69% cheaper than Sonnet at the same measured quality. Terra had 34% lower mean wall time than Luna but was 97% more expensive.</p>
           <small>This is enough to choose a personal default, not enough to claim a universal model ranking.</small>
         </div>
-        <details>
-          <summary>Protocol and invalid-run handling</summary>
-          <div>Each run used a private copy of the same Swift package, Latin-square ordering, read/glob/grep/edit only, a fixed external test harness, a network-denied macOS sandbox, isolated SwiftPM state, and a hidden test added only after the final turn. An earlier v2 run is excluded because inherited <code>PWD</code> caused edits to the canonical fixture. The retained runner fixes <code>--dir</code>, <code>cwd</code>, <code>PWD</code>, and <code>INIT_CWD</code>; guards absolute paths; copies from a read-only private snapshot; and verifies the fixture hash.</div>
-        </details>
       </section>
 
-      <section id="models" class="report-section">
-        <span class="section-number">05</span>
+      <section id="advisors" class="report-section">
+        <span class="section-number">03</span>
         <p class="section-kicker">Advisor combinations</p>
         <h2>Sol is the advisor to keep—and the advisor not to automate.</h2>
         <p class="lede">Across three blind-scored Sonnet drafts, Sol improved two and Terra improved one. Both advisors also introduced a material error into the same weaker draft. Review helped selectively, not mechanically.</p>
@@ -644,9 +540,9 @@
             </tbody>
           </table>
         </div>
-        <p class="fine-print">The score-count column does not adjudicate the rubric's separate no-material-error requirement. The important result is conditional lift and failure risk. One capped 5/10 final in each advisor route pulls both advisor means below the matched draft mean. The retained rubric required a cap but did not assign its numeric ceiling; all three graders independently used the conventional 5.0/10 maximum, and the aggregates preserve that evaluator convention.</p>
+        <p class="fine-print">The important result is conditional lift and failure risk. One materially incorrect revision in each advisor route pulls both means below the matched draft mean.</p>
 
-        <h3>Screen outcomes for every requested combination</h3>
+        <h3>Requested combination screen</h3>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Implementer + advisor</th><th>Outcome on forensic screen</th><th>What can be concluded</th></tr></thead>
@@ -662,14 +558,10 @@
           <p>Keep Sol because it produced the stronger median and improved 2/3 drafts, for only $0.14 more mean route cost than Terra. Require approval because either advisor can make a good draft worse.</p>
           <small>Outside Ultra: at most one advisor call, only for consequential work, with the controller required to reconcile advice against source and test evidence.</small>
         </div>
-        <details>
-          <summary>Advisor protocol limits</summary>
-          <div>This was a staged draft → tool-less critique → controller revision protocol using the installed Advisor's static system prompt and transcript serialization. It was not a native in-turn Advisor tool call. The screen used one offline-pagination investigation; the finalist extension used two bridge-concurrency repetitions. Answers were randomized and blind graded by two or three independent graders. Route costs include the shared draft counterfactually; recorded experiment spend counts each shared draft once. Valid advisor experiment spend was $5.255; valid Swift implementation spend was $1.905.</div>
-        </details>
       </section>
 
-      <section id="ios" class="report-section">
-        <span class="section-number">06</span>
+      <section id="routing" class="report-section">
+        <span class="section-number">04</span>
         <p class="section-kicker">Final model portfolio</p>
         <h2>A cheap default with deliberate escalation.</h2>
         <div class="ios-verdict">
@@ -700,74 +592,41 @@
             </tbody>
           </table>
         </div>
-        <p class="fine-print">OpenAI prices every request above 272k input tokens at 2× input and 1.5× output for the full request, and bills cache writes at 1.25× input. OpenCode 1.17.20 cannot encode that tier cleanly, so the benchmark repriced it externally. A long Luna session still compacts through Sonnet in this configuration.</p>
-      </section>
-
-      <section id="installed" class="report-section">
-        <span class="section-number">07</span>
-        <p class="section-kicker">Implemented setup</p>
-        <h2>The Codex-shaped OpenCode environment is configured.</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Layer</th><th>Installed behavior</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Global rules</strong></td><td>User-level AGENTS instructions shared with project-local precedence preserved; OpenCode-specific routing and editing-tool compatibility added.</td></tr>
-              <tr><td><strong>Agents</strong></td><td>Build/general on Luna xhigh; plan and curated domain specialists on Sonnet high; Kimi explorer; bounded GLM worker.</td></tr>
-              <tr><td><strong>Commands</strong></td><td><code>/luna</code>, <code>/terra</code>, <code>/sonnet</code>, and <code>/ultra</code> target pinned aliases so the UI cannot silently replace their intended effort.</td></tr>
-              <tr><td><strong>Goal</strong></td><td>Pinned version with a 200k-token budget, 25 continuation ceiling, and one-hour duration ceiling.</td></tr>
-              <tr><td><strong>Advisor</strong></td><td>Sol xhigh; primary controllers ask before use, Ultra may call directly, delegated agents cannot multiply calls, and transcript-egress rules are explicit.</td></tr>
-              <tr><td><strong>Notion plugins</strong></td><td>Advisor, mobile, mobile-ios, observability, and Tuist refreshed through supported Notion tooling.</td></tr>
-              <tr><td><strong>Skills</strong></td><td>Claude, Codex, shared third-party, and OpenCode-only locations separated to eliminate nondeterministic duplicate resolution.</td></tr>
-              <tr><td><strong>Config merge</strong></td><td>JSONC-aware atomic writes, private permissions, preflight/runtime validation, backups, unmanaged-provider/MCP preservation, and stale managed-key cleanup.</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <p class="fine-print">Measured task cost, not list price alone, drove the default. Long Luna sessions compact through Sonnet, so session-level spend can include an Anthropic request.</p>
       </section>
 
       <section id="risks" class="report-section">
-        <span class="section-number">08</span>
+        <span class="section-number">05</span>
         <p class="section-kicker">Decision boundaries</p>
         <h2>Strong evidence, narrow claims.</h2>
         <ol class="risk-list">
           <li><b>The Swift sample is small.</b><span>Three runs per model on one concurrency-sensitive package are enough for a personal default, not a general intelligence ranking across all iOS work.</span></li>
-          <li><b>The advisor sample is smaller and staged.</b><span>Three matched drafts across two forensic tasks expose both lift and harm. The protocol mirrors the advisor prompt and transcript shape but is not a native in-turn tool call.</span></li>
+          <li><b>The advisor sample is smaller.</b><span>Three matched drafts across two forensic tasks expose both lift and harm.</span></li>
+          <li><b>Timeouts do not rank advisors.</b><span>The Luna and Terra routes that timed out never reached review, so they say nothing about Sonnet, Opus, Fable, or Sol advisor quality.</span></li>
           <li><b>Advisor egress needs consent.</b><span>Luna- or Terra-to-Sol stays inside OpenAI; Sonnet and Ultra cross from Anthropic to OpenAI. The rules skip the gate when the transcript is not approved for that transfer.</span></li>
-          <li><b>Prompt/tool mismatches still exist upstream.</b><span>The GPT prompt names a nonexistent parallel tool. Non-GPT models receive Edit/Write while GPT models receive apply_patch; the user rules normalize that difference.</span></li>
           <li><b>Compaction changes the cost envelope.</b><span>Long Luna sessions compact through Sonnet, so the default route is not provider-contained and its total cost can include an Anthropic request.</span></li>
-          <li><b>Codex app runtimes do not all port.</b><span>Browser/computer use, documents, spreadsheets, presentations, Gmail, Calendar, Workspace Agents, and GitHub connectors remain Codex-only; compatible skills and Notion MCPs do port.</span></li>
-          <li><b>Pi packages are code, not prose.</b><span>A future Pi experiment should choose one coherent orchestration suite, audit its source, and avoid overlapping lifecycle extensions.</span></li>
-          <li><b>OpenCode is moving quickly.</b><span>Prompt routing, model metadata, plugin APIs, and tool exposure are version-specific observations pinned to OpenCode 1.17.20 and the reviewed source commit.</span></li>
+          <li><b>The default should be revisited.</b><span>Broader iOS evidence or material price changes could alter the quality-cost balance.</span></li>
         </ol>
       </section>
 
       <section id="sources" class="report-section">
-        <span class="section-number">09</span>
+        <span class="section-number">06</span>
         <p class="section-kicker">Evidence</p>
-        <h2>Sources and methodology.</h2>
-        <p class="lede">Source code was reviewed at pinned commits. Product, model, price, and catalog claims were checked against first-party documentation. Local route claims come from retained benchmark artifacts, not vendor charts.</p>
+        <h2>Model and benchmark sources.</h2>
+        <p class="lede">Model and price claims use first-party documentation. Local quality and route claims come from retained results rather than vendor charts.</p>
         <ol class="sources">
-          <li><a href="https://pi.dev/packages">Pi package catalog</a> and <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md">package documentation</a>.</li>
-          <li><a href="https://github.com/earendil-works/pi/blob/0e6909f050eeb15e8f6c05185511f3788357ddb3/packages/coding-agent/src/core/system-prompt.ts#L88-L170">Pi default system-prompt source</a> and <a href="https://github.com/earendil-works/pi/blob/0e6909f050eeb15e8f6c05185511f3788357ddb3/packages/coding-agent/docs/extensions.md#L278-L313">extension lifecycle documentation</a>.</li>
-          <li><a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/system.ts#L27-L41">OpenCode model-family prompt routing</a>, <a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/llm/request.ts#L56-L72">prompt assembly</a>, and the <a href="https://github.com/anomalyco/opencode/blob/4473fc3c9055046183990a965d68df3db7ea6f62/packages/opencode/src/session/prompt/gpt.txt#L1-L107">GPT prompt</a>.</li>
-          <li><a href="https://opencode.ai/docs/agents/">OpenCode agent documentation</a>, <a href="https://opencode.ai/docs/plugins/">plugin documentation</a>, and <a href="https://github.com/awesome-opencode/awesome-opencode">Awesome OpenCode</a>.</li>
           <li><a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a>, <a href="https://developers.openai.com/api/docs/models/gpt-5.6-terra">Terra</a>, and <a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">Sol</a> official model pages.</li>
           <li><a href="https://www.anthropic.com/news/claude-sonnet-5">Claude Sonnet 5</a>, <a href="https://www.anthropic.com/claude/opus">Opus 4.8</a>, and <a href="https://www.anthropic.com/claude/fable">Fable 5</a> official pages.</li>
           <li><a href="https://z.ai/blog/glm-5.2">Z.ai's GLM 5.2 announcement</a>.</li>
-          <li><a href="benchmark/README.md">Reproducibility notes, commands, isolation, grading, cost semantics, and invalid-run exclusions</a>.</li>
-          <li>Local inspection: OpenCode 1.17.20 at <code>4473fc3c</code>; Pi at <code>0e6909f0</code>; <code>notion-next</code> advisor source snapshot at <code>840fc9a1</code>; report snapshot 14 July 2026.</li>
         </ol>
-        <details>
-          <summary>Methodology limits</summary>
-          <div>Vendor benchmark numbers were not used as direct rankings because harnesses, tools, prompts, and evaluation policies differ. The implementation test covers one bounded Swift concurrency task; the advisor test covers two read-only iOS investigations. Timed-out draft costs are lower bounds. The conclusion is deliberately personal and operational: it chooses a default for this workload and configuration rather than claiming one model is universally best.</div>
-        </details>
       </section>
     </main>
   </div>
 
   <footer>
     <div class="footer-inner">
-      <span>Pi vs OpenCode · personal engineering decision memo</span>
-      <span>Snapshot: 14 July 2026 · OpenCode 1.17.20</span>
+      <span>iOS agent model routing · personal decision memo</span>
+      <span>Snapshot: 14 July 2026</span>
     </div>
   </footer>
 
