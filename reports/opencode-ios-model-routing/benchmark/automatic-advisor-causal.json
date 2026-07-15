@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "protocol": "production-shaped-frozen-draft-review-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "source",
+      "repository_identity",
+      "paths",
+      "symbols",
+      "prompts",
+      "rubrics",
+      "raw_answers",
+      "grader_keys",
+      "session_identifiers"
+    ]
+  },
+  "coverage": {
+    "workload_clusters": 2,
+    "repetitions_per_cluster": 3,
+    "matched_drafts": 6,
+    "blind_graders_per_answer": 3,
+    "quality_floor_score": 85,
+    "treatments": [
+      "direct_terra_draft",
+      "terra_self_review",
+      "sol_review_then_terra_reconciliation"
+    ]
+  },
+  "quality": {
+    "cluster_a": [
+      { "repetition": 1, "direct": 67, "self_review": 66, "sol_assisted": 69 },
+      { "repetition": 2, "direct": 66, "self_review": 65, "sol_assisted": 69 },
+      { "repetition": 3, "direct": 61, "self_review": 61, "sol_assisted": 63 }
+    ],
+    "cluster_b": [
+      { "repetition": 1, "direct": 17, "self_review": 18, "sol_assisted": 19 },
+      { "repetition": 2, "direct": 9, "self_review": 10, "sol_assisted": 18 },
+      { "repetition": 3, "direct": 6, "self_review": 6, "sol_assisted": 7 }
+    ],
+    "median_delta": {
+      "sol_assisted_minus_direct": 2,
+      "self_review_minus_direct": 0,
+      "sol_assisted_minus_self_review": 2.5
+    },
+    "material_improvements_at_least_5_points": 1,
+    "material_harms_at_least_5_points": 0,
+    "quality_floor_passes": 0,
+    "failed_to_pass_rescues": 0
+  },
+  "economics": {
+    "direct": {
+      "mean_route_cost_usd": 1.137469,
+      "recorded_cost_usd": 6.824815,
+      "mean_wall_time_seconds": 376.590642
+    },
+    "self_review": {
+      "mean_route_cost_usd": 1.511004,
+      "recorded_cost_usd": 9.066023,
+      "mean_wall_time_seconds": 460.787607
+    },
+    "sol_assisted": {
+      "mean_route_cost_usd": 1.619208,
+      "recorded_cost_usd": 9.715251,
+      "mean_wall_time_seconds": 452.799823
+    },
+    "sol_cost_increase_over_direct": 0.4235,
+    "sol_cost_increase_over_self_review": 0.0716,
+    "sol_wall_time_increase_over_direct": 0.2024,
+    "sol_wall_time_reduction_vs_self_review": 0.0173
+  },
+  "decision": {
+    "automatic_transcript_fed_review": "off_by_default",
+    "reason": "modest_directional_lift_without_an_outcome_change_at_42_percent_more_cost_than_direct",
+    "developer_invoked_advise": "available_and_locally_configurable",
+    "advise_outcome_benefit": "unmeasured",
+    "advisor_model_winner": "not_determined_by_this_experiment"
+  },
+  "limitations": [
+    "The treatment was transcript-fed tool-less automatic review followed by Terra reconciliation, not the shipped isolated developer-invoked /advise command.",
+    "Both clusters were source-analysis workloads rather than edit-build-simulator-CI-shipping runs.",
+    "The sample supports a modest directional Sol effect, not a claim that advisor review is ineffective or universally worthwhile.",
+    "The experiment did not compare Sol against Sonnet, Opus, or Fable as reviewers."
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "protocol": "matched-production-source-analysis-pricing-sample-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "source",
+      "repository_identity",
+      "paths",
+      "symbols",
+      "commit_identifiers",
+      "prompts",
+      "rubrics",
+      "raw_answers",
+      "grader_keys",
+      "session_identifiers"
+    ]
+  },
+  "coverage": {
+    "workload_count": 1,
+    "blind_graders_per_answer": 3,
+    "contemporaneous_arms": [
+      "gpt-5.5-xhigh",
+      "gpt-5.6-sol-high"
+    ],
+    "separate_matched_reference": "gpt-5.6-terra-xhigh"
+  },
+  "arms": [
+    {
+      "model": "gpt-5.5-xhigh",
+      "execution_status": "completed",
+      "policy_compliant": true,
+      "blind_scores": [
+        70,
+        73,
+        76
+      ],
+      "blind_median_score": 73,
+      "blind_mean_score": 73,
+      "wall_time_seconds": 534.787223,
+      "observed_cost_usd": 6.460364,
+      "cost_completeness": "complete_for_observed_requests",
+      "tool_calls": 165
+    },
+    {
+      "model": "gpt-5.6-sol-high",
+      "execution_status": "completed",
+      "policy_compliant": true,
+      "blind_scores": [
+        86,
+        89,
+        89
+      ],
+      "blind_median_score": 89,
+      "blind_mean_score": 88,
+      "wall_time_seconds": 472.099673,
+      "observed_cost_usd": 4.100299,
+      "cost_completeness": "complete_for_observed_requests",
+      "tool_calls": 189
+    }
+  ],
+  "matched_terra_reference": {
+    "model": "gpt-5.6-terra-xhigh",
+    "same_frozen_workload_and_protocol": true,
+    "separate_run_and_blind_grader_panel": true,
+    "blind_mean_score": 82.75,
+    "wall_time_seconds": 665.299181,
+    "observed_cost_usd": 2.801845,
+    "cost_completeness": "complete_for_observed_requests"
+  },
+  "comparisons": {
+    "sol_high_vs_gpt55_xhigh": {
+      "median_quality_delta": 16,
+      "mean_quality_delta": 15,
+      "cost_reduction": 0.3653,
+      "wall_time_reduction": 0.1172
+    },
+    "terra_reference_vs_gpt55_xhigh": {
+      "mean_quality_delta": 9.75,
+      "cost_reduction": 0.5663,
+      "wall_time_change": 0.244
+    },
+    "terra_reference_vs_sol_high": {
+      "mean_quality_delta": -5.25,
+      "cost_reduction": 0.3167,
+      "wall_time_change": 0.4092
+    }
+  },
+  "decision": {
+    "gpt55_xhigh": "not_selected",
+    "sol_high": "retain_as_explicit_premium_lane_not_default",
+    "terra_xhigh": "retain_production_default",
+    "reason": "Sol high clearly dominated GPT-5.5 xhigh in the contemporaneous sample, but the separate matched Terra reference remained materially cheaper with acceptable directional quality. One workload cannot justify replacing the broader Terra default."
+  },
+  "cost_normalization": {
+    "basis": "official_list_price_recomputed_from_raw_request_usage",
+    "gpt55_note": "GPT-5.5 exposes no cache-write price and the observed cache-write count was zero. A zero-times-undefined normalization defect was corrected and regression-tested; the published figure was recomputed from the preserved raw events."
+  },
+  "limitations": [
+    "This is one production-shaped source-analysis workload, not a full edit-build-simulator-CI-shipping run.",
+    "The Terra reference used the same frozen workload and protocol but a separate run, seed, and blind-grader panel, so cross-panel quality comparisons are directional.",
+    "Observed route cost depends on token use, cache behavior, retries, completion, and rework; equal published token rates did not produce equal route cost.",
+    "Sol high versus Sol xhigh versus Sol max remains a separate deferred effort study."
+  ]
+}

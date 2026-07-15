@@ -1,12 +1,11 @@
 ---
-description: Bounded GLM 5.2 implementation or analysis worker for explicitly scoped tasks and open-weight model comparisons.
+description: Bounded GLM 5.2 max implementation or analysis worker for explicitly invoked open-weight comparisons.
 mode: subagent
-model: baseten/zai-org/GLM-5.2
+hidden: true
 variant: max
-steps: 40
 permission:
-  "*": ask
-  question: allow
+  "*": deny
+  question: deny
   read:
     "*": allow
     .env: deny
@@ -16,19 +15,10 @@ permission:
     .env.example: allow
     "*.env.example": allow
   glob: allow
-  grep: allow
-  webfetch: allow
+  grep: ask
   skill: allow
   edit: allow
-  bash:
-    "*": allow
-    "rm -rf *": ask
-    "sudo *": ask
-    "git reset --hard": ask
-    "git reset --hard *": ask
-    "git clean *": ask
-    "git push": ask
-    "git push *": ask
+  bash: ask
   task: deny
   todowrite: deny
   advisor: deny
