@@ -471,11 +471,14 @@
       "steps": 60
     },
     "ultra": {
-      "description": "Terra production controller with durable goals and expanded bounded delegation.",
+      "description": "Hidden unattended execution policy for /ultra; direct use omits the command template.",
+      "hidden": true,
       "mode": "primary",
       "model": "openai/gpt-5.6-terra-xhigh-pinned",
       "permission": {
         "advisor": "deny",
+        "question": "deny",
+        "plan_enter": "deny",
         "create_goal": "allow",
         "set_goal": "allow",
         "update_goal_objective": "allow",

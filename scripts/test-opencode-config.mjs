@@ -147,8 +147,12 @@ try {
   assert.equal(merged.agent.terra.permission.task.general, undefined);
   assert.equal(merged.agent.terra.permission.task.code_reviewer, "allow");
   assert.equal(merged.agent.terra.permission.task.evidence_analyst, "allow");
+  assert.equal(merged.agent.ultra.hidden, true);
   assert.equal(merged.agent.ultra.steps, undefined);
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
+  assert.equal(merged.agent.ultra.permission.question, "deny");
+  assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
+  assert.equal(merged.agent.ultra.permission.task.general, "allow");
   assert.equal(merged.agent.sol.permission.advisor, "deny");
   assert.equal(merged.agent.advisor_reviewer.permission.advisor, "deny");
   assert.equal(merged.agent.advisor_reviewer.disable, false);
@@ -344,6 +348,9 @@ try {
     for (const [agentName, model] of Object.entries(localRouting.agents)) {
       assert.equal(routed.agent[agentName].model, model);
     }
+    assert.equal(routed.agent.ultra.hidden, true);
+    assert.equal(routed.agent.ultra.permission.question, "deny");
+    assert.equal(routed.agent.ultra.permission.plan_enter, "deny");
     for (const [agentName, steps] of Object.entries(localRouting.steps)) {
       assert.equal(routed.agent[agentName].steps, steps ?? undefined);
     }
@@ -445,6 +452,23 @@ try {
       enabledValidation.exitCode,
       0,
       enabledValidation.stderr.toString(),
+    );
+
+    enabled.agent.ultra.permission.webfetch = "deny";
+    fs.writeFileSync(
+      path.join(routingConfigDir, "opencode.json"),
+      JSON.stringify(enabled),
+    );
+    const ultraDriftValidation = Bun.spawnSync([
+      "bun",
+      path.join(repoRoot, "scripts", "validate-opencode-agents.mjs"),
+      repoRoot,
+      routingConfigDir,
+    ], { stdout: "pipe", stderr: "pipe" });
+    assert.notEqual(ultraDriftValidation.exitCode, 0);
+    assert.match(
+      ultraDriftValidation.stderr.toString(),
+      /resolved Ultra permissions must match Build/,
     );
   } finally {
     fs.rmSync(routingConfigDir, { recursive: true, force: true });
