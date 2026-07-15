@@ -429,6 +429,9 @@ function mergeOpenCodeConfig(modelRouting) {
     ? existingJson
     : mergeManaged(existingJson, existingJsonc);
   const merged = mergeManaged(existing, managed);
+  if (existing.lsp !== undefined) {
+    merged.lsp = structuredClone(existing.lsp);
+  }
   if (isPlainObject(merged.agent)) {
     for (const agentName of retiredManagedAgentNames) {
       delete merged.agent[agentName];

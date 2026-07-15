@@ -107,6 +107,8 @@ Direct OpenCode invocations should enable CodeMode before the process starts and
 
 ```zsh
 export OPENCODE_EXPERIMENTAL_CODE_MODE=true
+export OPENCODE_EXPERIMENTAL_LSP_TOOL=true
+export OPENCODE_DISABLE_LSP_DOWNLOAD=true
 opencode() {
 	local first="${1:-}"
 	if [[ "$first" == "run" ]]; then
@@ -124,6 +126,8 @@ opencode() {
 ```
 
 This keeps `opencode` pointed at the standard binary. Use `opencode --no-auto` or `opencode run --no-auto ...` to require approvals for one launch, or toggle Auto from the TUI command palette for the current process. Auto approves permission rules that resolve to `ask`; explicit `deny` rules still win. Routing `opencode` to a workspace launcher would instead inherit that launcher's provider allowlist, credential resolution, telemetry, update, and model-routing behavior.
+
+The managed config enables OpenCode's native LSP integration by default while preserving a developer's `lsp: false` or per-server configuration. On macOS, the built-in SourceKit route resolves the Xcode toolchain through `xcrun`. Core LSP support supplies diagnostics after edits; the experimental LSP tool flag adds model-driven navigation and symbol operations, while the download-disable flag prevents unattended acquisition of unrelated language servers. The shell dispatcher sets those machine-local flags; `setup-opencode.sh` does not edit a developer's shell profile. These environment flags are private OpenCode 1.18.1 interfaces and must be re-audited when upgrading the harness. SourceKit feedback is advisory: repository builds, tests, and runtime verification remain the completion authority.
 
 ### Model routing
 
@@ -145,6 +149,8 @@ The implementation default follows narrow production-shaped evidence: Terra xhig
 
 Model-branded lanes are fixed so their names cannot silently route elsewhere: `/luna`, `/terra`, `/sonnet`, and `/sol` use pinned aliases. Open-weight command frontmatter pins both model and provider: bare `/kimi` and `/glm` retain their Baseten routes, while the `-fireworks` and `-fireworks-fast` commands select exact Fireworks Standard or Fast IDs. Role-based agents can be changed in `~/.config/opencode/model-routing.config.local.json`, including `build`, `general`, `plan`, `explore`, `ultra`, compaction, the reviewed specialists, and `advisor_reviewer`. Without such an explicit override, `general`, `explore`, and the reviewed specialists inherit their invoking primary model. `agents.advisor_reviewer` changes the model behind `/advise`; the shipped Opus 4.8 xhigh choice is a provisional transfer from the two-cluster reviewer comparison, not a universal advisor ranking. Unknown keys, unsupported agents, malformed `provider/model` identifiers, and invalid step limits fail validation before installation.
 
+The four pinned GPT-5.6 aliases carry a 256,000-token operational input limit. With OpenCode's 20,000-token compaction reserve, ordinary GPT sessions compact at roughly 236,000 tokens, leaving 36,000 tokens before the 272,000-token pricing tier. The base GPT catalog entries retain their factual 922,000-token input capacity as an explicit long-context escape hatch. This is a high-percentile guard rather than a hard ceiling: a single oversized user or tool turn, or an oversized retained tail, can still cross the tier. OpenCode 1.18.1 cannot send OpenAI's native server-side compaction items, so the supported per-model overflow path is used instead.
+
 The managed provider catalog exposes Fireworks Standard and Fast routes for GLM 5.2 and Kimi K2.7 Code through OpenCode's `fireworks-ai` provider. Setup stores no credential: authenticate with OpenCode's `/connect` flow or launch OpenCode in an environment that supplies `FIREWORKS_API_KEY`. Baseten remains available for matched controls. Provider availability does not change Build, Plan, compaction, advisor, specialist, or Task routing; the combination of model, provider, serving path, and reasoning setting must earn a role through repeated workload-specific trials.
 
 ### Delegation and advisor boundaries
@@ -160,6 +166,8 @@ The legacy automatic `advisor` tool is disabled and denied for every agent. `/ad
 The `build`, `plan`, `general`, Luna, Terra, Sonnet, Sol, and Ultra execution agents ship without an OpenCode step cap. `explore`, the retained specialists, Kimi, and GLM default to 100 steps; `advisor_reviewer` defaults to 60. The local routing file's `steps` object accepts a positive integer to add or replace a limit or `null` to remove it. These are iteration controls, not quality guarantees.
 
 Goal 0.1.24 is pinned without an inherited token budget or elapsed-time limit. The plugin treats an omitted or null automatic-turn option as its built-in 25-turn default, so the managed configuration uses JavaScript's maximum safe integer as a practical unlimited ceiling for overnight or multi-day Ultra jobs. Goal 0.1.24 exposes only global defaults, so these defaults apply to every newly created durable goal; existing goals retain limits already stored in their state. Three consecutive low-progress continuation turns and three consecutive prompt failures still pause a goal instead of allowing a broken provider or genuine loop to run indefinitely. Goal mutation is available only to `build`, the named model controllers, and Ultra; `plan`, `general`, and subagents cannot create or continue a goal. The global rules authorize a durable goal only after an explicit `/goal`, `/ultra`, or direct request to keep working. A developer can still request an explicit per-goal token, continuation, or elapsed-time limit.
+
+The repository-managed Goal workflow guard keeps the repeated system prefix cache-stable by replacing changing time, token, and continuation counters with a fixed instruction to call `get_goal`. Goal still enforces configured limits, and compaction still receives a live state snapshot at its cache-reset boundary. Closing a goal as complete requires canonical JSON evidence with schema version 1, a nonempty summary, one passed check per requested outcome, concrete typed evidence, and an empty `remaining_work` array. Goal's own private state stores the canonical string; the guard also writes a single-parse private record to `${XDG_DATA_HOME:-~/.local/share}/opencode/completion-evidence/` with directory mode `0700` and file mode `0600`. This structure makes evidence consumable by automation, but deterministic commands and runtime observations still determine whether the claims are true.
 
 Setup creates and preserves a private local routing file with this shape:
 
@@ -177,7 +185,7 @@ Harness-specific skill bodies stay separate: Claude source skills remain under `
 
 When the workspace CLI is available, setup refreshes the supported workspace-managed OpenCode bundles and MCP configuration. Plugin assets that contain harness-specific command or MCP syntax are normalized in config-local copies. Compatible skills and MCP tools carry over; Codex connector runtimes such as browser/computer use, office documents, mail, calendar, Workspace Agents, and connector-backed GitHub do not become OpenCode capabilities merely because their skills exist.
 
-Installation preflights generated agents, commands, managed JSON, local routing, and required plugin assets before changing the active config. It symlinks repository-owned rules, agents, commands, and skills; removes known retired repository links and known plugin-generated agents that their source package does not support on OpenCode; merges managed defaults while preserving unrelated providers, MCPs, plugins, agents, and permissions; consolidates a competing `opencode.jsonc` after backup; and restricts config and backup files to the current user. Workspace-plugin refresh and normalization are transactional, with restoration on failure. Post-install validation checks the effective agent boundaries, Goal tools, and isolated advisor lane.
+Installation preflights generated agents, commands, managed JSON, local routing, and required plugin assets before changing the active config. It symlinks repository-owned rules, agents, commands, plugins, and skills; removes known retired repository links and known plugin-generated agents that their source package does not support on OpenCode; merges managed defaults while preserving unrelated providers, MCPs, plugins, agents, and permissions; consolidates a competing `opencode.jsonc` after backup; and restricts config and backup files to the current user. Workspace-plugin refresh and normalization are transactional, with restoration on failure. Post-install validation checks the effective agent boundaries, Goal tools, managed workflow guard, and isolated advisor lane.
 
 OpenCode exposes `apply_patch` to GPT-family models and `Edit`/`Write` to other model families. The global rules direct the active model to use the editing tool it actually receives.
 

@@ -63,6 +63,7 @@ fi
 
 OPENCODE_AGENTS_DIR="$OPENCODE_DIR/agents"
 OPENCODE_COMMANDS_DIR="$OPENCODE_DIR/commands"
+OPENCODE_PLUGINS_DIR="$OPENCODE_DIR/plugins"
 OPENCODE_SKILLS_DIR="$OPENCODE_DIR/skills"
 OPENCODE_BACKUP_DIR="$OPENCODE_DIR/backups/setup-opencode"
 
@@ -217,6 +218,7 @@ if ! command -v notion >/dev/null 2>&1 && ! {
 fi
 
 python3 "$REPO_DIR/scripts/generate-opencode-agents.py" --check
+bun "$REPO_DIR/scripts/test-opencode-workflow-plugin.mjs"
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --check --validate-model-routing
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
@@ -236,6 +238,7 @@ for relative_path in \
 done
 cp -R "$REPO_DIR/opencode/agents/." "$preflight_dir/agents/"
 cp -R "$REPO_DIR/opencode/commands/." "$preflight_dir/commands/"
+cp -R "$REPO_DIR/opencode/plugins/." "$preflight_dir/plugins/"
 if [ "$advisor_enabled" != "true" ]; then
   rm "$preflight_dir/commands/advise.md"
 fi
@@ -249,7 +252,7 @@ begin_transaction
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --retire-obsolete
 
-mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
+mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
 chmod 700 "$OPENCODE_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
@@ -329,6 +332,12 @@ for src in "$REPO_DIR"/opencode/commands/*.md; do
   link_item "$src" "$OPENCODE_COMMANDS_DIR/$name" "OpenCode command $name"
 done
 
+for src in "$REPO_DIR"/opencode/plugins/*.js "$REPO_DIR"/opencode/plugins/*.ts; do
+  [ -e "$src" ] || continue
+  name="$(basename "$src")"
+  link_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
+done
+
 if command -v notion >/dev/null 2>&1; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --prepare-refresh
@@ -364,7 +373,7 @@ fi
 commit_transaction
 
 echo ""
-echo "Done. OpenCode rules, agents, commands, and managed defaults are installed."
+echo "Done. OpenCode rules, agents, commands, plugins, and managed defaults are installed."
 echo "Unmanaged provider, MCP, plugin, agent, and permission entries were preserved."
 echo "Repo-managed global skill duplicates were removed; project-local name collisions may still require alignment."
 echo "Restart running OpenCode sessions to load configuration-time changes."

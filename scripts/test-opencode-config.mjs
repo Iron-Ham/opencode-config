@@ -74,6 +74,7 @@ try {
           "gpt-5.6-luna-xhigh-pinned": {
             name: "unsafe override",
             options: { reasoningEffort: "low" },
+            limit: { context: 1, input: 1, output: 1 },
           },
         },
       },
@@ -121,6 +122,7 @@ try {
   assert.equal(merged.agent.explore.model, undefined);
   assert.equal(merged.agent.explore.steps, 100);
   assert.equal(merged.agent.compaction.model, undefined);
+  assert.equal(merged.lsp, true);
   assert.equal(merged.permission.create_goal, "deny");
   assert.equal(merged.agent.build.permission.create_goal, "allow");
   assert.equal(merged.agent.build.permission.advisor, "deny");
@@ -223,6 +225,18 @@ try {
   const solAlias = merged.provider.openai.models["gpt-5.6-sol-xhigh-pinned"];
   assert.equal(solAlias.options.reasoningEffort, "xhigh");
   assert.ok(Object.values(solAlias.variants).every((variant) => variant.disabled));
+  const pinnedGptLimit = { context: 1_050_000, input: 256_000, output: 128_000 };
+  for (const alias of [lunaAlias, lunaHighAlias, terraAlias, solAlias]) {
+    assert.deepEqual(alias.limit, pinnedGptLimit);
+  }
+  for (const modelID of ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]) {
+    assert.equal(merged.provider.openai.models[modelID].limit.input, 922_000);
+  }
+  assert.equal(merged.compaction.reserved, 20_000);
+  assert.equal(merged.compaction.auto, true);
+  const compactAt = pinnedGptLimit.input - merged.compaction.reserved;
+  assert.equal(compactAt, 236_000);
+  assert.equal(272_000 - compactAt, 36_000);
   assert.ok(merged.plugin.includes("machine-local-plugin@9.9.9"));
   assert.ok(merged.plugin.includes("opencode-dynamic-workflows@1.2.3"));
   assert.ok(!merged.plugin.includes("@prevalentware/opencode-goal-plugin@0.0.1"));
@@ -487,6 +501,34 @@ try {
     assert.equal(restrictive.agent.sonnet.permission.advisor, "deny");
   } finally {
     fs.rmSync(restrictiveConfigDir, { recursive: true, force: true });
+  }
+
+  for (const [name, lsp] of [
+    ["disabled", false],
+    ["custom", { "sourcekit-lsp": { disabled: true } }],
+  ]) {
+    const lspConfigDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), `opencode-lsp-${name}-test-`),
+    );
+    try {
+      fs.writeFileSync(
+        path.join(lspConfigDir, "opencode.json"),
+        JSON.stringify({ lsp }),
+      );
+      const lspMerge = Bun.spawnSync([
+        "bun",
+        path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
+        repoRoot,
+        lspConfigDir,
+      ], { stdout: "pipe", stderr: "pipe" });
+      assert.equal(lspMerge.exitCode, 0, lspMerge.stderr.toString());
+      const lspMerged = JSON.parse(
+        fs.readFileSync(path.join(lspConfigDir, "opencode.json"), "utf8"),
+      );
+      assert.deepEqual(lspMerged.lsp, lsp);
+    } finally {
+      fs.rmSync(lspConfigDir, { recursive: true, force: true });
+    }
   }
 
   for (const [name, modelRouting, expectedError] of [

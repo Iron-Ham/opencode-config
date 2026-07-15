@@ -73,6 +73,7 @@ try {
     0o600,
   );
   writeFile(path.join(configDir, "plugins", "advisor.ts"), "retired plugin\n", 0o600);
+  writeFile(path.join(configDir, "plugins", "user-local.js"), "unmanaged plugin\n", 0o600);
   writeFile(
     path.join(configDir, "commands", "mobile-on-call", "init.md"),
     "pre-run plugin command\n",
@@ -128,6 +129,9 @@ case "$script" in
     fi
     printf '{"mutatedByLateMerge":true}\n' > "$config/opencode.json"
     ;;
+  */test-opencode-workflow-plugin.mjs)
+    exit 0
+    ;;
   */normalize-opencode-notion-assets.mjs)
     config="$1"
     shift
@@ -159,8 +163,10 @@ case "$script" in
   */validate-opencode-agents.mjs)
     case " $* " in
       *" --with-plugins "*)
-        echo 'forced late validation failure' >&2
-        exit 97
+        if [ "$FAIL_LATE_VALIDATION" = "true" ]; then
+          echo 'forced late validation failure' >&2
+          exit 97
+        fi
         ;;
     esac
     ;;
@@ -180,6 +186,7 @@ esac
       HOME: homeDir,
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
+      FAIL_LATE_VALIDATION: "true",
       PATH: `${stubBin}:${process.env.PATH}`,
     },
     stdout: "pipe",
@@ -193,7 +200,37 @@ esac
   assert.deepEqual(fingerprintTree(legacySkillsDir), legacyBefore);
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
-  console.log("OK     OpenCode setup restores both active trees after late failure");
+  const success = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      HOME: homeDir,
+      OPENCODE_CONFIG_DIR: configDir,
+      OPENCODE_SETUP_TMPDIR: transactionTempDir,
+      FAIL_LATE_VALIDATION: "false",
+      PATH: `${stubBin}:${process.env.PATH}`,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  assert.equal(success.exitCode, 0, success.stderr.toString());
+  const workflowGuardPath = path.join(
+    configDir,
+    "plugins",
+    "goal-workflow-guard.js",
+  );
+  assert.equal(fs.lstatSync(workflowGuardPath).isSymbolicLink(), true);
+  assert.equal(
+    fs.readlinkSync(workflowGuardPath),
+    path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"),
+  );
+  assert.equal(
+    fs.readFileSync(path.join(configDir, "plugins", "user-local.js"), "utf8"),
+    "unmanaged plugin\n",
+  );
+  assert.deepEqual(fs.readdirSync(transactionTempDir), []);
+
+  console.log("OK     OpenCode setup links managed plugins and restores late failures");
 } finally {
   fs.rmSync(testRoot, { recursive: true, force: true });
 }

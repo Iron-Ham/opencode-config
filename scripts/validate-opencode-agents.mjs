@@ -535,7 +535,38 @@ if (modelRouting.advisor_enabled ?? true) {
 }
 
 if (withPlugins) {
+  const workflowGuardPath = path.join(
+    configDir,
+    "plugins",
+    "goal-workflow-guard.js",
+  );
+  if (!fs.existsSync(workflowGuardPath)) {
+    fail("the managed Goal workflow guard plugin is not installed");
+  }
+  const configWithPlugins = debugConfig(true);
+  const pluginSpecs = (configWithPlugins.plugin ?? []).map((plugin) =>
+    Array.isArray(plugin) ? plugin[0] : plugin
+  );
+  const goalPluginIndex = pluginSpecs.findIndex((plugin) =>
+    String(plugin).startsWith("@prevalentware/opencode-goal-plugin@0.1.24")
+  );
+  const workflowGuardIndex = pluginSpecs.findIndex((plugin) =>
+    String(plugin).endsWith("/plugins/goal-workflow-guard.js")
+  );
+  if (goalPluginIndex === -1 || workflowGuardIndex === -1) {
+    fail("Goal and its managed workflow guard must both be configured");
+  }
+  if (workflowGuardIndex <= goalPluginIndex) {
+    fail("the Goal workflow guard must load after Goal");
+  }
   const buildWithPlugins = debugAgent("build", true);
+  if (
+    ["1", "true"].includes(
+      String(process.env.OPENCODE_EXPERIMENTAL_LSP_TOOL).toLowerCase(),
+    ) && buildWithPlugins.tools?.lsp !== true
+  ) {
+    fail("the enabled experimental LSP tool is missing from build");
+  }
   for (const tool of ["get_goal", "create_goal", "update_goal_status"]) {
     if (buildWithPlugins.tools?.[tool] !== true) {
       fail(`build is missing installed plugin tool ${tool}`);
