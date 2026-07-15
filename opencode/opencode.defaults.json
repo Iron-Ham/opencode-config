@@ -625,11 +625,9 @@
       {
         "auto_continue": true,
         "defer_while_tasks_active": true,
-        "max_auto_turns": 25,
+        "max_auto_turns": 9007199254740991,
         "min_continue_interval_seconds": 3,
         "max_prompt_failures": 3,
-        "default_token_budget": 200000,
-        "max_goal_duration_seconds": 3600,
         "no_progress_token_threshold": 50,
         "max_no_progress_turns": 3,
         "restricted_agents": [

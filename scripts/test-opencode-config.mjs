@@ -145,6 +145,7 @@ try {
   assert.equal(merged.agent.terra.permission.task.general, undefined);
   assert.equal(merged.agent.terra.permission.task.code_reviewer, "allow");
   assert.equal(merged.agent.terra.permission.task.evidence_analyst, "allow");
+  assert.equal(merged.agent.ultra.steps, undefined);
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
   assert.equal(merged.agent.sol.permission.advisor, "deny");
   assert.equal(merged.agent.advisor_reviewer.permission.advisor, "deny");
@@ -230,6 +231,18 @@ try {
       String(plugin).startsWith("@prevalentware/opencode-goal-plugin@0.1.24")
     ),
   );
+  const goalPlugin = merged.plugin.find(
+    (plugin) =>
+      Array.isArray(plugin) &&
+      plugin[0] === "@prevalentware/opencode-goal-plugin@0.1.24",
+  );
+  assert.ok(goalPlugin);
+  const goalOptions = goalPlugin[1];
+  assert.equal(goalOptions.max_auto_turns, Number.MAX_SAFE_INTEGER);
+  assert.equal(goalOptions.max_prompt_failures, 3);
+  assert.equal(goalOptions.max_no_progress_turns, 3);
+  assert.ok(!("default_token_budget" in goalOptions));
+  assert.ok(!("max_goal_duration_seconds" in goalOptions));
   assert.equal(fs.statSync(path.join(configDir, "opencode.json")).mode & 0o077, 0);
 
   const modelRoutingConfigPath = path.join(
