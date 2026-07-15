@@ -103,6 +103,28 @@ Generated skill folders keep only Codex-relevant front matter and symlink resour
 
 OpenCode shares the repository's `AGENTS.md`, but its agents are deliberately harness-specific. The checked-in OpenCode set consists of thin reviewed procedures for code, architecture, security, accessibility, and database review; a separate artifact-only evidence analyst; the isolated advisor; and explicit Kimi and GLM experiments. These agents provide an independent context and a permission boundary, not proof that a named persona or its model has specialist expertise. The legacy OpenCode frontend, backend, technical-writer, and git-workflow wrappers are retired, and the borrowed Mobile App Builder and Agents Orchestrator personas are intentionally not ported. Mobile work stays with the production controller, repository-local instructions, and applicable mobile skills.
 
+Direct OpenCode invocations should enable CodeMode before the process starts and launch with native Auto mode. CodeMode replaces the full flat MCP schema surface with a compact `execute` tool that discovers and invokes child tools on demand, reducing repeated tool-schema context without changing the selected model, provider, permissions, or agent instructions. OpenCode 1.18.1 does not persist its Auto toggle in `opencode.json` or `tui.json`. A literal `opencode='opencode --auto'` alias also places the flag before subcommands, causing commands such as `opencode run` to be parsed as TUI project paths. Use a direct-binary shell dispatcher instead:
+
+```zsh
+export OPENCODE_EXPERIMENTAL_CODE_MODE=true
+opencode() {
+	local first="${1:-}"
+	if [[ "$first" == "run" ]]; then
+		command opencode run --auto "${@:2}"
+		return
+	fi
+
+	if [[ -z "$first" || "$first" == -* || "$first" == */* || -d "$first" ]]; then
+		command opencode --auto "$@"
+		return
+	fi
+
+	command opencode "$@"
+}
+```
+
+This keeps `opencode` pointed at the standard binary. Use `opencode --no-auto` or `opencode run --no-auto ...` to require approvals for one launch, or toggle Auto from the TUI command palette for the current process. Auto approves permission rules that resolve to `ask`; explicit `deny` rules still win. Routing `opencode` to a workspace launcher would instead inherit that launcher's provider allowlist, credential resolution, telemetry, update, and model-routing behavior.
+
 ### Model routing
 
 | Role or command | Shipped route | Status |
