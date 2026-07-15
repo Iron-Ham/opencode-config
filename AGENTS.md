@@ -3,17 +3,17 @@
 ## Agent Delegation Strategy
 
 ### General Rules
-- **Prefer delegating** to a specialized agent when the task requires domain depth (architecture, security, UX, performance, etc.) — don't do specialist work inline when a purpose-built agent exists
+- Delegate only when the child adds a useful permission boundary, independent context, parallelism, or a reviewed domain procedure. A specialist name or borrowed persona is not evidence of specialist capability.
 - **Do work inline** for quick, focused tasks that don't need specialist knowledge
 - **Parallel-spawn** independent agents when a task decomposes into sub-problems in different domains
 - Use `isolation: "worktree"` for agents making code changes in parallel when the harness and repository permit it. OpenCode native Task agents share the active workspace, so delegate only non-overlapping writes there.
 - For Claude Code, route to the matching Markdown agent under `agents/`.
 - For Codex, route to the matching custom agent from `codex/agents/*.toml` when one exists; otherwise use the built-in `explorer`, `worker`, or `default` agent roles.
-- For OpenCode, route to the matching global underscore-named subagent when one exists; otherwise use `explore` for bounded discovery and `general` for independent analysis.
+- For OpenCode, route to the matching global underscore-named subagent when one exists; otherwise use `explore` for bounded discovery. Use `general` for independent writable analysis only when the active controller permits it; otherwise work inline.
 
 ### Task → Agent Routing
 
-When you recognize these patterns, spawn the matching agent:
+Use this table only after delegation passes the general rules above. A matching task pattern is a routing hint, not an instruction to spawn a child.
 
 | Task pattern | Claude Code agent | Codex agent | OpenCode agent |
 |---|---|---|---|
@@ -21,38 +21,42 @@ When you recognize these patterns, spawn the matching agent:
 | Deep code review | Code Reviewer | `code_reviewer` | `code_reviewer` |
 | Security audit, threat modeling | Security Engineer | `security_engineer` | `security_engineer` |
 | Database schema/query optimization | Database Optimizer | `database_optimizer` | `database_optimizer` |
-| Complex frontend implementation | Frontend Developer | `frontend_developer` | `frontend_developer` |
-| API design/backend implementation | Backend Architect | `backend_architect` | `backend_architect` |
-| Comprehensive test execution | Evidence Collector, API Tester | `evidence_collector` | `evidence_collector` |
-| Developer documentation | Technical Writer | `technical_writer` | `technical_writer` |
-| Git workflow complexity | Git Workflow Master | `git_workflow_master` | `git_workflow_master` |
+| Complex frontend implementation | Frontend Developer | `frontend_developer` | `general` + applicable design skill |
+| API design/backend implementation | Backend Architect | `backend_architect` | `general` |
+| Comprehensive test execution | Evidence Collector, API Tester | `evidence_collector` | controller commands + `evidence_analyst` |
+| Developer documentation | Technical Writer | `technical_writer` | `general` + repository documentation guidance |
+| Git workflow complexity | Git Workflow Master | `git_workflow_master` | controller + applicable Git skill |
 | Accessibility audit | Accessibility Auditor | `accessibility_auditor` | `accessibility_auditor` |
 | CI/CD, deployment, infrastructure | DevOps Automator | `worker` | `general` |
 | Performance investigation | Performance Benchmarker | `worker` | `general` |
-| UX/design decisions | UX Architect, UI Designer | `frontend_developer` or a design skill | `frontend_developer` or a design skill |
+| UX/design decisions | UX Architect, UI Designer | `frontend_developer` or a design skill | `general` or a design skill |
 | Production incident | Incident Response Commander | `worker` | `general` |
 | Mobile app work | Mobile App Builder | `worker` | `build` + applicable mobile skill |
 | AI/ML features | AI Engineer | `worker` | `general` |
 
-For mobile verification in OpenCode, use the applicable `verify-mobile-change`, iOS simulator, Android UI, or performance skill before falling back to the generic `evidence_collector`.
+For mobile verification in OpenCode, use the applicable `verify-mobile-change`, iOS simulator, Android UI, or performance skill. The controller runs commands and may give the resulting artifacts to `evidence_analyst` for independent interpretation.
 
 ### OpenCode Runtime Semantics
 
 When running under OpenCode:
 
-- Use `build` as the GPT-5.6 Luna xhigh controller and owner of routine durable implementation. Use `general` for substantial independent Luna analysis, `plan` for read-only Sonnet 5 high-effort planning, `/terra` for latency-sensitive work, `/sonnet` for broad repository forensics or after Luna stalls, and `explore` for fast bounded discovery.
-- Route specialist work to the matching underscore-named global subagent. When these instructions call for an Agents Orchestrator and no matching OpenCode agent exists, the `build` controller coordinates the specialist subagents directly.
+- Use `build` as the GPT-5.6 Terra xhigh controller and owner of durable production implementation. Use `general` for a substantial independent writable slice; it inherits the invoking Build or Ultra model unless the developer explicitly overrides it. Use Terra-backed `plan` for read-only planning, `/luna` for bounded cost-sensitive implementation with strong deterministic checks, `/sonnet` for an explicit Sonnet session, `/sol` when Sol itself should implement, and `explore` for bounded repository discovery. Use inline read/search tools for trivial lookups. Machine-local routing may replace role-based models; model-branded `/luna`, `/terra`, `/sonnet`, and `/sol` lanes remain pinned. Open-weight experiment commands pin both model and provider.
+- Use the thin OpenCode specialists only for a bounded independent review: `code_reviewer`, `software_architect`, `security_engineer`, `accessibility_auditor`, and optional `database_optimizer`. Skills and repository instructions own domain procedure; the specialist supplies isolation and a second context. They inherit the invoking primary model unless the developer explicitly configures a local model override, so a role name does not silently change the model or provider. A code-review request must include the diff or exact changed files and intended behavior. `evidence_analyst` analyzes an exact claim checklist and already-produced artifacts only; the controller runs deterministic verification commands. When these instructions call for an unavailable role, use `general` only if the active controller permits it; otherwise work inline.
 - Proactively delegate independent, bounded work when it improves latency or confidence. Native Task children share the active workspace, so never assign overlapping writes and keep the controller responsible for reconciling changes.
-- Outside `/ultra`, keep OpenCode delegation to at most two concurrent and four total subagents unless the user explicitly requests broader orchestration. `/ultra` may use its four-concurrent, eight-total cap.
-- Use `glm_worker` only when GLM 5.2 is explicitly requested or a bounded open-weight comparison is useful. Stop after repeated provider errors.
-- The `advisor` tool is the isolated GPT-5.6 Sol xhigh path. Only a primary controller calls it; delegated agents return evidence to the controller instead. Routine work is advisor-free. Call Sol for genuinely high-risk decisions, repeated stalls, or a material change of direction; outside `/ultra`, use at most one advisor call unless primary-source evidence and the advice conflict and require reconciliation. `/ultra` may use separate pre-implementation and post-verification gates.
-- Advisor calls transmit the recent conversation and tool transcript to OpenAI. Luna- or Terra-to-Sol stays within OpenAI; Sonnet and Ultra calls cross from Anthropic. Do not call the advisor when the transcript contains secrets or data that is not approved for OpenAI; report the skipped gate instead.
+- Outside `/ultra`, keep OpenCode delegation to an instructional ceiling of two concurrent and four total subagents unless the user explicitly requests broader orchestration. `/ultra` uses an instructional ceiling of four concurrent and eight total. OpenCode does not enforce these counters at runtime, so the controller must track them.
+- Do not treat a specialist prompt as a model-quality claim. Long-horizon production implementation stays with `build`; independent writable slices use `general`. The reviewed specialists are read-only procedural wrappers, not simulated experts. They receive an exact diff, source boundary, or evidence bundle from the controller and cannot run broad content search or open an interactive question prompt; missing context is returned as `unverified`. `general`, `explore`, and every subagent also deny interactive questions so unattended delegation cannot quietly pause. For a consequential developer-selected challenge, `/advise` remains a separate isolated command whose model is locally configurable.
+- Use the hidden experimental open-weight agents only through developer-invoked commands. `/kimi` and `/glm` retain Baseten as a comparison route; `/kimi-fireworks`, `/glm-fireworks`, `/kimi-fireworks-fast`, and `/glm-fireworks-fast` pin exact Fireworks Standard or Fast model IDs. Ordinary controller Task allowlists deny both agents. Provider availability is not role evidence: Kimi and GLM have no retained matched provider outcome data and must not be selected automatically for Build, Plan, compaction, advisors, or specialists. Compare the complete model/provider/serving-path/reasoning route, and stop after repeated provider errors.
+- The legacy automatic `advisor` tool is disabled and denied for every agent. `/advise` is the only independent-advisor path: it is a developer-invoked native subtask using the read-only `advisor_reviewer`. Its shipped Opus 4.8 xhigh model is a provisional transfer from a two-cluster planning-review comparison and remains locally configurable. It receives only the command prompt and arguments, not the parent transcript. Controllers must not invoke or emulate it automatically; when independent review could materially change a decision, state the exact question a developer could pass to `/advise`. The machine-local routing file can disable this lane or override `agents.advisor_reviewer` with another `provider/model` identifier.
 - Create a durable goal only after an explicit `/goal`, `/ultra`, or direct request to keep working toward an objective. Keep it active until the requested outcomes have evidence or a concrete blocker requires user authority. Plan cannot execute or resume a goal.
-- `/ultra` means a pinned Sonnet 5 max model alias plus proactive bounded native subagents and the isolated Sol advisor. It approximates Codex Ultra but does not reproduce Codex runtime semantics.
-- `/luna` explicitly selects the same pinned GPT-5.6 Luna xhigh model used by the routine default. `/terra` selects pinned Terra xhigh as a faster but roughly twice-as-expensive measured implementation lane. `/sonnet` selects provider-default Sonnet 5 for deep repository research, high ambiguity, or recovery after Luna stalls. Sol review is same-provider for Luna and Terra and should be reserved for consequential work.
+- `/ultra` means the configured production controller plus expanded, bounded native subagents and durable goals. The shipped route uses Terra xhigh because no retained evidence justifies a separate premium model merely for orchestration. It approximates Codex Ultra but does not reproduce Codex runtime semantics; independent review remains an explicit developer `/advise` action.
+- `/terra` explicitly selects the same pinned GPT-5.6 Terra xhigh model used by the production default. `/luna` selects pinned Luna high for small, well-specified work where deterministic checks bound the downside. In the one matched production-shaped cluster that included both Luna efforts, high completed within the boundary at nearly the same quality while xhigh crossed it, took more than twice as long, and cost more; this does not establish production-quality parity with Terra. On two production-shaped source workloads Terra completed both while Luna xhigh crossed the read boundary twice, and Terra's complete combined cost was only 8.4% above Luna's incomplete lower-bound cost. `/sonnet` and `/sol` provide explicit model lanes. `/advise` is a separate developer-invoked read-only review lane.
+- Task access is allowlisted per primary controller. Role-based `build` and `/ultra` may delegate writable independent slices to `general`, which inherits the controller model unless explicitly overridden; model-branded `/luna`, `/terra`, `/sonnet`, and `/sol` keep implementation in their pinned controller and may delegate only to read-only children that inherit the controller model by default. `evidence_analyst` is artifact-only and may run unattended because it has no shell or interactive tools. Experimental agents and the advisor lane are never automatic Task targets.
 - OpenCode exposes `apply_patch` to GPT-family models and `Edit`/`Write` to non-GPT models. Use the editing tool that the active model actually receives; a repository instruction naming an unavailable editing tool does not require inventing or shell-emulating it.
+- The managed Fireworks catalog makes GLM 5.2 and Kimi K2.7 Code Standard and Fast routes selectable without storing a credential. Authenticate through OpenCode or a launcher-provided `FIREWORKS_API_KEY`. Fireworks Fast remains an explicit latency experiment because its GLM list price is 1.5 times Standard and its Kimi list price is 2 times Standard; vendor throughput claims are not OpenCode wall-time evidence.
 - Skills copied from another harness may spell an MCP tool as `mcp__<server>__<tool>`. Resolve that reference against OpenCode's active tool catalog, whose equivalent is normally `<sanitized-server>_<sanitized-tool>`, and call the exact exposed identifier. Treat a named tool with no catalog match as unavailable; do not invent it. Likewise, route a Claude `general-purpose` child to OpenCode's `general` agent unless a more specific global agent matches.
-- Keep Luna xhigh as the default controller for iOS/Swift implementation: it met the full hidden quality floor in all controlled trials at the lowest mean cost. Escalate broad monorepo forensics to `/sonnet`, because Luna can time out on long source investigations. Keep Sol approval-gated as the higher-upside but inconsistent review path: it outperformed Terra as an advisor and improved two of three drafts, but materially harmed one.
+- Keep Terra xhigh as the default controller for production iOS/Swift work. Across two production-shaped source workloads it completed and respected the read boundary twice, while Luna xhigh violated the boundary twice; Terra was about 25% faster, and its complete cost was only 8.4% above Luna's incomplete lower-bound cost. Neither model proved full shipping-workflow parity, so tests and runtime evidence remain mandatory. Use `/luna` only for bounded tasks where failure is cheaply detectable. Automatic transcript-fed advice and explicit `/advise` are different treatments; do not infer the value of one from evidence about the other. Reconcile every review against source and test evidence.
+- Do not port or invoke the borrowed Mobile App Builder persona in OpenCode. It contains generic, stale platform guidance and has no local outcome evidence. Route mobile implementation through `build`, repository-local mobile instructions, and the applicable mobile skill.
+- Let OpenCode compaction inherit the active session model. Do not add a universal cross-provider compactor without direct retention evidence and explicit transcript-egress approval.
 - Preserve unrelated user changes, inspect the final diff, run verification proportional to risk, and restart OpenCode after configuration-time changes.
 
 ### Multi-Agent Orchestration (NEXUS)
@@ -63,12 +67,14 @@ For tasks requiring multiple specialists, reference the NEXUS framework:
 - **Activation prompts:** `~/Developer/claude-config/agents/strategy/coordination/agent-activation-prompts.md`
 - **Runbooks:** `~/Developer/claude-config/agents/strategy/runbooks/` (MVP, enterprise feature, marketing campaign, incident response)
 
+OpenCode does not install the borrowed Agents Orchestrator persona. Under OpenCode, treat NEXUS as planning guidance only and use `/ultra` for bounded native orchestration; do not invent or auto-route to an unavailable orchestrator.
+
 Modes:
 - **NEXUS-Micro** (1-5 days): bug fix, audit, single campaign — 5-10 agents
 - **NEXUS-Sprint** (2-6 weeks): feature or MVP — 15-25 agents
 - **NEXUS-Full** (12-24 weeks): complete product — all agents
 
-When a task is clearly multi-phase or cross-domain, spawn the **Agents Orchestrator** to coordinate rather than managing agents yourself.
+Outside OpenCode, when a task is clearly multi-phase or cross-domain, spawn the **Agents Orchestrator** to coordinate rather than managing agents yourself. Under OpenCode, use the `/ultra` boundary above.
 
 ### Domain-Specific Agent Groups
 

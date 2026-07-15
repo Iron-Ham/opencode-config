@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "scope": "Production-shaped planning review proxy for selecting the explicit advisor model",
+  "protocol": {
+    "workload_clusters": 2,
+    "frozen_drafts_per_cluster": 1,
+    "blind_graders_per_answer": 3,
+    "reviewer_effort": "xhigh",
+    "treatments": [
+      "untreated Terra draft",
+      "Terra self-review and reconciliation",
+      "Sol review and Terra reconciliation",
+      "Sonnet review and Terra reconciliation",
+      "Opus review and Terra reconciliation",
+      "Fable review and Terra reconciliation"
+    ],
+    "cost_scope": "Counterfactual route cost including the shared draft and any review and reconciliation requests",
+    "privacy": "Source, prompts, rubrics, raw answers, grader keys, paths, symbols, session identifiers, and repository identity are excluded"
+  },
+  "results": [
+    {
+      "route": "untreated Terra draft",
+      "cluster_median_scores": [87, 78],
+      "mean_of_cluster_medians": 82.5,
+      "total_observed_cost_usd": 4.712566,
+      "fatal_caps": 0
+    },
+    {
+      "route": "Terra self-review",
+      "cluster_median_scores": [87, 78],
+      "mean_of_cluster_medians": 82.5,
+      "total_observed_cost_usd": 6.057524,
+      "fatal_caps": 0
+    },
+    {
+      "route": "Sol xhigh review",
+      "cluster_median_scores": [85, 81],
+      "mean_of_cluster_medians": 83,
+      "total_observed_cost_usd": 5.89305,
+      "fatal_caps": 0
+    },
+    {
+      "route": "Sonnet xhigh review",
+      "cluster_median_scores": [89, 83],
+      "mean_of_cluster_medians": 86,
+      "total_observed_cost_usd": 5.81346,
+      "fatal_caps": 0
+    },
+    {
+      "route": "Opus 4.8 xhigh review",
+      "cluster_median_scores": [83, 95],
+      "mean_of_cluster_medians": 89,
+      "total_observed_cost_usd": 5.59797,
+      "fatal_caps": 0
+    },
+    {
+      "route": "Fable xhigh review",
+      "cluster_median_scores": [81, 81],
+      "mean_of_cluster_medians": 81,
+      "total_observed_cost_usd": 6.245471,
+      "fatal_caps": 0
+    }
+  ],
+  "decision": {
+    "explicit_advisor_default": "Opus 4.8 xhigh",
+    "status": "provisional task-class transfer",
+    "automatic_review": "disabled",
+    "reason": "Opus had the highest mean of cluster medians and the lowest total observed cost among reviewed advisor routes. It cost 18.79% more than leaving the draft untreated while improving the mean cluster median by 6.5 points.",
+    "configuration_policy": "The developer can disable the explicit advisor lane or replace its model locally. Sol, Sonnet, Fable, and self-review are not justified defaults by this small sample."
+  },
+  "limitations": [
+    "The model ranking is based on two workload clusters and one shared draft per cluster; three graders reduce grading noise but do not increase workload sample size.",
+    "The strongest reviewer changed by workload: Sonnet led the first cluster and Opus led the second.",
+    "The benchmark passed a bounded transcript to the reviewer and asked Terra to reconcile the advice. The shipped /advise command receives only developer-supplied context in an isolated read-only session, so model ranking transfers only provisionally.",
+    "The study measures plan revision, not implementation correctness, shipping outcomes, or the causal value of invoking /advise on a production task."
+  ]
+}

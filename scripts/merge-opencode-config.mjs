@@ -14,7 +14,67 @@ const configDir = path.resolve(
   process.argv[3] ?? path.join(os.homedir(), ".config", "opencode"),
 );
 const checkOnly = process.argv.includes("--check");
+const validateModelRouting = process.argv.includes("--validate-model-routing");
 const backupDir = path.join(configDir, "backups", "setup-opencode");
+const modelRoutingConfigPath = path.join(
+  configDir,
+  "model-routing.config.local.json",
+);
+const modelRoutingAgentNames = new Set([
+  "accessibility_auditor",
+  "advisor_reviewer",
+  "build",
+  "code_reviewer",
+  "compaction",
+  "database_optimizer",
+  "evidence_analyst",
+  "explore",
+  "general",
+  "glm_worker",
+  "kimi_reader",
+  "luna",
+  "plan",
+  "security_engineer",
+  "software_architect",
+  "sol",
+  "sonnet",
+  "terra",
+  "ultra",
+]);
+const modelOverrideAgentNames = new Set([
+  "accessibility_auditor",
+  "advisor_reviewer",
+  "build",
+  "code_reviewer",
+  "compaction",
+  "database_optimizer",
+  "evidence_analyst",
+  "explore",
+  "general",
+  "plan",
+  "security_engineer",
+  "software_architect",
+  "ultra",
+]);
+const inheritedModelAgentNames = new Set([
+  "accessibility_auditor",
+  "code_reviewer",
+  "database_optimizer",
+  "evidence_analyst",
+  "explore",
+  "general",
+  "security_engineer",
+  "software_architect",
+]);
+const retiredManagedAgentNames = new Set([
+  "backend_architect",
+  "evidence_collector",
+  "frontend_developer",
+  "git_workflow_master",
+  "periphery-fixer",
+  "sol_reviewer",
+  "technical_writer",
+]);
 const obsoleteInstructionPaths = new Set([
   "~/Developer/claude-config/AGENTS.md",
 ]);
@@ -49,6 +109,27 @@ function readJson(filePath, fallback) {
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertProviderModel(value, label) {
+  if (typeof value !== "string" || value.trim() !== value) {
+    throw new Error(`${label} must be a provider/model string`);
+  }
+  const separator = value.indexOf("/");
+  if (
+    separator <= 0 ||
+    separator === value.length - 1 ||
+    /\s/.test(value)
+  ) {
+    throw new Error(`${label} must be a provider/model string`);
+  }
+}
+
+function assertAgentSteps(value, label) {
+  if (value === null) return;
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${label} must be null or a positive integer`);
+  }
 }
 
 function mergeManaged(existing, managed) {
@@ -271,7 +352,69 @@ function writeJson(filePath, value) {
   console.log(`WRITE  ${filePath}`);
 }
 
-function mergeOpenCodeConfig() {
+function denyAdvisor(permission) {
+  if (isPlainObject(permission)) {
+    return { ...permission, advisor: "deny" };
+  }
+  if (permission in permissionActionRank) {
+    return { "*": permission, advisor: "deny" };
+  }
+  return { advisor: "deny" };
+}
+
+function applyModelRoutingConfig(merged, config, managed) {
+  merged.agent ??= {};
+  for (const agentName of modelRoutingAgentNames) {
+    if (
+      !(agentName in config.steps) &&
+      managed.agent?.[agentName]?.steps === undefined &&
+      isPlainObject(merged.agent[agentName])
+    ) {
+      delete merged.agent[agentName].steps;
+    }
+  }
+  for (const agentName of inheritedModelAgentNames) {
+    if (
+      !(agentName in config.agents) &&
+      managed.agent?.[agentName]?.model === undefined &&
+      isPlainObject(merged.agent[agentName])
+    ) {
+      delete merged.agent[agentName].model;
+    }
+  }
+  for (const [agentName, model] of Object.entries(config.agents)) {
+    merged.agent[agentName] ??= {};
+    if (!isPlainObject(merged.agent[agentName])) {
+      throw new Error(`agent.${agentName} must contain a JSON object`);
+    }
+    merged.agent[agentName].model = model;
+  }
+  for (const [agentName, steps] of Object.entries(config.steps)) {
+    merged.agent[agentName] ??= {};
+    if (!isPlainObject(merged.agent[agentName])) {
+      throw new Error(`agent.${agentName} must contain a JSON object`);
+    }
+    if (steps === null) {
+      delete merged.agent[agentName].steps;
+    } else {
+      merged.agent[agentName].steps = steps;
+    }
+  }
+
+  merged.agent.advisor_reviewer ??= {};
+  if (!isPlainObject(merged.agent.advisor_reviewer)) {
+    throw new Error("agent.advisor_reviewer must contain a JSON object");
+  }
+  merged.permission ??= {};
+  merged.permission.advisor = "deny";
+  for (const agent of Object.values(merged.agent)) {
+    if (!isPlainObject(agent)) continue;
+    agent.permission = denyAdvisor(agent.permission);
+  }
+  merged.agent.advisor_reviewer.disable = !config.advisor_enabled;
+}
+
+function mergeOpenCodeConfig(modelRouting) {
   const target = path.join(configDir, "opencode.json");
   const jsoncOverride = path.join(configDir, "opencode.jsonc");
   const managed = readJson(
@@ -286,6 +429,11 @@ function mergeOpenCodeConfig() {
     ? existingJson
     : mergeManaged(existingJson, existingJsonc);
   const merged = mergeManaged(existing, managed);
+  if (isPlainObject(merged.agent)) {
+    for (const agentName of retiredManagedAgentNames) {
+      delete merged.agent[agentName];
+    }
+  }
   if (merged.small_model === "baseten/moonshotai/Kimi-K2.7-Code") {
     delete merged.small_model;
   }
@@ -302,15 +450,26 @@ function mergeOpenCodeConfig() {
       merged.agent[agentName].permission = structuredClone(managedPermission);
     }
   }
-  if (managed.provider?.baseten?.whitelist) {
-    merged.provider.baseten.whitelist = uniqueStrings(
-      existing.provider?.baseten?.whitelist,
-      managed.provider.baseten.whitelist,
+  for (const agentName of ["build", "luna", "sonnet", "sol", "terra", "ultra"]) {
+    const managedTaskPermission = managed.agent?.[agentName]?.permission?.task;
+    if (managedTaskPermission) {
+      merged.agent[agentName].permission ??= {};
+      merged.agent[agentName].permission.task = structuredClone(managedTaskPermission);
+    }
+  }
+  for (const providerID of ["baseten", "fireworks-ai"]) {
+    if (!managed.provider?.[providerID]?.whitelist) continue;
+    merged.provider[providerID].whitelist = uniqueStrings(
+      existing.provider?.[providerID]?.whitelist,
+      managed.provider[providerID].whitelist,
     );
   }
   for (const [providerID, modelID] of [
+    ["openai", "gpt-5.6-luna-high-pinned"],
     ["openai", "gpt-5.6-luna-xhigh-pinned"],
+    ["openai", "gpt-5.6-sol-xhigh-pinned"],
     ["openai", "gpt-5.6-terra-xhigh-pinned"],
+    ["anthropic", "claude-opus-4-8-xhigh-pinned"],
     ["anthropic", "claude-sonnet-5-default-pinned"],
     ["anthropic", "claude-sonnet-5-max-pinned"],
   ]) {
@@ -335,10 +494,18 @@ function mergeOpenCodeConfig() {
     managed.disabled_providers,
   );
   merged.plugin = mergePlugins(existing.plugin, managed.plugin);
+  if (
+    managed.agent?.compaction?.model === undefined &&
+    merged.agent?.compaction?.model === "anthropic/claude-sonnet-5"
+  ) {
+    delete merged.agent.compaction.model;
+  }
   delete merged.agent?.build?.variant;
   delete merged.agent?.build?.options;
   delete merged.agent?.general?.variant;
   delete merged.agent?.general?.options;
+  delete merged.agent?.plan?.variant;
+  delete merged.agent?.plan?.options;
   delete merged.agent?.compaction?.variant;
   delete merged.agent?.compaction?.options;
   delete merged.agent?.ultra?.variant;
@@ -347,8 +514,16 @@ function mergeOpenCodeConfig() {
   delete merged.agent?.luna?.options;
   delete merged.agent?.sonnet?.variant;
   delete merged.agent?.sonnet?.options;
+  delete merged.agent?.sol?.variant;
+  delete merged.agent?.sol?.options;
   delete merged.agent?.terra?.variant;
   delete merged.agent?.terra?.options;
+  for (const agentName of inheritedModelAgentNames) {
+    if (!(agentName in modelRouting.agents)) {
+      delete merged.agent?.[agentName]?.model;
+    }
+  }
+  applyModelRoutingConfig(merged, modelRouting, managed);
   if (isPlainObject(merged.mcp)) {
     for (const name of Object.keys(merged.mcp)) {
       if (unsupportedOpenCodeMcps.has(name)) {
@@ -386,22 +561,139 @@ function mergePackageConfig() {
   writeJson(target, mergeManaged(existing, managed));
 }
 
-function mergeAdvisorConfig() {
-  const target = path.join(
-    configDir,
-    "plugins",
-    "advisor.config.local.json",
-  );
-  const managed = readJson(
-    path.join(
-      repoRoot,
+function modelRoutingConfig() {
+  const existing = readJson(modelRoutingConfigPath, {});
+  if (!isPlainObject(existing)) {
+    throw new Error(`${modelRoutingConfigPath} must contain a JSON object`);
+  }
+
+  const allowedKeys = new Set(["advisor_enabled", "agents", "steps"]);
+  const unknownKeys = Object.keys(existing).filter((key) => !allowedKeys.has(key));
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `${modelRoutingConfigPath} contains unsupported keys: ${unknownKeys.join(", ")}`,
+    );
+  }
+
+  const advisorEnabled = existing.advisor_enabled ?? true;
+  if (typeof advisorEnabled !== "boolean") {
+    throw new Error(`${modelRoutingConfigPath} advisor_enabled must be a boolean`);
+  }
+
+  const agents = existing.agents ?? {};
+  if (!isPlainObject(agents)) {
+    throw new Error(`${modelRoutingConfigPath} agents must contain a JSON object`);
+  }
+  for (const [agentName, model] of Object.entries(agents)) {
+    if (!modelOverrideAgentNames.has(agentName)) {
+      throw new Error(
+        `${modelRoutingConfigPath} cannot override fixed or unsupported agent ${agentName}`,
+      );
+    }
+    assertProviderModel(model, `${modelRoutingConfigPath} agents.${agentName}`);
+  }
+
+  const steps = existing.steps ?? {};
+  if (!isPlainObject(steps)) {
+    throw new Error(`${modelRoutingConfigPath} steps must contain a JSON object`);
+  }
+  for (const [agentName, maximum] of Object.entries(steps)) {
+    if (!modelRoutingAgentNames.has(agentName)) {
+      throw new Error(
+        `${modelRoutingConfigPath} cannot override steps for unsupported agent ${agentName}`,
+      );
+    }
+    assertAgentSteps(maximum, `${modelRoutingConfigPath} steps.${agentName}`);
+  }
+
+  return {
+    advisor_enabled: advisorEnabled,
+    agents: structuredClone(agents),
+    steps: structuredClone(steps),
+  };
+}
+
+function modelMetadata(output, model) {
+  const lines = output.split(/\r?\n/);
+  const modelLine = lines.findIndex((line) => line === model);
+  if (modelLine === -1) return undefined;
+  const source = lines.slice(modelLine + 1).join("\n");
+  const start = source.indexOf("{");
+  if (start === -1) return undefined;
+
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    if (quoted) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        quoted = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      quoted = true;
+    } else if (character === "{") {
+      depth += 1;
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return JSON.parse(source.slice(start, index + 1));
+      }
+    }
+  }
+  return undefined;
+}
+
+const modelCatalogByProvider = new Map();
+
+function availableModelMetadata(model, label) {
+  const provider = model.slice(0, model.indexOf("/"));
+  let output = modelCatalogByProvider.get(provider);
+  if (output === undefined) {
+    const result = Bun.spawnSync([
       "opencode",
-      "advisor.config.local.defaults.json",
-    ),
-    {},
-  );
-  const existing = readJson(target, {});
-  writeJson(target, mergeManaged(existing, managed));
+      "models",
+      provider,
+      "--verbose",
+      "--pure",
+    ], {
+      cwd: os.tmpdir(),
+      env: { ...process.env, OPENCODE_CONFIG_DIR: configDir },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Cannot validate ${provider} model catalog: ${result.stderr.toString().trim()}`,
+      );
+    }
+    output = result.stdout.toString();
+    modelCatalogByProvider.set(provider, output);
+  }
+
+  const metadata = modelMetadata(output, model);
+  if (!metadata) {
+    throw new Error(
+      `${label} ${model} is not available from the ${provider} provider`,
+    );
+  }
+  return metadata;
+}
+
+function validateModelRoutingAgainstModelCatalog(config) {
+  for (const [agentName, model] of Object.entries(config.agents)) {
+    availableModelMetadata(model, `Model-routing override for ${agentName}`);
+  }
+}
+
+function mergeModelRoutingConfig(config) {
+  writeJson(modelRoutingConfigPath, config);
 }
 
 function validateInputs() {
@@ -409,16 +701,20 @@ function validateInputs() {
     path.join(repoRoot, "opencode", "opencode.defaults.json"),
     path.join(repoRoot, "opencode", "tui.defaults.json"),
     path.join(repoRoot, "opencode", "package.defaults.json"),
-    path.join(repoRoot, "opencode", "advisor.config.local.defaults.json"),
     path.join(configDir, "opencode.json"),
     path.join(configDir, "opencode.jsonc"),
     path.join(configDir, "tui.json"),
     path.join(configDir, "package.json"),
-    path.join(configDir, "plugins", "advisor.config.local.json"),
+    modelRoutingConfigPath,
   ];
   for (const filePath of files) {
     readJson(filePath, {});
   }
+  const modelRouting = modelRoutingConfig();
+  if (validateModelRouting) {
+    validateModelRoutingAgainstModelCatalog(modelRouting);
+  }
+  return { modelRouting };
 }
 
 if (checkOnly) {
@@ -431,7 +727,8 @@ ensurePrivateDirectory(configDir);
 ensurePrivateDirectory(backupDir);
 hardenTree(backupDir);
 
-mergeOpenCodeConfig();
+const validatedConfig = validateInputs();
+mergeOpenCodeConfig(validatedConfig.modelRouting);
 mergeTuiConfig();
 mergePackageConfig();
-mergeAdvisorConfig();
+mergeModelRoutingConfig(validatedConfig.modelRouting);

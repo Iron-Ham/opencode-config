@@ -7,9 +7,58 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
+import {
+  assertRawBenchmarkOutputOutsideRepository,
+} from "./benchmark-output-containment.mjs";
+import {
+  benchmarkConfigWithProviders,
+  benchmarkInstructionManifest,
+  isolatedOpenCodeEnvironment,
+  loadOpenCodeAuthContent,
+  recomputedRequestCost,
+  resolveBenchmarkModelRoute,
+  summarizeEventTiming,
+} from "./opencode-benchmark-runtime.mjs";
+
 process.umask(0o077);
 
+const RUNNER_SHA256 = createHash("sha256")
+  .update(fs.readFileSync(new URL(import.meta.url), "utf8"))
+  .digest("hex");
+
 const combinations = {
+  "plan-terra": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "plan-sonnet-default": {
+    implementer: { model: "anthropic/claude-sonnet-5" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "plan-sol": {
+    implementer: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "plan-opus": {
+    implementer: { model: "anthropic/claude-opus-4-8", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "plan-fable": {
+    implementer: { model: "anthropic/claude-fable-5", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "gpt55-xhigh": {
+    implementer: { model: "openai/gpt-5.5", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "sol-high": {
+    implementer: { model: "openai/gpt-5.6-sol", variant: "high" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "luna-high-sol": {
+    implementer: { model: "openai/gpt-5.6-luna", variant: "high" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
   "sonnet-sol": {
     implementer: { model: "anthropic/claude-sonnet-5" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
@@ -22,27 +71,85 @@ const combinations = {
     implementer: { model: "openai/gpt-5.6-luna", variant: "xhigh" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "terra-sol": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "terra-self": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
+    review_mode: "self_review",
+  },
+  "terra-max-sol": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "max" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
   "luna-sonnet": {
     implementer: { model: "openai/gpt-5.6-luna", variant: "xhigh" },
-    advisor: { model: "anthropic/claude-sonnet-5", variant: "high" },
+    advisor: { model: "anthropic/claude-sonnet-5", variant: "xhigh" },
   },
   "luna-opus": {
     implementer: { model: "openai/gpt-5.6-luna", variant: "xhigh" },
-    advisor: { model: "anthropic/claude-opus-4-8", variant: "high" },
+    advisor: { model: "anthropic/claude-opus-4-8", variant: "xhigh" },
   },
   "luna-fable": {
     implementer: { model: "openai/gpt-5.6-luna", variant: "xhigh" },
-    advisor: { model: "anthropic/claude-fable-5", variant: "high" },
+    advisor: { model: "anthropic/claude-fable-5", variant: "xhigh" },
   },
   "terra-opus": {
     implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
-    advisor: { model: "anthropic/claude-opus-4-8", variant: "high" },
+    advisor: { model: "anthropic/claude-opus-4-8", variant: "xhigh" },
   },
   "terra-sonnet": {
     implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
-    advisor: { model: "anthropic/claude-sonnet-5", variant: "high" },
+    advisor: { model: "anthropic/claude-sonnet-5", variant: "xhigh" },
+  },
+  "terra-fable": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
+    advisor: { model: "anthropic/claude-fable-5", variant: "xhigh" },
+  },
+  "glm-baseten": {
+    implementer: { model: "baseten/zai-org/GLM-5.2", variant: "max" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "glm-fireworks": {
+    implementer: {
+      model: "fireworks-ai/accounts/fireworks/models/glm-5p2",
+      variant: "max",
+    },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "glm-fireworks-fast": {
+    implementer: {
+      model: "fireworks-ai/accounts/fireworks/routers/glm-5p2-fast",
+      variant: "max",
+    },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "kimi-baseten": {
+    implementer: { model: "baseten/moonshotai/Kimi-K2.7-Code" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "kimi-fireworks": {
+    implementer: {
+      model: "fireworks-ai/accounts/fireworks/models/kimi-k2p7-code",
+    },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "kimi-fireworks-fast": {
+    implementer: {
+      model: "fireworks-ai/accounts/fireworks/routers/kimi-k2p7-code-fast",
+    },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
 };
+
+let openCodeLauncher = "direct";
+
+function openCodeCommand(args) {
+  return openCodeLauncher === "notion-local"
+    ? ["notion", "local", "opencode", ...args]
+    : ["opencode", ...args];
+}
 
 const ADVISOR_SYSTEM =
   "You are a senior advisor to a coding agent (the executor). " +
@@ -52,35 +159,24 @@ const ADVISOR_SYSTEM =
   "will carry it out. Be direct and specific. Keep it under 300 words.";
 const ADVISOR_FOCUS =
   "Audit correctness, causal completeness, repair safety, and test coverage; prioritize only material changes.";
+const PLANNING_ADVISOR_FOCUS =
+  "Audit whether the plan is source-grounded, dependency-ordered, complete enough to execute safely, explicit about trust boundaries and verification, and clear about hard stops; prioritize only material changes.";
 const PROTOCOL = "staged-draft-review-revision-v1";
+const DIRECT_PROTOCOL = "read-only-production-forensics-v1";
+const PLANNING_PROTOCOL = "read-only-production-planning-v1";
+const PLANNING_REVIEW_PROTOCOL = "staged-production-planning-review-v2";
+const LEGACY_DRAFT_RUNNER_SHA256S = [
+  "086f0ed8723ceab319801fc9a6cd80f56dd3f2484f62620376778971e8f7c6b7",
+  "855ed38345232bc022c23ed2a31ac749f7a9fc18fec1f894d9b5edd348af3b9a",
+];
+const LEGACY_TRIAL_RUNNER_SHA256S = [...LEGACY_DRAFT_RUNNER_SHA256S];
 const MESSAGE_TRUNCATE_MAX = 4000;
 const TRANSCRIPT_CHAR_BUDGET = 60000;
-const CONTROLLER_STEPS = 100;
+const LEGACY_CONTROLLER_STEPS = 100;
 const ADVISOR_STEPS = 4;
-const REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 15 * 60 * 1000;
+const DIRECT_REQUEST_TIMEOUT_MS = 15 * 60 * 1000;
 const TERMINATION_GRACE_MS = 5000;
-const OPENAI_PRICING = {
-  "openai/gpt-5.6-luna": {
-    input: 1,
-    output: 6,
-    cache_read: 0.1,
-    cache_write: 1.25,
-  },
-  "openai/gpt-5.6-sol": {
-    input: 5,
-    output: 30,
-    cache_read: 0.5,
-    cache_write: 6.25,
-  },
-  "openai/gpt-5.6-terra": {
-    input: 2.5,
-    output: 15,
-    cache_read: 0.25,
-    cache_write: 3.125,
-  },
-};
-const OPENAI_LONG_CONTEXT_THRESHOLD = 272000;
-
 function ensurePrivateDirectory(directory) {
   const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
   if (existing && (!existing.isDirectory() || existing.isSymbolicLink())) {
@@ -161,57 +257,22 @@ function absorbAndScrubPersistedAuth(dataHome, authState) {
   }
 }
 
-function loadAuthContent() {
-  if (process.env.OPENCODE_AUTH_CONTENT) return process.env.OPENCODE_AUTH_CONTENT;
-  const sourceDataHome = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share");
-  return fs.readFileSync(path.join(sourceDataHome, "opencode", "auth.json"), "utf8");
-}
-
-function readOptionalConfig(filePath) {
-  if (!fs.existsSync(filePath)) return {};
-  const source = fs.readFileSync(filePath, "utf8");
-  return Bun.JSONC.parse(source);
-}
-
-function disabledBenchmarkMcps(cwd) {
-  const configPaths = [
-    path.join(os.homedir(), ".config", "opencode", "opencode.json"),
-    path.join(os.homedir(), ".config", "opencode", "opencode.jsonc"),
-    path.join(cwd, "opencode.json"),
-    path.join(cwd, "opencode.jsonc"),
-    path.join(cwd, ".opencode", "opencode.json"),
-    path.join(cwd, ".opencode", "opencode.jsonc"),
-  ];
-  const names = new Set();
-  for (const configPath of configPaths) {
-    const config = readOptionalConfig(configPath);
-    for (const name of Object.keys(config.mcp ?? {})) names.add(name);
-  }
-  return Object.fromEntries([...names].sort().map((name) => [name, { enabled: false }]));
-}
-
-function createBenchmarkConfig(cwd) {
-  return JSON.stringify({
+function createBenchmarkConfig(cwd, { controllerSteps } = {}) {
+  return benchmarkConfigWithProviders(cwd, {
     snapshot: false,
     share: "disabled",
-    mcp: disabledBenchmarkMcps(cwd),
-    provider: {
-      openai: {
-        options: {
-          headerTimeout: false,
-          timeout: 600000,
-          chunkTimeout: 120000,
-        },
-      },
-    },
+    mcp: {},
     agent: {
       benchmark_controller: {
         mode: "primary",
-        steps: CONTROLLER_STEPS,
+        ...(controllerSteps === undefined ? {} : { steps: controllerSteps }),
         permission: {
           "*": "deny",
           read: {
             "*": "allow",
+            ".git": "deny",
+            ".git/**": "deny",
+            "**/.git/**": "deny",
             ".env": "deny",
             ".env.*": "deny",
             "*.env": "deny",
@@ -219,6 +280,7 @@ function createBenchmarkConfig(cwd) {
           },
           glob: "allow",
           grep: "allow",
+          external_directory: "deny",
         },
       },
       benchmark_advisor: {
@@ -232,13 +294,14 @@ function createBenchmarkConfig(cwd) {
     },
     permission: {
       advisor: "deny",
+      external_directory: "deny",
     },
   });
 }
 
 function usage() {
   console.error(
-    "Usage: benchmark-opencode-model-pairs.mjs --task-file PATH --round NAME --output-dir PATH --combos NAME[,NAME...] [--rubric-file PATH] [--workdir PATH] [--seed VALUE] [--repeat N] [--concurrency N]",
+    "Usage: benchmark-opencode-model-pairs.mjs --task-file PATH --round NAME --output-dir PATH --combos NAME[,NAME...] [--rubric-file PATH] [--workdir PATH] [--seed VALUE] [--repeat N] [--concurrency N] [--opencode-launcher direct|notion-local] [--draft-only true|false] [--planning-only true|false] [--validate-only true|false]",
   );
   console.error(
     "       benchmark-opencode-model-pairs.mjs --summary-file PATH --round NAME --output-dir PATH --rubric-file PATH [--seed VALUE]",
@@ -263,6 +326,16 @@ function parseArguments(argv) {
   }
   result.repeat = Number.parseInt(String(result.repeat), 10);
   result.concurrency = Number.parseInt(String(result.concurrency), 10);
+  for (const name of ["draft_only", "planning_only", "validate_only"]) {
+    if (result[name] !== undefined) {
+      if (!["true", "false"].includes(String(result[name]))) {
+        throw new Error(`--${name.replaceAll("_", "-")} must be true or false`);
+      }
+      result[name] = String(result[name]) === "true";
+    } else {
+      result[name] = false;
+    }
+  }
   return result;
 }
 
@@ -329,14 +402,16 @@ function assertToolPathsStayInWorkdir(events, cwd) {
     if (!input || typeof input !== "object") continue;
     for (const [key, value] of Object.entries(input)) {
       const isGlobPattern = event.part?.tool === "glob" && key === "pattern";
-      if (
-        (!pathKeys.has(key) && !isGlobPattern) ||
-        typeof value !== "string" ||
-        !path.isAbsolute(value)
-      ) {
+      if ((!pathKeys.has(key) && !isGlobPattern) || typeof value !== "string") {
         continue;
       }
-      const resolved = path.resolve(value);
+      if (value.startsWith("~") || /(^|[\\/])\.\.([\\/]|$)/u.test(value)) {
+        throw new Error(`Benchmark tool attempted path traversal: ${value}`);
+      }
+      const pathValue = isGlobPattern
+        ? value.split(/[*?{[]/u, 1)[0]
+        : value;
+      const resolved = path.resolve(root, pathValue || ".");
       if (resolved !== root && !`${resolved}${path.sep}`.startsWith(rootPrefix)) {
         throw new Error(`Benchmark tool attempted to access outside --workdir: ${value}`);
       }
@@ -455,7 +530,7 @@ let cachedOpenCodeVersion;
 
 function openCodeVersion() {
   if (cachedOpenCodeVersion !== undefined) return cachedOpenCodeVersion;
-  const result = Bun.spawnSync(["opencode", "--version"], {
+  const result = Bun.spawnSync(openCodeCommand(["--version"]), {
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -496,12 +571,6 @@ function repositoryMetadata(cwd) {
       fs.readFileSync(path.join(cwd, relativePath)),
     ).digest("hex"),
   ]));
-  const globalInstructions = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
-  if (fs.existsSync(globalInstructions)) {
-    instructionHashes[globalInstructions] = createHash("sha256")
-      .update(fs.readFileSync(globalInstructions))
-      .digest("hex");
-  }
   const metadata = {
     commit,
     dirty: status.length > 0,
@@ -513,19 +582,65 @@ function repositoryMetadata(cwd) {
 }
 
 const modelCatalogHashCache = new Map();
+const modelRouteCache = new Map();
+let catalogRuntime;
+
+function catalogRuntimePaths() {
+  if (catalogRuntime) return catalogRuntime;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-benchmark-catalog-"));
+  fs.chmodSync(root, 0o700);
+  const cwd = path.join(root, "workspace");
+  const configHome = path.join(root, "config");
+  const dataHome = path.join(root, "data");
+  ensurePrivateDirectory(cwd);
+  ensurePrivateDirectory(path.join(configHome, "opencode"));
+  ensurePrivateDirectory(path.join(dataHome, "opencode"));
+  catalogRuntime = { cwd, configHome, dataHome };
+  process.once("exit", () => fs.rmSync(root, { recursive: true, force: true }));
+  return catalogRuntime;
+}
+
+function verboseModelCatalog(cwd, provider) {
+  const key = `${openCodeLauncher}:${provider}`;
+  if (modelCatalogHashCache.has(`${key}:source`)) {
+    return modelCatalogHashCache.get(`${key}:source`);
+  }
+  const runtime = catalogRuntimePaths();
+  const catalog = commandText(
+    openCodeCommand(["models", provider, "--verbose"]),
+    runtime.cwd,
+    isolatedOpenCodeEnvironment({
+      configContent: createBenchmarkConfig(cwd),
+      configHome: runtime.configHome,
+      dataHome: runtime.dataHome,
+      authContent: "{}",
+      cwd: runtime.cwd,
+    }),
+  );
+  modelCatalogHashCache.set(`${key}:source`, catalog);
+  return catalog;
+}
 
 function modelCatalogHash(cwd, model) {
   const provider = model.split("/", 1)[0];
-  const key = `${cwd}:${provider}`;
+  const key = `${openCodeLauncher}:${provider}:legacy-hash`;
   if (modelCatalogHashCache.has(key)) return modelCatalogHashCache.get(key);
-  const catalog = commandText(
-    ["opencode", "models", provider, "--verbose"],
-    cwd,
-    { ...process.env, OPENCODE_CONFIG_CONTENT: createBenchmarkConfig(cwd) },
-  );
+  const catalog = verboseModelCatalog(cwd, provider);
   const hash = createHash("sha256").update(catalog).digest("hex");
   modelCatalogHashCache.set(key, hash);
   return hash;
+}
+
+function modelRouteProvenance(cwd, selection) {
+  const key = `${openCodeLauncher}:${selection.model}:${selection.variant ?? "default"}`;
+  if (modelRouteCache.has(key)) return modelRouteCache.get(key);
+  const provider = selection.model.split("/", 1)[0];
+  const route = resolveBenchmarkModelRoute(
+    verboseModelCatalog(cwd, provider),
+    selection,
+  );
+  modelRouteCache.set(key, route);
+  return route;
 }
 
 function deterministicOrder(values, seed, identity = (value) => String(value)) {
@@ -543,35 +658,76 @@ function deterministicOrder(values, seed, identity = (value) => String(value)) {
   });
 }
 
-function draftFingerprint({ cwd, task, implementer }) {
-  const runnerSource = fs.readFileSync(new URL(import.meta.url), "utf8");
+function draftFingerprintWithRunnerSha({
+  cwd,
+  task,
+  implementer,
+  protocol = PROTOCOL,
+  runnerSha256,
+}) {
   return createHash("sha256").update(JSON.stringify({
     schema: 4,
-    protocol: PROTOCOL,
+    protocol,
     cwd,
     task,
     implementer,
-    benchmark_config: createBenchmarkConfig(cwd),
+    benchmark_config: createBenchmarkConfig(cwd, {
+      controllerSteps: LEGACY_CONTROLLER_STEPS,
+    }),
     opencode_version: openCodeVersion(),
     repository: repositoryMetadata(cwd),
     model_catalog_sha256: modelCatalogHash(cwd, implementer.model),
-    runner_sha256: createHash("sha256").update(runnerSource).digest("hex"),
+    runner_sha256: runnerSha256,
   })).digest("hex");
 }
 
-function trialFingerprint({
+function draftFingerprint({
+  cwd,
+  task,
+  implementer,
+  protocol = PROTOCOL,
+  provenance,
+}) {
+  return createHash("sha256").update(JSON.stringify({
+    schema: 6,
+    protocol,
+    cwd,
+    task,
+    implementer,
+    provenance,
+    benchmark_config: createBenchmarkConfig(cwd),
+    opencode_version: openCodeVersion(),
+    repository: repositoryMetadata(cwd),
+    model_route_sha256: modelRouteProvenance(cwd, implementer).sha256,
+    runner_sha256: RUNNER_SHA256,
+  })).digest("hex");
+}
+
+function compatibleLegacyDraftFingerprints({ cwd, task, implementer, protocol }) {
+  return LEGACY_DRAFT_RUNNER_SHA256S.map((runnerSha256) =>
+    draftFingerprintWithRunnerSha({
+      cwd,
+      task,
+      implementer,
+      protocol,
+      runnerSha256,
+    }));
+}
+
+function trialFingerprintWithRunnerSha({
   cwd,
   task,
   combinationName,
   repetition,
   draft,
   transcriptSha256,
+  protocol = PROTOCOL,
+  runnerSha256,
 }) {
   const combination = combinations[combinationName];
-  const runnerSource = fs.readFileSync(new URL(import.meta.url), "utf8");
   return createHash("sha256").update(JSON.stringify({
     schema: 1,
-    protocol: PROTOCOL,
+    protocol,
     cwd,
     task,
     combination_name: combinationName,
@@ -582,38 +738,84 @@ function trialFingerprint({
     transcript_sha256: transcriptSha256,
     advisor_system: ADVISOR_SYSTEM,
     advisor_focus: ADVISOR_FOCUS,
-    benchmark_config: createBenchmarkConfig(cwd),
+    benchmark_config: createBenchmarkConfig(cwd, {
+      controllerSteps: LEGACY_CONTROLLER_STEPS,
+    }),
     opencode_version: openCodeVersion(),
     repository: repositoryMetadata(cwd),
     model_catalog_sha256: {
       implementer: modelCatalogHash(cwd, combination.implementer.model),
-      advisor: modelCatalogHash(cwd, combination.advisor.model),
+      advisor: combination.advisor
+        ? modelCatalogHash(cwd, combination.advisor.model)
+        : undefined,
     },
-    runner_sha256: createHash("sha256").update(runnerSource).digest("hex"),
+    runner_sha256: runnerSha256,
   })).digest("hex");
 }
 
-function recomputedRequestCost(event, model) {
-  const pricing = OPENAI_PRICING[model];
-  if (!pricing) return Number(event.part?.cost ?? 0);
-  const tokens = event.part?.tokens ?? {};
-  const cacheRead = Number(tokens.cache?.read ?? 0);
-  const cacheWrite = Number(tokens.cache?.write ?? 0);
-  const input = Number(tokens.input ?? 0);
-  const output = Number(tokens.output ?? 0) + Number(tokens.reasoning ?? 0);
-  const contextInput = input + cacheRead + cacheWrite;
-  const longContext = contextInput > OPENAI_LONG_CONTEXT_THRESHOLD;
-  const inputMultiplier = longContext ? 2 : 1;
-  const outputMultiplier = longContext ? 1.5 : 1;
-  return (
-    input * pricing.input * inputMultiplier +
-    cacheRead * pricing.cache_read * inputMultiplier +
-    cacheWrite * pricing.cache_write * inputMultiplier +
-    output * pricing.output * outputMultiplier
-  ) / 1_000_000;
+function trialFingerprint({
+  cwd,
+  task,
+  combinationName,
+  repetition,
+  draft,
+  transcriptSha256,
+  protocol = PROTOCOL,
+  provenance,
+  planningOnly = false,
+}) {
+  const combination = combinations[combinationName];
+  return createHash("sha256").update(JSON.stringify({
+    schema: 3,
+    protocol,
+    cwd,
+    task,
+    combination_name: combinationName,
+    combination,
+    repetition,
+    provenance,
+    planning_only: planningOnly,
+    draft_fingerprint: draft.fingerprint,
+    draft_session_id: draft.session_id,
+    transcript_sha256: transcriptSha256,
+    advisor_system: ADVISOR_SYSTEM,
+    advisor_focus: planningOnly ? PLANNING_ADVISOR_FOCUS : ADVISOR_FOCUS,
+    benchmark_config: createBenchmarkConfig(cwd),
+    opencode_version: openCodeVersion(),
+    repository: repositoryMetadata(cwd),
+    model_route_sha256: {
+      implementer: modelRouteProvenance(cwd, combination.implementer).sha256,
+      advisor: combination.advisor
+        ? modelRouteProvenance(cwd, combination.advisor).sha256
+        : undefined,
+    },
+    runner_sha256: RUNNER_SHA256,
+  })).digest("hex");
 }
 
-function summarize(events, wallTimeMs, model) {
+function compatibleLegacyTrialFingerprints({
+  cwd,
+  task,
+  combinationName,
+  repetition,
+  draft,
+  transcriptSha256,
+  protocol,
+}) {
+  return LEGACY_TRIAL_RUNNER_SHA256S.map((runnerSha256) =>
+    trialFingerprintWithRunnerSha({
+      cwd,
+      task,
+      combinationName,
+      repetition,
+      draft,
+      transcriptSha256,
+      protocol,
+      runnerSha256,
+    }));
+}
+
+function summarize(events, wallTimeMs, model, invocationStartedAtMs) {
   const finishes = events.filter((event) => event.type === "step_finish");
   const tools = events
     .filter((event) => event.type === "tool_use")
@@ -631,6 +833,7 @@ function summarize(events, wallTimeMs, model) {
   );
   return {
     wall_time_seconds: wallTimeMs / 1000,
+    timing: summarizeEventTiming(events, invocationStartedAtMs),
     requests: finishes.length,
     tool_calls: tools.length,
     tool_counts: toolCounts,
@@ -651,7 +854,21 @@ function summarize(events, wallTimeMs, model) {
   };
 }
 
-async function runOpenCode({ cwd, model, variant, agent, title, prompt, dataHome, authState, session, fork = false }) {
+async function runOpenCode({
+  cwd,
+  model,
+  variant,
+  agent,
+  title,
+  prompt,
+  dataHome,
+  authState,
+  session,
+  fork = false,
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
+}) {
+  const configHome = path.join(path.dirname(dataHome), "xdg-config");
+  ensurePrivateDirectory(path.join(configHome, "opencode"));
   const args = [
     "run",
     "--pure",
@@ -671,17 +888,17 @@ async function runOpenCode({ cwd, model, variant, agent, title, prompt, dataHome
   if (fork) args.push("--fork");
   args.push(prompt);
 
+  const startedAtEpochMs = Date.now();
   const startedAt = performance.now();
-  const child = Bun.spawn(["opencode", ...args], {
+  const child = Bun.spawn(openCodeCommand(args), {
     cwd,
-    env: {
-      ...process.env,
-      PWD: cwd,
-      INIT_CWD: cwd,
-      XDG_DATA_HOME: dataHome,
-      OPENCODE_AUTH_CONTENT: authState.content,
-      OPENCODE_CONFIG_CONTENT: createBenchmarkConfig(cwd),
-    },
+    env: isolatedOpenCodeEnvironment({
+      configContent: createBenchmarkConfig(cwd),
+      configHome,
+      dataHome,
+      authContent: authState.content,
+      cwd,
+    }),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -691,7 +908,7 @@ async function runOpenCode({ cwd, model, variant, agent, title, prompt, dataHome
     timedOut = true;
     child.kill("SIGTERM");
     forceKillTimeout = setTimeout(() => child.kill("SIGKILL"), TERMINATION_GRACE_MS);
-  }, REQUEST_TIMEOUT_MS);
+  }, requestTimeoutMs);
   let output;
   let errorOutput;
   let exitCode;
@@ -708,25 +925,37 @@ async function runOpenCode({ cwd, model, variant, agent, title, prompt, dataHome
   }
   const wallTimeMs = performance.now() - startedAt;
   const events = parseEvents(output);
-  assertToolPathsStayInWorkdir(events, cwd);
+  let policyViolation;
+  try {
+    assertToolPathsStayInWorkdir(events, cwd);
+  } catch (error) {
+    policyViolation = error.message;
+  }
   const sessionID = events.find((event) => event.sessionID)?.sessionID;
   const completed = events.some(
     (event) => event.type === "step_finish" && event.part?.reason === "stop",
   );
+  const status = policyViolation
+    ? "policy_violation"
+    : timedOut
+    ? "timeout"
+    : exitCode !== 0
+      ? "failed"
+      : completed
+        ? "completed"
+        : "incomplete";
+  const metrics = summarize(events, wallTimeMs, model, startedAtEpochMs);
+  metrics.cost_completeness = status === "completed"
+    ? "complete_for_observed_requests"
+    : "completed_requests_lower_bound";
   return {
-    status: timedOut
-      ? "timeout"
-      : exitCode !== 0
-        ? "failed"
-        : completed
-          ? "completed"
-          : "incomplete",
+    status,
     exit_code: exitCode,
     session_id: sessionID,
     text: extractText(events),
-    metrics: summarize(events, wallTimeMs, model),
+    metrics,
     events,
-    error: exitCode === 0 ? undefined : (errorOutput || output.slice(-2000)),
+    error: policyViolation ?? (exitCode === 0 ? undefined : (errorOutput || output.slice(-2000))),
   };
 }
 
@@ -742,6 +971,11 @@ function stageTotal(stages, selector) {
 function trialTotals(stages) {
   return {
     cost_scope: "counterfactual_route_cost_including_shared_draft",
+    cost_completeness: stages.every(
+      (stage) => stage.metrics.cost_completeness === "complete_for_observed_requests",
+    )
+      ? "complete_for_observed_requests"
+      : "completed_requests_lower_bound",
     wall_time_seconds: stageTotal(stages, (stage) => stage.metrics.wall_time_seconds),
     tool_calls: stageTotal(stages, (stage) => stage.metrics.tool_calls),
     reported_cost_usd: stageTotal(stages, (stage) => stage.metrics.reported_cost_usd),
@@ -763,7 +997,238 @@ function writeStage(directory, name, stage) {
   writePrivateFile(path.join(directory, `${name}.md`), `${stage.text}\n`);
 }
 
-function writeGradingPacket({ outputDir, round, results, rubricFile, seed }) {
+function validatedStageArtifacts(directory, name, stage, cwd, model) {
+  if (!model) throw new Error(`${name} validation requires its executing model`);
+  const eventsPath = path.join(directory, `${name}.jsonl`);
+  const textPath = path.join(directory, `${name}.md`);
+  if (!fs.existsSync(eventsPath) || !fs.existsSync(textPath)) {
+    throw new Error(`${name} raw artifacts are incomplete`);
+  }
+  const rawEvents = fs.readFileSync(eventsPath, "utf8");
+  if (!rawEvents.endsWith("\n")) {
+    throw new Error(`${name} event log is not atomically complete`);
+  }
+  const events = parseEvents(rawEvents);
+  assertToolPathsStayInWorkdir(events, cwd);
+  if (!events.some(
+    (event) => event.type === "step_finish" && event.part?.reason === "stop",
+  )) {
+    throw new Error(`${name} event log has no completed terminal step`);
+  }
+  const eventSessionIDs = new Set(
+    events.map((event) => event.sessionID).filter(Boolean),
+  );
+  if (
+    !stage.session_id ||
+    eventSessionIDs.size !== 1 ||
+    !eventSessionIDs.has(stage.session_id)
+  ) {
+    throw new Error(`${name} event log does not match its saved session`);
+  }
+  const eventText = extractText(events);
+  const artifactText = fs.readFileSync(textPath, "utf8").trim();
+  if (eventText !== stage.text?.trim() || artifactText !== stage.text?.trim()) {
+    throw new Error(`${name} text does not match its raw event log`);
+  }
+  const metrics = summarize(
+    events,
+    Number(stage.metrics?.wall_time_seconds ?? 0) * 1000,
+    model,
+  );
+  metrics.cost_completeness = "complete_for_observed_requests";
+  return { events, metrics };
+}
+
+function sessionTranscript(sessionID, dataHome) {
+  const messages = loadSessionMessages(sessionID, dataHome);
+  if (messages.length === 0) {
+    throw new Error(`Draft session has no messages: ${sessionID}`);
+  }
+  const text = serializeTranscript(messages);
+  return {
+    text,
+    sha256: createHash("sha256").update(text).digest("hex"),
+  };
+}
+
+function freezeDraftTranscript({ draftDir, draft, dataHome }) {
+  const snapshot = sessionTranscript(draft.session_id, dataHome);
+  const hashPath = path.join(draftDir, "draft-transcript.sha256");
+  const persistedHash = fs.existsSync(hashPath)
+    ? fs.readFileSync(hashPath, "utf8").trim()
+    : undefined;
+  if (persistedHash && !/^[a-f0-9]{64}$/u.test(persistedHash)) {
+    throw new Error("draft transcript hash is malformed");
+  }
+  if (
+    (draft.transcript_sha256 && draft.transcript_sha256 !== snapshot.sha256) ||
+    (persistedHash && persistedHash !== snapshot.sha256)
+  ) {
+    throw new Error("draft session transcript changed after the artifact was frozen");
+  }
+  if (!persistedHash) {
+    writePrivateFile(hashPath, `${snapshot.sha256}\n`);
+  }
+  return snapshot;
+}
+
+function decisionEligible(status) {
+  return status === "completed";
+}
+
+function validatedArtifactOrigin({
+  metadata,
+  draftManifest,
+  round,
+  provenance,
+  repetition,
+  implementer,
+  combinationName,
+  fingerprint,
+  sessionID,
+}) {
+  if (!metadata) {
+    throw new Error("legacy artifact has no preserved origin metadata");
+  }
+  const originOrder = metadata.execution_order?.[`repetition_${repetition}`];
+  if (
+    metadata.round !== round ||
+    String(metadata.seed) !== String(provenance.seed) ||
+    !Number.isInteger(metadata.repeat) ||
+    metadata.repeat < repetition ||
+    !Array.isArray(originOrder)
+  ) {
+    throw new Error("legacy artifact origin does not match round, seed, or repetition");
+  }
+  let sourceRoute;
+  if (combinationName) {
+    if (!originOrder.includes(combinationName)) {
+      throw new Error(`legacy trial origin does not contain route ${combinationName}`);
+    }
+    sourceRoute = combinationName;
+  } else {
+    sourceRoute = originOrder.find((route) =>
+      JSON.stringify(combinations[route]?.implementer) === JSON.stringify(implementer)
+    );
+    if (!sourceRoute) {
+      throw new Error("legacy draft origin does not contain its implementer route");
+    }
+    const sourceDraft = draftManifest?.find((candidate) =>
+      candidate.repetition === repetition &&
+      JSON.stringify(candidate.implementer) === JSON.stringify(implementer) &&
+      candidate.fingerprint === fingerprint &&
+      candidate.session_id === sessionID
+    );
+    if (!sourceDraft) {
+      throw new Error("legacy draft does not match its origin repetition manifest");
+    }
+  }
+  return {
+    round: metadata.round,
+    seed: String(metadata.seed),
+    repetition,
+    execution_order: [...originOrder],
+    source_route: sourceRoute,
+    runner_sha256: metadata.runner_sha256 ?? null,
+    fingerprint,
+    session_id: sessionID,
+  };
+}
+
+function draftManifest(results) {
+  const drafts = new Map();
+  for (const result of results ?? []) {
+    const draft = result.stages?.draft;
+    if (!draft?.fingerprint || !draft.session_id) continue;
+    const entry = {
+      repetition: result.repetition,
+      implementer: result.implementer,
+      fingerprint: draft.fingerprint,
+      session_id: draft.session_id,
+    };
+    const identity = JSON.stringify(entry);
+    drafts.set(identity, entry);
+  }
+  return [...drafts.values()];
+}
+
+function frozenDraftFingerprint({
+  metadata,
+  cwd,
+  task,
+  implementer,
+  protocol,
+  repetition,
+}) {
+  const originOrder = metadata?.execution_order?.[`repetition_${repetition}`];
+  const originProtocol = metadata?.draft_protocol ?? metadata?.protocol;
+  if (
+    metadata?.runner_sha256 !== RUNNER_SHA256 ||
+    originProtocol !== protocol ||
+    !Array.isArray(originOrder)
+  ) {
+    return undefined;
+  }
+  return draftFingerprint({
+    cwd,
+    task,
+    implementer,
+    protocol,
+    provenance: {
+      round: metadata.round,
+      seed: String(metadata.seed),
+      repetition,
+      execution_order: [...originOrder],
+      runner_sha256: metadata.runner_sha256,
+    },
+  });
+}
+
+function validatedSummarySource({ summaryFile, round, planningOnly, rubricFile }) {
+  const summaryPath = path.resolve(summaryFile);
+  const summaryContents = fs.readFileSync(summaryPath, "utf8");
+  const results = JSON.parse(summaryContents);
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error("--summary-file must contain a non-empty result array");
+  }
+  if (results.some((result) => result.round !== round)) {
+    throw new Error("--summary-file results do not all match --round");
+  }
+  const metadataPath = path.join(path.dirname(summaryPath), `${round}-metadata.json`);
+  if (!fs.existsSync(metadataPath)) {
+    throw new Error("--summary-file has no sibling benchmark metadata");
+  }
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  if (metadata.round !== round) {
+    throw new Error("summary metadata does not match --round");
+  }
+  if (Boolean(metadata.planning_only) !== planningOnly) {
+    throw new Error("summary metadata does not match --planning-only");
+  }
+  const rubricSha256 = createHash("sha256")
+    .update(fs.readFileSync(path.resolve(rubricFile)))
+    .digest("hex");
+  if (metadata.rubric_sha256 !== rubricSha256) {
+    throw new Error("summary metadata does not match the supplied rubric");
+  }
+  const summarySha256 = createHash("sha256").update(summaryContents).digest("hex");
+  if (metadata.summary_sha256 !== summarySha256) {
+    throw new Error("summary contents do not match their bound metadata hash");
+  }
+  if (metadata.summary_result_count !== results.length) {
+    throw new Error("summary result count does not match its metadata");
+  }
+  return { results, metadata, summarySha256 };
+}
+
+function writeGradingPacket({
+  outputDir,
+  round,
+  results,
+  rubricFile,
+  seed,
+  planningOnly = false,
+}) {
   if (!rubricFile) return;
 
   const rubric = fs.readFileSync(path.resolve(rubricFile), "utf8").trim();
@@ -774,14 +1239,16 @@ function writeGradingPacket({ outputDir, round, results, rubricFile, seed }) {
     const draftIdentity = draft.session_id ??
       `${draft.fingerprint ?? JSON.stringify(result.implementer)}:${result.round ?? "unknown"}:r${result.repetition}`;
     if (
-      draft.status === "completed" &&
       draft.text &&
+      decisionEligible(draft.status) &&
       !seenDrafts.has(draftIdentity)
     ) {
       seenDrafts.add(draftIdentity);
       candidates.push({
         kind: "unreviewed_draft",
         source: "draft",
+        execution_status: draft.status,
+        eligible_for_decision: decisionEligible(draft.status),
         repetition: result.repetition,
         source_trial: result.trial,
         session_id: draft.session_id,
@@ -794,8 +1261,12 @@ function writeGradingPacket({ outputDir, round, results, rubricFile, seed }) {
     const final = result.stages.final;
     if (result.status === "completed" && final?.text) {
       candidates.push({
-        kind: "advisor_revised_final",
+        kind: result.review_mode === "self_review"
+          ? "self_revised_final"
+          : "advisor_revised_final",
         source: "final",
+        execution_status: result.status,
+        eligible_for_decision: decisionEligible(result.status),
         repetition: result.repetition,
         source_trial: result.trial,
         session_id: final.session_id,
@@ -826,7 +1297,9 @@ function writeGradingPacket({ outputDir, round, results, rubricFile, seed }) {
   writePrivateFile(path.join(gradingDir, "rubric.md"), `${rubric}\n`);
   writePrivateFile(
     path.join(gradingDir, "grading-prompt.md"),
-    `Blind-grade every Markdown file in answers/. Treat labels as opaque. Use rubric.md as the fixed ground truth. Score factual correctness, causal completeness, source evidence, repair safety, test design, and calibrated uncertainty. Report material errors, a weighted 0-10 score, and a rank order. Do not inspect key.json until grading is final.\n`,
+    planningOnly
+      ? `Blind-grade every Markdown file in answers/. Treat labels as opaque. Use rubric.md as the fixed ground truth. Score source grounding, implementation-map completeness, dependency ordering, correctness mechanisms, trust boundaries, verification, stop conditions, and calibrated uncertainty. Report material errors, any rubric cap, a weighted 0-100 score, and a rank order. Do not inspect key.json until grading is final.\n`
+      : `Blind-grade every Markdown file in answers/. Treat labels as opaque. Use rubric.md as the fixed ground truth. Score factual correctness, causal completeness, source evidence, repair safety, test design, and calibrated uncertainty. Report material errors, any rubric cap, a weighted 0-100 score, and a rank order. Do not inspect key.json until grading is final.\n`,
   );
   writePrivateFile(
     path.join(gradingDir, "key.json"),
@@ -854,6 +1327,11 @@ function recordedExperimentCosts(results) {
   }
   return {
     cost_scope: "unique_recorded_stage_cost_counting_each_shared_draft_once",
+    cost_completeness: stages.every(
+      (stage) => stage.metrics.cost_completeness === "complete_for_observed_requests",
+    )
+      ? "complete_for_observed_requests"
+      : "completed_requests_lower_bound",
     reported_cost_usd: stageTotal(
       stages,
       (stage) => stage.metrics.reported_cost_usd,
@@ -865,38 +1343,118 @@ function recordedExperimentCosts(results) {
   };
 }
 
-async function runDraft({ cwd, task, round, outputDir, implementer, repetition, dataHome, authState }) {
+async function runDraft({
+  cwd,
+  task,
+  round,
+  outputDir,
+  implementer,
+  repetition,
+  dataHome,
+  authState,
+  protocol = PROTOCOL,
+  planningOnly = false,
+  provenance,
+  legacyOriginMetadata,
+  legacyOriginDrafts,
+  frozenOriginMetadata,
+  frozenOriginDrafts,
+}) {
   const key = implementerKey(implementer);
-  const fingerprint = draftFingerprint({ cwd, task, implementer });
+  const fingerprint = draftFingerprint({
+    cwd,
+    task,
+    implementer,
+    protocol,
+    provenance,
+  });
+  const legacyFingerprints = new Set(compatibleLegacyDraftFingerprints({
+    cwd,
+    task,
+    implementer,
+    protocol,
+  }));
+  const compatibleFrozenFingerprint = frozenDraftFingerprint({
+    metadata: frozenOriginMetadata,
+    cwd,
+    task,
+    implementer,
+    protocol,
+    repetition,
+  });
+  const compatibleFingerprints = new Set([
+    fingerprint,
+    ...legacyFingerprints,
+    ...(compatibleFrozenFingerprint ? [compatibleFrozenFingerprint] : []),
+  ]);
   const draftDir = path.join(outputDir, `${round}-${key}-r${repetition}-draft`);
   ensurePrivateDirectory(draftDir);
   const resultPath = path.join(draftDir, "result.json");
-  const eventsPath = path.join(draftDir, "draft.jsonl");
   if (fs.existsSync(resultPath)) {
     try {
       const saved = JSON.parse(fs.readFileSync(resultPath, "utf8"));
       if (
         saved.status === "completed" &&
         saved.session_id &&
-        saved.fingerprint === fingerprint &&
+        compatibleFingerprints.has(saved.fingerprint) &&
         sessionExists(saved.session_id, dataHome)
       ) {
-        let events = [];
-        let rawArtifactComplete = false;
-        if (fs.existsSync(eventsPath)) {
-          try {
-            events = parseEvents(fs.readFileSync(eventsPath, "utf8"));
-            rawArtifactComplete = true;
-          } catch {
-            // The atomic result is sufficient to avoid repeating a paid draft.
-          }
-        }
-        console.log(
-          `REUSE  ${round}-${key}-r${repetition}${rawArtifactComplete ? "" : " (raw event log unavailable)"}`,
+        const { events, metrics } = validatedStageArtifacts(
+          draftDir,
+          "draft",
+          saved,
+          cwd,
+          implementer.model,
         );
-        return { ...saved, events };
+        const legacy = legacyFingerprints.has(saved.fingerprint);
+        const frozen = saved.fingerprint === compatibleFrozenFingerprint &&
+          saved.fingerprint !== fingerprint;
+        const origin = legacy || frozen
+          ? validatedArtifactOrigin({
+            metadata: legacy ? legacyOriginMetadata : frozenOriginMetadata,
+            draftManifest: legacy ? legacyOriginDrafts : frozenOriginDrafts,
+            round,
+            provenance,
+            repetition,
+            implementer,
+            fingerprint: saved.fingerprint,
+            sessionID: saved.session_id,
+          })
+          : saved.artifact_provenance?.origin ?? provenance;
+        const transcript = freezeDraftTranscript({
+          draftDir,
+          draft: saved,
+          dataHome,
+        });
+        const reuseLabel = legacy
+          ? " (validated legacy fingerprint)"
+          : frozen
+            ? " (validated frozen draft)"
+            : "";
+        console.log(
+          `REUSE  ${round}-${key}-r${repetition}${reuseLabel}`,
+        );
+        return {
+          ...saved,
+          events,
+          metrics,
+          transcript_sha256: transcript.sha256,
+          transcript_chars: transcript.text.length,
+          artifact_provenance: legacy || frozen
+            ? {
+              origin,
+              reused_in: provenance,
+              reused_legacy_fingerprint: legacy,
+              reused_frozen_draft: frozen,
+            }
+            : saved.artifact_provenance ?? {
+              origin,
+              reused_legacy_fingerprint: false,
+              reused_frozen_draft: false,
+            },
+        };
       }
-      if (saved.status === "completed" && saved.fingerprint === fingerprint) {
+      if (saved.status === "completed" && compatibleFingerprints.has(saved.fingerprint)) {
         console.log(`STALE  ${round}-${key}-r${repetition} (session unavailable)`);
       }
     } catch {
@@ -904,7 +1462,11 @@ async function runDraft({ cwd, task, round, outputDir, implementer, repetition, 
     }
   }
   console.log(`DRAFT  ${round}-${key}-r${repetition}`);
-  const prompt = `Controlled iOS controller benchmark. Read every applicable AGENTS.md first. Do not edit or write files, install anything, run builds or tests, create or update a Goal, call an advisor, or delegate to a subagent. Work independently.\n\n${task}\n\nReturn a source-grounded draft under 1,200 words in the requested structure. Cite path:line evidence and distinguish verified facts from inference.`;
+  fs.rmSync(path.join(draftDir, "draft-transcript.sha256"), { force: true });
+  const assignment = planningOnly
+    ? "Produce an implementation plan for an independent executor. Do not implement the task or provide a full patch. Make the plan concrete enough that the executor does not need to invent missing correctness mechanisms, sequencing, verification, or stop conditions."
+    : "Complete the requested read-only source analysis.";
+  const prompt = `Controlled iOS controller benchmark. Read every applicable AGENTS.md first. Copied benchmark skills are available only inside this artifact; do not access ~ or any path outside the workdir. Do not edit or write files, install anything, run builds or tests, create or update a Goal, call an advisor, or delegate to a subagent. Work independently.\n\n${assignment}\n\n${task}\n\nReturn a source-grounded draft under 1,200 words in the requested structure. Cite path:line evidence and distinguish verified facts from inference.`;
   const draft = await runOpenCode({
     cwd,
     ...implementer,
@@ -913,9 +1475,22 @@ async function runDraft({ cwd, task, round, outputDir, implementer, repetition, 
     prompt,
     dataHome,
     authState,
+    requestTimeoutMs: protocol === DIRECT_PROTOCOL
+      ? DIRECT_REQUEST_TIMEOUT_MS
+      : REQUEST_TIMEOUT_MS,
   });
   draft.fingerprint = fingerprint;
+  draft.artifact_provenance = {
+    origin: provenance,
+    reused_legacy_fingerprint: false,
+    reused_frozen_draft: false,
+  };
   writeStage(draftDir, "draft", draft);
+  if (draft.status === "completed" && draft.session_id) {
+    const transcript = freezeDraftTranscript({ draftDir, draft, dataHome });
+    draft.transcript_sha256 = transcript.sha256;
+    draft.transcript_chars = transcript.text.length;
+  }
   writePrivateFile(
     path.join(draftDir, "result.json"),
     `${JSON.stringify(withoutEvents(draft), null, 2)}\n`,
@@ -926,7 +1501,58 @@ async function runDraft({ cwd, task, round, outputDir, implementer, repetition, 
   return draft;
 }
 
-async function runTrial({ cwd, task, round, outputDir, combinationName, repetition, draft, dataHome, authState }) {
+function savedTrialMatchesCurrentInputs({
+  saved,
+  trialName,
+  round,
+  repetition,
+  combinationName,
+  combination,
+  draft,
+  transcriptSha256,
+  compatibleFingerprints,
+  legacyFingerprints,
+}) {
+  const sameAdvisor = JSON.stringify(saved.advisor) === JSON.stringify(combination.advisor);
+  const expectedReviewMode = combination.review_mode === "self_review"
+    ? "self_review"
+    : "external_advisor";
+  const compatibleReviewMode = saved.review_mode === expectedReviewMode || (
+    saved.review_mode === undefined && legacyFingerprints.has(saved.fingerprint)
+  );
+  return saved.status === "completed" &&
+    compatibleFingerprints.has(saved.fingerprint) &&
+    compatibleReviewMode &&
+    saved.trial === trialName &&
+    saved.round === round &&
+    saved.repetition === repetition &&
+    saved.combination === combinationName &&
+    JSON.stringify(saved.implementer) === JSON.stringify(combination.implementer) &&
+    sameAdvisor &&
+    saved.stages?.draft?.session_id === draft.session_id &&
+    saved.stages?.draft?.fingerprint === draft.fingerprint &&
+    saved.stages?.final?.status === "completed" &&
+    (combination.review_mode === "self_review" || (
+      saved.stages?.advice?.status === "completed" &&
+      saved.stages.advice.transcript_sha256 === transcriptSha256
+    ));
+}
+
+async function runTrial({
+  cwd,
+  task,
+  round,
+  outputDir,
+  combinationName,
+  repetition,
+  draft,
+  dataHome,
+  authState,
+  protocol = PROTOCOL,
+  planningOnly = false,
+  provenance,
+  legacyOriginMetadata,
+}) {
   const combination = combinations[combinationName];
   const trialName = `${round}-${combinationName}-r${repetition}`;
   const trialDir = path.join(outputDir, trialName);
@@ -944,6 +1570,17 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
       combination: combinationName,
       implementer: combination.implementer,
       advisor: combination.advisor,
+      review_mode: combination.review_mode === "self_review"
+        ? "self_review"
+        : "external_advisor",
+      advisor_mechanism: combination.review_mode === "self_review"
+        ? "none_independent_self_review"
+        : "transcript_fed_toolless_automatic_review",
+      eligible_for_decision: false,
+      artifact_provenance: {
+        origin: provenance,
+        reused_legacy_fingerprint: false,
+      },
       stages: { draft: withoutEvents(draft) },
       totals: trialTotals([draft]),
     };
@@ -952,12 +1589,13 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
     return result;
   }
 
-  const messages = loadSessionMessages(draft.session_id, dataHome);
-  if (messages.length === 0) {
-    throw new Error(`Draft session has no messages: ${draft.session_id}`);
-  }
-  const transcript = serializeTranscript(messages);
-  const transcriptSha256 = createHash("sha256").update(transcript).digest("hex");
+  const draftDir = path.join(
+    outputDir,
+    `${round}-${implementerKey(combination.implementer)}-r${repetition}-draft`,
+  );
+  const transcriptSnapshot = freezeDraftTranscript({ draftDir, draft, dataHome });
+  const transcript = transcriptSnapshot.text;
+  const transcriptSha256 = transcriptSnapshot.sha256;
   const fingerprint = trialFingerprint({
     cwd,
     task,
@@ -965,25 +1603,117 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
     repetition,
     draft,
     transcriptSha256,
+    protocol,
+    provenance,
+    planningOnly,
   });
+  const legacyFingerprints = new Set(compatibleLegacyTrialFingerprints({
+    cwd,
+    task,
+    combinationName,
+    repetition,
+    draft,
+    transcriptSha256,
+    protocol,
+  }));
+  const compatibleFingerprints = new Set([fingerprint, ...legacyFingerprints]);
   if (fs.existsSync(resultPath)) {
     try {
       const saved = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-      if (
-        saved.status === "completed" &&
-        saved.trial === trialName &&
-        saved.fingerprint === fingerprint
-      ) {
-        const rawArtifactsComplete = [
-          "advice.jsonl",
-          "advice.md",
-          "final.jsonl",
-          "final.md",
-        ].every((name) => fs.existsSync(path.join(trialDir, name)));
-        console.log(
-          `REUSE  ${trialName}${rawArtifactsComplete ? "" : " (raw artifacts incomplete)"}`,
+      if (savedTrialMatchesCurrentInputs({
+        saved,
+        trialName,
+        round,
+        repetition,
+        combinationName,
+        combination,
+        draft,
+        transcriptSha256,
+        compatibleFingerprints,
+        legacyFingerprints,
+      })) {
+        const validatedDraft = validatedStageArtifacts(
+          trialDir,
+          "draft",
+          saved.stages.draft,
+          cwd,
+          combination.implementer.model,
         );
-        return saved;
+        let validatedAdvice;
+        if (combination.review_mode !== "self_review") {
+          validatedAdvice = validatedStageArtifacts(
+            trialDir,
+            "advice",
+            saved.stages.advice,
+            cwd,
+            combination.advisor.model,
+          );
+        }
+        const validatedFinal = validatedStageArtifacts(
+          trialDir,
+          "final",
+          saved.stages.final,
+          cwd,
+          combination.implementer.model,
+        );
+        const stages = {
+          draft: {
+            ...saved.stages.draft,
+            metrics: validatedDraft.metrics,
+          },
+          ...(validatedAdvice
+            ? {
+              advice: {
+                ...saved.stages.advice,
+                metrics: validatedAdvice.metrics,
+              },
+            }
+            : {}),
+          final: {
+            ...saved.stages.final,
+            metrics: validatedFinal.metrics,
+          },
+        };
+        const orderedStages = combination.review_mode === "self_review"
+          ? [stages.draft, stages.final]
+          : [stages.draft, stages.advice, stages.final];
+        const legacy = legacyFingerprints.has(saved.fingerprint);
+        const origin = legacy
+          ? validatedArtifactOrigin({
+            metadata: legacyOriginMetadata,
+            round,
+            provenance,
+            repetition,
+            implementer: combination.implementer,
+            combinationName,
+            fingerprint: saved.fingerprint,
+          })
+          : saved.artifact_provenance?.origin ?? provenance;
+        console.log(
+          `REUSE  ${trialName}${legacy ? " (validated legacy fingerprint)" : ""}`,
+        );
+        return {
+          ...saved,
+          stages,
+          totals: trialTotals(orderedStages),
+          review_mode: combination.review_mode === "self_review"
+            ? "self_review"
+            : "external_advisor",
+          advisor_mechanism: combination.review_mode === "self_review"
+            ? "none_independent_self_review"
+            : "transcript_fed_toolless_automatic_review",
+          eligible_for_decision: true,
+          artifact_provenance: legacy
+            ? {
+              origin,
+              reused_in: provenance,
+              reused_legacy_fingerprint: true,
+            }
+            : saved.artifact_provenance ?? {
+              origin,
+              reused_legacy_fingerprint: false,
+            },
+        };
       }
     } catch {
       console.log(`STALE  ${trialName} (invalid saved result)`);
@@ -992,9 +1722,54 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
 
   console.log(`START  ${trialName}`);
   writeStage(trialDir, "draft", draft);
+  if (combination.review_mode === "self_review") {
+    const reviewFocus = planningOnly
+      ? "source grounding, dependency ordering, implementation completeness, trust boundaries, verification, stop conditions, and calibrated uncertainty"
+      : "correctness, causal completeness, repair safety, test design, and calibrated uncertainty";
+    const finalPrompt = `Take one independent self-review pass over the draft. Re-check it against the repository evidence and the original task, then revise only where doing so materially improves ${reviewFocus}. Do not edit files, run builds/tests, create a Goal, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.`;
+    const final = await runOpenCode({
+      cwd,
+      ...combination.implementer,
+      agent: "benchmark_controller",
+      title: `${trialName}-final`,
+      prompt: finalPrompt,
+      dataHome,
+      authState,
+      session: draft.session_id,
+      fork: true,
+    });
+    writeStage(trialDir, "final", final);
+    const result = {
+      status: final.status === "completed" ? "completed" : "final_failed",
+      trial: trialName,
+      round,
+      repetition,
+      fingerprint,
+      combination: combinationName,
+      review_mode: "self_review",
+      advisor_mechanism: "none_independent_self_review",
+      eligible_for_decision: decisionEligible(final.status),
+      artifact_provenance: {
+        origin: provenance,
+        reused_legacy_fingerprint: false,
+      },
+      implementer: combination.implementer,
+      stages: {
+        draft: withoutEvents(draft),
+        final: withoutEvents(final),
+      },
+      totals: trialTotals([draft, final]),
+    };
+    writePrivateFile(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+    console.log(
+      `${result.status === "completed" ? "DONE" : "FAIL"}   ${trialName} ${result.totals.wall_time_seconds.toFixed(1)}s $${result.totals.recomputed_cost_usd.toFixed(4)} ${result.totals.tool_calls} tools`,
+    );
+    return result;
+  }
+
   const advisorPrompt =
     `## Conversation transcript so far\n${transcript}\n\n` +
-    `---\nExecutor's current focus: ${ADVISOR_FOCUS}\n\n` +
+    `---\nExecutor's current focus: ${planningOnly ? PLANNING_ADVISOR_FOCUS : ADVISOR_FOCUS}\n\n` +
     "Provide strategic guidance for the executor:";
   const advice = await runOpenCode({
     cwd,
@@ -1018,6 +1793,13 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
       repetition,
       fingerprint,
       combination: combinationName,
+      review_mode: "external_advisor",
+      advisor_mechanism: "transcript_fed_toolless_automatic_review",
+      eligible_for_decision: false,
+      artifact_provenance: {
+        origin: provenance,
+        reused_legacy_fingerprint: false,
+      },
       implementer: combination.implementer,
       advisor: combination.advisor,
       stages: {
@@ -1031,7 +1813,10 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
     return result;
   }
 
-  const finalPrompt = `The single permitted advisor tool returned the result below. Reconcile it against the evidence; do not accept it blindly. Do not edit files, run builds/tests, create a Goal, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.\n\n[tool: advisor] -> ${advice.text}`;
+  const reconciliation = planningOnly
+    ? "Reconcile it against the source evidence and original planning constraints; preserve dependency ordering, concrete correctness mechanisms, verification, and hard stops, and do not accept the advice blindly."
+    : "Reconcile it against the evidence; do not accept it blindly.";
+  const finalPrompt = `The single permitted advisor tool returned the result below. ${reconciliation} Do not edit files, run builds/tests, create a Goal, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.\n\n[tool: advisor] -> ${advice.text}`;
   const final = await runOpenCode({
     cwd,
     ...combination.implementer,
@@ -1052,6 +1837,13 @@ async function runTrial({ cwd, task, round, outputDir, combinationName, repetiti
     repetition,
     fingerprint,
     combination: combinationName,
+    review_mode: "external_advisor",
+    advisor_mechanism: "transcript_fed_toolless_automatic_review",
+    eligible_for_decision: decisionEligible(final.status),
+    artifact_provenance: {
+      origin: provenance,
+      reused_legacy_fingerprint: false,
+    },
     implementer: combination.implementer,
     advisor: combination.advisor,
     stages: {
@@ -1076,6 +1868,10 @@ async function main() {
     usage();
     throw error;
   }
+  openCodeLauncher = args.opencode_launcher ?? "direct";
+  if (!["direct", "notion-local"].includes(openCodeLauncher)) {
+    throw new Error("--opencode-launcher must be direct or notion-local");
+  }
   if (args.round) validateRoundName(args.round);
   if (args.summary_file) {
     for (const required of ["round", "output_dir", "rubric_file"]) {
@@ -1084,15 +1880,22 @@ async function main() {
         throw new Error(`Missing --${required.replaceAll("_", "-")}`);
       }
     }
-    const results = JSON.parse(
-      fs.readFileSync(path.resolve(args.summary_file), "utf8"),
-    );
+    let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
+    ensurePrivateDirectory(outputDir);
+    outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
+    const { results } = validatedSummarySource({
+      summaryFile: args.summary_file,
+      round: args.round,
+      planningOnly: args.planning_only,
+      rubricFile: args.rubric_file,
+    });
     writeGradingPacket({
-      outputDir: path.resolve(args.output_dir),
+      outputDir,
       round: args.round,
       results,
       rubricFile: args.rubric_file,
       seed: `${args.seed}:grading:${args.round}`,
+      planningOnly: args.planning_only,
     });
     return;
   }
@@ -1109,6 +1912,10 @@ async function main() {
     throw new Error("--concurrency must be 1 so OAuth refresh state and latency remain isolated");
   }
 
+  let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
+  ensurePrivateDirectory(outputDir);
+  outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
+
   const cwd = path.resolve(args.workdir ?? process.cwd());
   if (!fs.statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error(`Workdir is not a directory: ${cwd}`);
@@ -1120,7 +1927,6 @@ async function main() {
     );
   }
   const task = fs.readFileSync(path.resolve(args.task_file), "utf8").trim();
-  const outputDir = path.resolve(args.output_dir);
   const selected = args.combos.split(",").map((name) => name.trim()).filter(Boolean);
   if (selected.length === 0) {
     throw new Error("--combos must select at least one route");
@@ -1131,16 +1937,62 @@ async function main() {
   for (const name of selected) {
     if (!combinations[name]) throw new Error(`Unknown combination: ${name}`);
   }
-  ensurePrivateDirectory(outputDir);
+  if (args.draft_only) {
+    const implementers = selected.map((name) => implementerKey(combinations[name].implementer));
+    if (new Set(implementers).size !== implementers.length) {
+      throw new Error("--draft-only routes must select unique implementer model/variant pairs");
+    }
+  }
   if (isPathInside(fs.realpathSync(cwd), fs.realpathSync(outputDir))) {
     throw new Error(
       "--output-dir must be outside --workdir so the read-only benchmark controller cannot access private OpenCode state",
     );
   }
   const dataHome = preparePrivateDataHome(outputDir);
-  const authState = { content: loadAuthContent() };
+  const authState = { content: loadOpenCodeAuthContent() };
   absorbAndScrubPersistedAuth(dataHome, authState);
   writePrivateFile(path.join(outputDir, `${args.round}-task.md`), `${task}\n`);
+  const metadataPath = path.join(outputDir, `${args.round}-metadata.json`);
+  const summaryPath = path.join(outputDir, `${args.round}-summary.json`);
+  const previousMetadata = fs.existsSync(metadataPath)
+    ? JSON.parse(fs.readFileSync(metadataPath, "utf8"))
+    : undefined;
+  const previousSummaryContents = fs.existsSync(summaryPath)
+    ? fs.readFileSync(summaryPath, "utf8")
+    : undefined;
+  const previousSummarySha256 = previousSummaryContents
+    ? createHash("sha256").update(previousSummaryContents).digest("hex")
+    : undefined;
+  if (
+    previousMetadata?.summary_sha256 &&
+    previousMetadata.summary_sha256 !== previousSummarySha256
+  ) {
+    throw new Error("Existing benchmark summary does not match its metadata hash");
+  }
+  const previousSummary = previousSummaryContents
+    ? JSON.parse(previousSummaryContents)
+    : undefined;
+  const previousRunnerIsLegacy = previousMetadata && (
+    previousMetadata.runner_sha256 === undefined ||
+    LEGACY_DRAFT_RUNNER_SHA256S.includes(previousMetadata.runner_sha256)
+  );
+  const legacyOriginMetadata = previousMetadata?.legacy_origin_metadata ?? (
+    previousRunnerIsLegacy ? previousMetadata : undefined
+  );
+  const legacyOriginDrafts = previousMetadata?.legacy_origin_drafts ??
+    (previousRunnerIsLegacy ? draftManifest(previousSummary) : []);
+  const legacyOriginSummarySha256 =
+    previousMetadata?.legacy_origin_summary_sha256 ??
+    (previousRunnerIsLegacy ? previousSummarySha256 : undefined);
+  const previousRunnerIsCurrent = previousMetadata?.runner_sha256 === RUNNER_SHA256 &&
+    previousMetadata.summary_sha256 === previousSummarySha256;
+  const frozenOriginMetadata = previousMetadata?.frozen_draft_origin_metadata ??
+    (previousRunnerIsCurrent ? previousMetadata : undefined);
+  const frozenOriginDrafts = previousMetadata?.frozen_draft_origin_drafts ??
+    (previousRunnerIsCurrent ? draftManifest(previousSummary) : []);
+  const frozenOriginSummarySha256 =
+    previousMetadata?.frozen_draft_origin_summary_sha256 ??
+    (previousRunnerIsCurrent ? previousSummarySha256 : undefined);
 
   const executionOrder = Object.fromEntries(
     Array.from({ length: args.repeat }, (_, index) => {
@@ -1151,21 +2003,55 @@ async function main() {
       ];
     }),
   );
-  const allModels = [...new Set(selected.flatMap((name) => [
-    combinations[name].implementer.model,
-    combinations[name].advisor.model,
-  ]))];
+  const allSelections = new Map();
+  for (const selection of selected.flatMap((name) => {
+    const combination = combinations[name];
+    return [
+      combination.implementer,
+      ...(args.draft_only || !combination.advisor ? [] : [combination.advisor]),
+    ];
+  })) {
+    const key = `${selection.model}#${selection.variant ?? "default"}`;
+    allSelections.set(key, selection);
+  }
+  const modelRoutes = Object.fromEntries(
+    [...allSelections].map(([key, selection]) => {
+      const route = modelRouteProvenance(cwd, selection);
+      return [key, {
+        ...route,
+        selected_variant: selection.variant ?? null,
+      }];
+    }),
+  );
+  const protocol = args.planning_only
+    ? args.draft_only
+      ? PLANNING_PROTOCOL
+      : PLANNING_REVIEW_PROTOCOL
+    : args.draft_only
+      ? DIRECT_PROTOCOL
+      : PROTOCOL;
+  const draftProtocol = args.planning_only ? PLANNING_PROTOCOL : protocol;
   const metadata = {
     round: args.round,
     seed: String(args.seed),
+    opencode_launcher: openCodeLauncher,
     workdir: cwd,
     opencode_version: openCodeVersion(),
-    protocol: PROTOCOL,
+    runner_sha256: RUNNER_SHA256,
+    protocol,
+    draft_protocol: draftProtocol,
+    planning_only: args.planning_only,
     repeat: args.repeat,
     concurrency: args.concurrency,
-    controller_steps: CONTROLLER_STEPS,
-    advisor_steps: ADVISOR_STEPS,
-    request_timeout_seconds: REQUEST_TIMEOUT_MS / 1000,
+    controller_steps: null,
+    controller_step_policy:
+      "Uncapped so production-shaped analysis and planning are bounded by the request timeout rather than an artificial step ceiling.",
+    advisor_steps: args.draft_only || selected.every(
+      (name) => combinations[name].review_mode === "self_review",
+    ) ? 0 : ADVISOR_STEPS,
+    request_timeout_seconds: args.draft_only
+      ? DIRECT_REQUEST_TIMEOUT_MS / 1000
+      : REQUEST_TIMEOUT_MS / 1000,
     termination_grace_seconds: TERMINATION_GRACE_MS / 1000,
     advisor_system_sha256: createHash("sha256").update(ADVISOR_SYSTEM).digest("hex"),
     cost_semantics: {
@@ -1173,11 +2059,19 @@ async function main() {
         "Each stage sums completed OpenCode request events. A timed-out or otherwise incomplete request is a lower bound because no terminal usage event may exist.",
       openai_long_context:
         "For OpenAI requests above 272k input plus cache-read plus cache-write tokens, recomputed cost applies 2x to input/cache and 1.5x to output including reasoning.",
-      route_total:
-        "Each route total includes its implementer draft, even when that draft is shared with other advisor routes. Treat this as the counterfactual cost of choosing the route; do not sum route totals to estimate experiment spend.",
+      gpt55_cache_write:
+        "GPT-5.5 uses documented input, cache-read, and output rates. A request with cache-write usage retains its event-reported cost because the local provider catalog does not expose a defensible cache-write rate.",
+      route_total: args.draft_only
+        ? "Each direct route total contains one independent controller draft."
+        : "Each route total includes its implementer draft, even when that draft is shared with other advisor routes. Treat this as the counterfactual cost of choosing the route; do not sum route totals to estimate experiment spend.",
       experiment_spend:
         "The final metadata records each shared draft once plus each route's advice and revision stages. Reused completed artifacts remain part of the recorded experiment but do not incur new spend in the current invocation.",
     },
+    decision_eligibility:
+      "Only completed, policy-compliant controller or revised-final artifacts are eligible for routing decisions. Failed, timed-out, incomplete, and policy-violating artifacts may be graded only for diagnosis.",
+    advisor_mechanism: args.draft_only
+      ? undefined
+      : "This benchmark models transcript-fed, tool-less automatic review. It does not measure the shipped isolated /advise command.",
     state_storage: {
       database: "Private XDG data directory under output-dir (directories 0700; files 0600).",
       authentication:
@@ -1193,21 +2087,77 @@ async function main() {
     benchmark_config_sha256: createHash("sha256")
       .update(createBenchmarkConfig(cwd))
       .digest("hex"),
-    model_catalog_sha256: Object.fromEntries(
-      allModels.map((model) => [model, modelCatalogHash(cwd, model)]),
+    benchmark_instructions: benchmarkInstructionManifest(cwd),
+    fingerprint_schema: {
+      draft: 6,
+      trial: 3,
+      legacy_provider_catalog_fingerprints: "validated_when_reproducible",
+    },
+    model_routes: modelRoutes,
+    model_route_sha256: Object.fromEntries(
+      Object.entries(modelRoutes).map(([key, route]) => [key, route.sha256]),
+    ),
+    legacy_provider_catalog_sha256: Object.fromEntries(
+      [...new Set([...allSelections.values()].map(({ model }) => model))]
+        .map((model) => [model, modelCatalogHash(cwd, model)]),
     ),
     selected_routes: selected,
     execution_order: executionOrder,
     grading_seed: `${args.seed}:grading:${args.round}`,
+    legacy_origin_metadata: legacyOriginMetadata
+      ? {
+        round: legacyOriginMetadata.round,
+        seed: String(legacyOriginMetadata.seed),
+        repeat: legacyOriginMetadata.repeat,
+        runner_sha256: legacyOriginMetadata.runner_sha256 ?? null,
+        protocol: legacyOriginMetadata.protocol,
+        draft_protocol: legacyOriginMetadata.draft_protocol,
+        selected_routes: legacyOriginMetadata.selected_routes,
+        execution_order: legacyOriginMetadata.execution_order,
+      }
+      : undefined,
+    legacy_origin_drafts: legacyOriginDrafts.length > 0
+      ? legacyOriginDrafts
+      : undefined,
+    legacy_origin_summary_sha256: legacyOriginSummarySha256,
+    frozen_draft_origin_metadata: frozenOriginMetadata
+      ? {
+        round: frozenOriginMetadata.round,
+        seed: String(frozenOriginMetadata.seed),
+        repeat: frozenOriginMetadata.repeat,
+        runner_sha256: frozenOriginMetadata.runner_sha256,
+        protocol: frozenOriginMetadata.protocol,
+        draft_protocol: frozenOriginMetadata.draft_protocol,
+        selected_routes: frozenOriginMetadata.selected_routes,
+        execution_order: frozenOriginMetadata.execution_order,
+      }
+      : undefined,
+    frozen_draft_origin_drafts: frozenOriginDrafts.length > 0
+      ? frozenOriginDrafts
+      : undefined,
+    frozen_draft_origin_summary_sha256: frozenOriginSummarySha256,
   };
   writePrivateFile(
-    path.join(outputDir, `${args.round}-metadata.json`),
+    metadataPath,
     `${JSON.stringify(metadata, null, 2)}\n`,
   );
+
+  if (args.validate_only) {
+    absorbAndScrubPersistedAuth(dataHome, authState);
+    console.log(`OK     ${args.round} benchmark inputs and model catalogs validated`);
+    return;
+  }
 
   const results = [];
   for (let repetition = 1; repetition <= args.repeat; repetition += 1) {
     const orderedCombinations = executionOrder[`repetition_${repetition}`];
+    const repetitionProvenance = {
+      round: args.round,
+      seed: String(args.seed),
+      repetition,
+      execution_order: [...orderedCombinations],
+      runner_sha256: RUNNER_SHA256,
+    };
     const drafts = new Map();
     for (const combinationName of orderedCombinations) {
       const implementer = combinations[combinationName].implementer;
@@ -1222,8 +2172,37 @@ async function main() {
           repetition,
           dataHome,
           authState,
+          protocol: draftProtocol,
+          planningOnly: args.planning_only,
+          provenance: repetitionProvenance,
+          legacyOriginMetadata,
+          legacyOriginDrafts,
+          frozenOriginMetadata,
+          frozenOriginDrafts,
         }));
       }
+    }
+    if (args.draft_only) {
+      for (const combinationName of orderedCombinations) {
+        const combination = combinations[combinationName];
+        const draft = drafts.get(implementerKey(combination.implementer));
+        results.push({
+          status: draft.status,
+          trial: `${args.round}-${combinationName}-r${repetition}-direct`,
+          round: args.round,
+          repetition,
+          combination: combinationName,
+          implementer: combination.implementer,
+          eligible_for_decision: decisionEligible(draft.status),
+          artifact_provenance: draft.artifact_provenance ?? repetitionProvenance,
+          stages: { draft: withoutEvents(draft) },
+          totals: {
+            ...trialTotals([draft]),
+            cost_scope: "direct_controller_route_cost",
+          },
+        });
+      }
+      continue;
     }
     for (let index = 0; index < orderedCombinations.length; index += args.concurrency) {
       const batch = orderedCombinations.slice(index, index + args.concurrency);
@@ -1239,17 +2218,26 @@ async function main() {
           draft: drafts.get(implementerKey(implementer)),
           dataHome,
           authState,
+          protocol,
+          planningOnly: args.planning_only,
+          provenance: {
+            ...repetitionProvenance,
+            route_position: orderedCombinations.indexOf(combinationName),
+          },
+          legacyOriginMetadata,
         });
       })));
     }
   }
-  writePrivateFile(
-    path.join(outputDir, `${args.round}-summary.json`),
-    `${JSON.stringify(results, null, 2)}\n`,
-  );
+  const summaryContents = `${JSON.stringify(results, null, 2)}\n`;
+  writePrivateFile(summaryPath, summaryContents);
+  metadata.summary_sha256 = createHash("sha256")
+    .update(summaryContents)
+    .digest("hex");
+  metadata.summary_result_count = results.length;
   metadata.recorded_experiment_cost = recordedExperimentCosts(results);
   writePrivateFile(
-    path.join(outputDir, `${args.round}-metadata.json`),
+    metadataPath,
     `${JSON.stringify(metadata, null, 2)}\n`,
   );
   writeGradingPacket({
@@ -1258,8 +2246,11 @@ async function main() {
     results,
     rubricFile: args.rubric_file,
     seed: metadata.grading_seed,
+    planningOnly: args.planning_only,
   });
   absorbAndScrubPersistedAuth(dataHome, authState);
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}

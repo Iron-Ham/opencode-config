@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-07-14",
+  "scope": "OpenCode routes for GLM 5.2 and Kimi K2.7 Code across Baseten and Fireworks",
+  "evidence_status": {
+    "managed_provider_resolution_verified": true,
+    "authenticated_fireworks_trials": 0,
+    "matched_provider_quality_trials": 0,
+    "reason": "A Fireworks credential was not present in the evaluation environment. Availability and protocol are verified; quality, reliability, and realized latency are pending matched inference runs."
+  },
+  "route_definition": "model + provider + serving path + reasoning setting",
+  "catalog_snapshot": {
+    "opencode_version": "1.18.1",
+    "context_values": "Resolved OpenCode catalog limits for each exact provider/model route; provider marketing pages may round them differently."
+  },
+  "routes": [
+    {
+      "route": "GLM 5.2 / Baseten / Standard / max",
+      "model": "baseten/zai-org/GLM-5.2",
+      "published_usd_per_million_tokens": {
+        "input": 1.4,
+        "cache_read": 0.26,
+        "output": 4.4
+      },
+      "opencode_catalog_cache_read_snapshot": 0.3,
+      "opencode_catalog_context_tokens": 1048576,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "GLM 5.2 / Fireworks / Standard / max",
+      "model": "fireworks-ai/accounts/fireworks/models/glm-5p2",
+      "published_usd_per_million_tokens": {
+        "input": 1.4,
+        "cache_read": 0.14,
+        "output": 4.4
+      },
+      "opencode_catalog_context_tokens": 1048575,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "GLM 5.2 / Fireworks / Fast / max",
+      "model": "fireworks-ai/accounts/fireworks/routers/glm-5p2-fast",
+      "published_usd_per_million_tokens": {
+        "input": 2.1,
+        "cache_read": 0.21,
+        "output": 6.6
+      },
+      "opencode_catalog_context_tokens": 1048575,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "Kimi K2.7 Code / Baseten / Standard / default reasoning",
+      "model": "baseten/moonshotai/Kimi-K2.7-Code",
+      "published_usd_per_million_tokens": {
+        "input": 0.95,
+        "cache_read": 0.16,
+        "output": 4.0
+      },
+      "opencode_catalog_context_tokens": 262000,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "Kimi K2.7 Code / Fireworks / Standard / default reasoning",
+      "model": "fireworks-ai/accounts/fireworks/models/kimi-k2p7-code",
+      "published_usd_per_million_tokens": {
+        "input": 0.95,
+        "cache_read": 0.19,
+        "output": 4.0
+      },
+      "opencode_catalog_context_tokens": 262000,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "Kimi K2.7 Code / Fireworks / Fast / default reasoning",
+      "model": "fireworks-ai/accounts/fireworks/routers/kimi-k2p7-code-fast",
+      "published_usd_per_million_tokens": {
+        "input": 1.9,
+        "cache_read": 0.38,
+        "output": 8.0
+      },
+      "opencode_catalog_context_tokens": 262000,
+      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    }
+  ],
+  "vendor_time_evidence": [
+    {
+      "claim": "Fireworks Fast targets more than 100 generated tokens per second and retains the same model weights as Standard.",
+      "status": "vendor claim; not a measured OpenCode result",
+      "source": "https://docs.fireworks.ai/serverless/serving-paths"
+    },
+    {
+      "claim": "Fireworks reports GLM 5.2 Fast at roughly two to three times Standard throughput, with a moving benchmark peak of 446 tokens per second.",
+      "status": "vendor snapshot; not a measured OpenCode result",
+      "source": "https://fireworks.ai/blog/glm-5p2-fast"
+    },
+    {
+      "claim": "Baseten reports more than 280 generated tokens per second for GLM 5.2 in its serving benchmark.",
+      "status": "vendor snapshot; observed harness wall time must be measured independently",
+      "source": "https://www.baseten.co/blog/how-we-built-the-worlds-fastest-api-for-glm-52/"
+    }
+  ],
+  "configuration_decision": {
+    "production_defaults_changed": false,
+    "automatic_role_assignment": false,
+    "small_model_assignment": false,
+    "model_picker": "Fireworks Standard and Fast GLM/Kimi routes are installed alongside Baseten",
+    "commands": [
+      "/glm",
+      "/glm-fireworks",
+      "/glm-fireworks-fast",
+      "/kimi",
+      "/kimi-fireworks",
+      "/kimi-fireworks-fast"
+    ],
+    "rationale": "Provider availability is not role evidence. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
+  },
+  "role_assessment": [
+    {
+      "role": "production controller or writable general child",
+      "decision": "retain Terra xhigh",
+      "required_open_weight_evidence": "three iOS implementation workloads with repeated hidden-test correctness and policy compliance"
+    },
+    {
+      "role": "bounded implementer",
+      "decision": "GLM remains an explicit experiment",
+      "required_open_weight_evidence": "non-inferior correctness plus lower total cost or time per valid result"
+    },
+    {
+      "role": "plan",
+      "decision": "retain Terra xhigh",
+      "required_open_weight_evidence": "repeated production-shaped planning with blind grading and fatal-safety caps"
+    },
+    {
+      "role": "reader or retained specialist",
+      "decision": "Kimi remains an explicit bounded reader",
+      "required_open_weight_evidence": "answer-key citation precision, recall, completion, cost, and latency"
+    },
+    {
+      "role": "advisor",
+      "decision": "retain provisional Opus 4.8 xhigh for explicit /advise",
+      "required_open_weight_evidence": "frozen-draft review followed by downstream reconciliation and outcome grading"
+    },
+    {
+      "role": "compaction",
+      "decision": "inherit the active session model",
+      "required_open_weight_evidence": "semantic retention, instruction retention, privacy, and transcript-egress approval"
+    }
+  ],
+  "matched_protocol": {
+    "metadata_gate": "Pin OpenCode version and exact provider model IDs; compare effective API IDs, context, capabilities, reasoning variants, interleaving, and system-prompt dispatch.",
+    "implementation_screen": "Three production-shaped iOS Swift fixtures, one balanced screening run per open-weight route plus contemporaneous Terra; advance only completed, policy-compliant routes.",
+    "implementation_confirmation": "Three balanced repeats per advanced route with hidden tests and a locked quality floor.",
+    "planning": "Two production-shaped iOS planning clusters, two repeats, contemporaneous Terra, and three blind graders per eligible answer.",
+    "reader": "Bounded exact-file questions with answer keys and citation scoring.",
+    "decision_order": [
+      "completion and policy compliance",
+      "critical correctness and quality-floor pass",
+      "non-inferiority to the role incumbent",
+      "normalized total cost per valid result",
+      "model-session time and time to first observed action",
+      "retry and provider-failure rate"
+    ],
+    "timing_semantics": "OpenCode event timestamps yield launcher startup, time to first observed action, time to first text block, model-session duration, and per-step decision latency. They are not vendor TTFT."
+  },
+  "sources": [
+    "https://opencode.ai/docs/providers",
+    "https://docs.fireworks.ai/serverless/pricing",
+    "https://docs.fireworks.ai/serverless/serving-paths",
+    "https://www.baseten.co/pricing/"
+  ]
+}

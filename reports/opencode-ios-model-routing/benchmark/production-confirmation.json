@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "protocol": "generalized-production-source-analysis-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "source",
+      "repository_identity",
+      "paths",
+      "symbols",
+      "commit_identifiers",
+      "prompts",
+      "rubrics",
+      "raw_answers",
+      "grader_keys",
+      "session_identifiers"
+    ]
+  },
+  "coverage": {
+    "workload_count": 2,
+    "blind_grader_count_per_workload": 3,
+    "quality_pass_threshold": 85,
+    "paid_trial_count": 6,
+    "recorded_cost_usd": 15.117728,
+    "cost_stop_usd": 15,
+    "cost_stop_note": "The final in-flight request completed slightly beyond the stop. No additional paid production trials were started."
+  },
+  "workloads": [
+    {
+      "id": "repository-map",
+      "category": "long-horizon repository and production-composition mapping",
+      "arms": [
+        {
+          "model": "luna-high",
+          "execution_status": "completed",
+          "policy_compliant": true,
+          "wall_time_seconds": 333.45783,
+          "observed_cost_usd": 0.849023,
+          "cost_completeness": "complete_for_observed_requests",
+          "blind_mean_score": 73.4167,
+          "quality_floor_passed": false
+        },
+        {
+          "model": "luna-xhigh",
+          "execution_status": "policy_violation",
+          "policy_compliant": false,
+          "wall_time_seconds": 736.296415,
+          "observed_cost_usd": 1.58082,
+          "cost_completeness": "completed_requests_lower_bound",
+          "blind_mean_score": 73,
+          "quality_floor_passed": false
+        },
+        {
+          "model": "terra-xhigh",
+          "execution_status": "completed",
+          "policy_compliant": true,
+          "wall_time_seconds": 665.299181,
+          "observed_cost_usd": 2.801845,
+          "cost_completeness": "complete_for_observed_requests",
+          "blind_mean_score": 82.75,
+          "quality_floor_passed": false
+        },
+        {
+          "model": "terra-max",
+          "execution_status": "timeout",
+          "policy_compliant": true,
+          "wall_time_seconds": 900.022536,
+          "observed_cost_usd": 5.538277,
+          "cost_completeness": "completed_requests_lower_bound",
+          "blind_mean_score": 49.5,
+          "quality_floor_passed": false
+        }
+      ]
+    },
+    {
+      "id": "artifact-triage",
+      "category": "multi-boundary production-blocker source triage",
+      "arms": [
+        {
+          "model": "luna-xhigh",
+          "execution_status": "policy_violation",
+          "policy_compliant": false,
+          "wall_time_seconds": 900.02738,
+          "observed_cost_usd": 2.608748,
+          "cost_completeness": "completed_requests_lower_bound",
+          "blind_mean_score": 20.6667,
+          "quality_floor_passed": false
+        },
+        {
+          "model": "terra-xhigh",
+          "execution_status": "completed",
+          "policy_compliant": true,
+          "wall_time_seconds": 568.46182,
+          "observed_cost_usd": 1.739016,
+          "cost_completeness": "complete_for_observed_requests",
+          "blind_mean_score": 79,
+          "quality_floor_passed": false
+        }
+      ]
+    }
+  ],
+  "matched_xhigh_summary": {
+    "terra": {
+      "completed_and_policy_compliant": 2,
+      "attempted": 2,
+      "combined_wall_time_seconds": 1233.761001,
+      "combined_cost_usd": 4.540861,
+      "cost_completeness": "complete_for_observed_requests",
+      "mean_blind_score": 80.875
+    },
+    "luna": {
+      "completed_and_policy_compliant": 0,
+      "attempted": 2,
+      "combined_wall_time_seconds": 1636.323795,
+      "combined_observed_cost_usd": 4.189568,
+      "cost_completeness": "completed_requests_lower_bound",
+      "mean_blind_score": 46.8334
+    },
+    "terra_cost_premium_over_luna_lower_bound": 0.083849,
+    "terra_wall_time_reduction": 0.246017
+  },
+  "decision": {
+    "production_default": "terra-xhigh",
+    "bounded_cost_saving_lane": "luna-high",
+    "automatic_advisor_policy": "off_by_default_pending_outcome-changing_evidence",
+    "requested_advisor_model": "not_determined_by_this_experiment",
+    "luna_high": "directional_bounded_lane_from_one_matched_cluster",
+    "terra_max": "not_selected_after_one_timed_out_attempt",
+    "confidence": "directional_not_production_proof"
+  },
+  "limitations": [
+    "No production-shaped arm cleared the locked 85-point quality floor.",
+    "These are source-analysis controllers, not full multi-day edit-build-simulator-CI-shipping runs.",
+    "The Luna cost total is a lower bound because both xhigh routes ended with policy violations.",
+    "Luna high was attempted on only one workload cluster, so its bounded-lane designation is directional.",
+    "The production tier has two workload clusters and one attempt per included model and cluster.",
+    "Sol high versus xhigh versus max remains deferred."
+  ]
+}

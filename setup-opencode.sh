@@ -6,11 +6,140 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCODE_DIR="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
+LEGACY_SHARED_SKILLS_DIR="$HOME/.agents/skills"
+RETIRED_OPENCODE_AGENT_NAMES=(
+  backend_architect
+  evidence_collector
+  frontend_developer
+  git_workflow_master
+  sol_reviewer
+  technical_writer
+)
+preflight_dir=""
+transaction_snapshot_dir=""
+transaction_active=false
+transaction_committed=false
+
+for command in python3 bun opencode; do
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "ERROR  $command is required for OpenCode setup" >&2
+    exit 1
+  fi
+done
+
+normalize_path() {
+  python3 -c 'import os, sys; print(os.path.realpath(os.path.abspath(os.path.expanduser(sys.argv[1]))))' "$1"
+}
+
+normalized_home="$(normalize_path "$HOME")"
+OPENCODE_DIR="$(normalize_path "$OPENCODE_DIR")"
+LEGACY_SHARED_SKILLS_DIR="$(normalize_path "$LEGACY_SHARED_SKILLS_DIR")"
+TRANSACTION_TMP_ROOT="$(normalize_path "${OPENCODE_SETUP_TMPDIR:-${TMPDIR:-/tmp}}")"
+
+assert_safe_tree() {
+  local tree="$1"
+  local label="$2"
+  if [ -z "$tree" ] || [ "$tree" = "/" ] || [ "$tree" = "$normalized_home" ]; then
+    echo "ERROR  unsafe $label path: $tree" >&2
+    exit 1
+  fi
+}
+
+assert_safe_tree "$OPENCODE_DIR" "OpenCode configuration"
+assert_safe_tree "$LEGACY_SHARED_SKILLS_DIR" "legacy shared skills"
+if [ "$OPENCODE_DIR" = "$LEGACY_SHARED_SKILLS_DIR" ] || \
+  [[ "$OPENCODE_DIR/" == "$LEGACY_SHARED_SKILLS_DIR/"* ]] || \
+  [[ "$LEGACY_SHARED_SKILLS_DIR/" == "$OPENCODE_DIR/"* ]]; then
+  echo "ERROR  OpenCode and legacy shared-skill trees must not overlap" >&2
+  exit 1
+fi
+if [ "$TRANSACTION_TMP_ROOT" = "$OPENCODE_DIR" ] || \
+  [ "$TRANSACTION_TMP_ROOT" = "$LEGACY_SHARED_SKILLS_DIR" ] || \
+  [[ "$TRANSACTION_TMP_ROOT/" == "$OPENCODE_DIR/"* ]] || \
+  [[ "$TRANSACTION_TMP_ROOT/" == "$LEGACY_SHARED_SKILLS_DIR/"* ]]; then
+  echo "ERROR  OpenCode setup temporary storage must be outside active configuration trees" >&2
+  exit 1
+fi
+
 OPENCODE_AGENTS_DIR="$OPENCODE_DIR/agents"
 OPENCODE_COMMANDS_DIR="$OPENCODE_DIR/commands"
 OPENCODE_SKILLS_DIR="$OPENCODE_DIR/skills"
 OPENCODE_BACKUP_DIR="$OPENCODE_DIR/backups/setup-opencode"
-LEGACY_SHARED_SKILLS_DIR="$HOME/.agents/skills"
+
+tree_exists() {
+  [ -e "$1" ] || [ -L "$1" ]
+}
+
+snapshot_tree() {
+  local tree="$1"
+  local name="$2"
+
+  if tree_exists "$tree"; then
+    printf 'present\n' > "$transaction_snapshot_dir/$name.state"
+    cp -a "$tree" "$transaction_snapshot_dir/$name"
+  else
+    printf 'absent\n' > "$transaction_snapshot_dir/$name.state"
+  fi
+}
+
+restore_tree() {
+  local tree="$1"
+  local name="$2"
+  local state
+  state="$(<"$transaction_snapshot_dir/$name.state")"
+
+  rm -rf "$tree"
+  if [ "$state" = "present" ]; then
+    mkdir -p "$(dirname "$tree")"
+    cp -a "$transaction_snapshot_dir/$name" "$tree"
+  fi
+}
+
+begin_transaction() {
+  transaction_snapshot_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-transaction.XXXXXX")"
+  chmod 700 "$transaction_snapshot_dir"
+  snapshot_tree "$OPENCODE_DIR" opencode
+  snapshot_tree "$LEGACY_SHARED_SKILLS_DIR" legacy-shared-skills
+  transaction_active=true
+}
+
+commit_transaction() {
+  local snapshot="$transaction_snapshot_dir"
+  if ! rm -rf "$snapshot"; then
+    echo "WARN   validated OpenCode setup left transaction snapshot at $snapshot" >&2
+  fi
+  transaction_snapshot_dir=""
+  transaction_committed=true
+  transaction_active=false
+}
+
+on_exit() {
+  local status="$?"
+  local rollback_status=0
+  trap - EXIT
+  set +e
+
+  if [ "$transaction_active" = true ] && [ "$transaction_committed" != true ]; then
+    echo "ROLLBACK OpenCode setup failed; restoring the previous configuration" >&2
+    restore_tree "$OPENCODE_DIR" opencode || rollback_status=1
+    restore_tree "$LEGACY_SHARED_SKILLS_DIR" legacy-shared-skills || rollback_status=1
+    if [ "$rollback_status" -ne 0 ]; then
+      echo "ERROR  OpenCode setup rollback could not restore every active tree" >&2
+      echo "KEEP   recovery snapshot at $transaction_snapshot_dir" >&2
+      status=1
+    fi
+  fi
+
+  if [ -n "$preflight_dir" ]; then
+    rm -rf "$preflight_dir"
+  fi
+  if [ -n "$transaction_snapshot_dir" ] && [ "$rollback_status" -eq 0 ]; then
+    rm -rf "$transaction_snapshot_dir"
+  fi
+  exit "$status"
+}
+
+trap on_exit EXIT
 
 backup_timestamp() {
   date +%Y%m%d%H%M%S
@@ -57,16 +186,28 @@ link_item() {
   echo "LINK   $dest -> $src"
 }
 
-for command in python3 bun opencode; do
-  if ! command -v "$command" >/dev/null 2>&1; then
-    echo "ERROR  $command is required for OpenCode setup" >&2
-    exit 1
+retire_repo_agent_link() {
+  local name="$1"
+  local dest="$OPENCODE_AGENTS_DIR/$name.md"
+  local retired_target="$REPO_DIR/opencode/agents/$name.md"
+
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$retired_target" ]; then
+    rm "$dest"
+    echo "UNLINK $dest (retired repo-managed agent)"
   fi
-done
+}
+
+advisor_enabled="$(
+  OPENCODE_ROUTING_PATH="$OPENCODE_DIR/model-routing.config.local.json" bun -e '
+    const fs = require("node:fs")
+    const file = process.env.OPENCODE_ROUTING_PATH
+    const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {}
+    process.stdout.write(String(config.advisor_enabled ?? true))
+  '
+)"
 
 if ! command -v notion >/dev/null 2>&1 && ! {
-  [ -e "$OPENCODE_DIR/plugins/advisor.ts" ] && \
-    [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
+  [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/tuist-generated-projects/SKILL.md" ];
@@ -76,44 +217,46 @@ if ! command -v notion >/dev/null 2>&1 && ! {
 fi
 
 python3 "$REPO_DIR/scripts/generate-opencode-agents.py" --check
-bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$OPENCODE_DIR" --check
+bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
+  "$REPO_DIR" "$OPENCODE_DIR" --check --validate-model-routing
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --check-refresh
 
-preflight_dir="$(mktemp -d "${TMPDIR:-/tmp}/opencode-config-preflight.XXXXXX")"
-trap 'rm -R "$preflight_dir"' EXIT
+preflight_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-preflight.XXXXXX")"
 mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands"
 for relative_path in \
   opencode.json \
   opencode.jsonc \
   tui.json \
   package.json \
-  plugins/advisor.config.local.json; do
+  model-routing.config.local.json; do
   if [ -f "$OPENCODE_DIR/$relative_path" ]; then
     cp "$OPENCODE_DIR/$relative_path" "$preflight_dir/$relative_path"
   fi
 done
 cp -R "$REPO_DIR/opencode/agents/." "$preflight_dir/agents/"
 cp -R "$REPO_DIR/opencode/commands/." "$preflight_dir/commands/"
+if [ "$advisor_enabled" != "true" ]; then
+  rm "$preflight_dir/commands/advise.md"
+fi
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$preflight_dir" >/dev/null
 bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" "$REPO_DIR" "$preflight_dir"
 rm -R "$preflight_dir"
-trap - EXIT
+preflight_dir=""
 
-plugin_sdk_required="$(bun -e 'const file = await Bun.file(process.argv[1]).json(); process.stdout.write(file.dependencies["@opencode-ai/plugin"]);' "$REPO_DIR/opencode/package.defaults.json")"
-plugin_sdk_installed=""
-if [ -f "$OPENCODE_DIR/node_modules/@opencode-ai/plugin/package.json" ]; then
-  plugin_sdk_installed="$(bun -e 'const file = await Bun.file(process.argv[1]).json(); process.stdout.write(file.version);' "$OPENCODE_DIR/node_modules/@opencode-ai/plugin/package.json")"
-fi
-if [ "$plugin_sdk_installed" != "$plugin_sdk_required" ] && ! command -v npm >/dev/null 2>&1; then
-  echo "ERROR  OpenCode plugin SDK $plugin_sdk_required needs installation and npm is unavailable" >&2
-  exit 1
-fi
+begin_transaction
+
+bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
+  "$OPENCODE_DIR" --retire-obsolete
 
 mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
 chmod 700 "$OPENCODE_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
+
+for name in "${RETIRED_OPENCODE_AGENT_NAMES[@]}"; do
+  retire_repo_agent_link "$name"
+done
 
 for src in "$REPO_DIR"/opencode/agents/*.md; do
   [ -e "$src" ] || continue
@@ -175,21 +318,24 @@ fi
 for src in "$REPO_DIR"/opencode/commands/*.md; do
   [ -e "$src" ] || continue
   name="$(basename "$src")"
+  if [ "$name" = "advise.md" ] && [ "$advisor_enabled" != "true" ]; then
+    dest="$OPENCODE_COMMANDS_DIR/$name"
+    if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+      rm "$dest"
+      echo "UNLINK $dest (advisor lane disabled)"
+    fi
+    continue
+  fi
   link_item "$src" "$OPENCODE_COMMANDS_DIR/$name" "OpenCode command $name"
 done
 
 if command -v notion >/dev/null 2>&1; then
-  trap 'bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR" --restore-refresh' EXIT
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --prepare-refresh
   notion ai plugins add --agent opencode --strict \
-    advisor mobile mobile-ios observability tuist
+    mobile mobile-ios observability tuist
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
-  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-    "$OPENCODE_DIR" --commit-refresh
-  trap - EXIT
-elif [ -e "$OPENCODE_DIR/plugins/advisor.ts" ] && \
-  [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
+elif [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
   [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
   [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
   [ -e "$OPENCODE_DIR/skills/tuist-generated-projects/SKILL.md" ]; then
@@ -201,23 +347,21 @@ fi
 if ! command -v notion >/dev/null 2>&1; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
 fi
+bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
+  "$OPENCODE_DIR" --retire-unsupported-agents
 
-bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$OPENCODE_DIR"
-
-if [ "$plugin_sdk_installed" = "$plugin_sdk_required" ]; then
-  echo "OK     OpenCode plugin SDK $plugin_sdk_required"
-elif command -v npm >/dev/null 2>&1; then
-  (
-    cd "$OPENCODE_DIR"
-    npm install --ignore-scripts --no-audit --no-fund
-  )
-else
-  echo "ERROR  OpenCode plugin SDK $plugin_sdk_required is missing and npm is unavailable" >&2
-  exit 1
-fi
+bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
+  "$REPO_DIR" "$OPENCODE_DIR" --validate-model-routing
 
 bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --with-plugins
+
+if command -v notion >/dev/null 2>&1; then
+  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
+    "$OPENCODE_DIR" --commit-refresh
+fi
+
+commit_transaction
 
 echo ""
 echo "Done. OpenCode rules, agents, commands, and managed defaults are installed."
