@@ -1,17 +1,19 @@
 {
   "schema_version": 1,
-  "snapshot_date": "2026-07-14",
-  "scope": "OpenCode routes for GLM 5.2 and Kimi K2.7 Code across Baseten and Fireworks",
+  "snapshot_date": "2026-07-16",
+  "scope": "OpenCode routes for GLM 5.2 and Kimi K2.7 Code across Baseten and Fireworks, plus DeepSeek V4 Pro on Baseten",
   "evidence_status": {
     "managed_provider_resolution_verified": true,
     "authenticated_fireworks_trials": 0,
     "matched_provider_quality_trials": 0,
-    "reason": "A Fireworks credential was not present in the evaluation environment. Availability and protocol are verified; quality, reliability, and realized latency are pending matched inference runs."
+    "matched_baseten_outcome_cohorts": 9,
+    "counting_unit": "seven judged production-shaped coding cohorts plus two bounded utility workloads",
+    "reason": "Baseten has retained outcomes across seven production-shaped coding cohorts plus two bounded utility workloads. Two GLM attempts crossed a measured 202,720-token provider input ceiling after OpenCode advertised an incorrect 1,048,576-token catalog context; those completion failures are benchmark-configuration incidents, not model-quality failures. DeepSeek has seven completed judged coding cohorts, including iOS and Android. A Fireworks credential was not present, so matched cross-provider quality, reliability, and realized latency remain pending."
   },
   "route_definition": "model + provider + serving path + reasoning setting",
   "catalog_snapshot": {
-    "opencode_version": "1.18.1",
-    "context_values": "Resolved OpenCode catalog limits for each exact provider/model route; provider marketing pages may round them differently."
+    "opencode_version": "1.18.3",
+    "context_values": "Catalog values are retained for provenance. The measured Baseten GLM endpoint rejected inputs above 202,720 tokens despite an advertised 1,048,576-token catalog context, so managed runs use the measured operational ceiling instead."
   },
   "routes": [
     {
@@ -24,7 +26,11 @@
       },
       "opencode_catalog_cache_read_snapshot": 0.3,
       "opencode_catalog_context_tokens": 1048576,
-      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+      "catalog_context_status": "incorrect for the measured Baseten serving route",
+      "measured_provider_input_ceiling_tokens": 202720,
+      "managed_operational_input_limit_tokens": 202720,
+      "automatic_compaction_target_tokens": 182720,
+      "outcome_evidence": "matched coding outcomes range from a 91 tooling blind mean to a 58 IaC mean; two context-limited attempts remain eligible for artifact judging but are censored as route-completion evidence because the benchmark used incorrect catalog metadata"
     },
     {
       "route": "GLM 5.2 / Fireworks / Standard / max",
@@ -57,7 +63,7 @@
         "output": 4.0
       },
       "opencode_catalog_context_tokens": 262000,
-      "outcome_evidence": "unmeasured in the retained matched provider protocol"
+      "outcome_evidence": "mixed coding outcomes plus production-ready session titles and unstable project-copy names under the bounded utility protocol"
     },
     {
       "route": "Kimi K2.7 Code / Fireworks / Standard / default reasoning",
@@ -80,6 +86,17 @@
       },
       "opencode_catalog_context_tokens": 262000,
       "outcome_evidence": "unmeasured in the retained matched provider protocol"
+    },
+    {
+      "route": "DeepSeek V4 Pro / Baseten / Standard / default reasoning",
+      "model": "baseten/deepseek-ai/DeepSeek-V4-Pro",
+      "published_usd_per_million_tokens": {
+        "input": 1.74,
+        "cache_read": 0.145,
+        "output": 3.48
+      },
+      "opencode_catalog_context_tokens": 262144,
+      "outcome_evidence": "judged means range from 88.33 on legacy-client permission work and 85.67 on mixed work to 56 on tooling and 48 on IaC; iOS passed validation at 70.33 and led pure Quality:Value but required repair"
     }
   ],
   "vendor_time_evidence": [
@@ -95,7 +112,7 @@
     },
     {
       "claim": "Baseten reports more than 280 generated tokens per second for GLM 5.2 in its serving benchmark.",
-      "status": "vendor snapshot; observed harness wall time must be measured independently",
+      "status": "vendor snapshot; observed end-to-end wall time must be measured independently",
       "source": "https://www.baseten.co/blog/how-we-built-the-worlds-fastest-api-for-glm-52/"
     }
   ],
@@ -103,7 +120,7 @@
     "production_defaults_changed": false,
     "automatic_role_assignment": false,
     "small_model_assignment": false,
-    "model_picker": "Fireworks Standard and Fast GLM/Kimi routes are installed alongside Baseten",
+    "model_picker": "Fireworks Standard and Fast GLM/Kimi routes are installed alongside Baseten; DeepSeek V4 Pro is selectable through Baseten",
     "commands": [
       "/glm",
       "/glm-fireworks",
@@ -112,18 +129,18 @@
       "/kimi-fireworks",
       "/kimi-fireworks-fast"
     ],
-    "rationale": "Provider availability is not role evidence. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
+    "rationale": "Baseten outcomes are workload-specific and do not justify a general coding or reader assignment. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
   },
   "role_assessment": [
     {
-      "role": "production controller or writable general child",
+      "role": "production controller",
       "decision": "retain Terra xhigh",
-      "required_open_weight_evidence": "three iOS implementation workloads with repeated hidden-test correctness and policy compliance"
+      "required_open_weight_evidence": "separate open-weight promotion gate: three iOS implementation workloads with repeated hidden-test correctness and policy compliance"
     },
     {
       "role": "bounded implementer",
-      "decision": "GLM remains an explicit experiment",
-      "required_open_weight_evidence": "non-inferior correctness plus lower total cost or time per valid result"
+      "decision": "GLM, Kimi, and DeepSeek remain explicit route experiments",
+      "required_open_weight_evidence": "repeat strong route-specific outcomes; neither GLM's tooling result nor DeepSeek's mixed/backend results transferred uniformly across cohorts"
     },
     {
       "role": "plan",
@@ -136,18 +153,18 @@
       "required_open_weight_evidence": "answer-key citation precision, recall, completion, cost, and latency"
     },
     {
-      "role": "advisor",
-      "decision": "retain provisional Opus 4.8 xhigh for explicit /advise",
-      "required_open_weight_evidence": "frozen-draft review followed by downstream reconciliation and outcome grading"
+      "role": "session-title utility",
+      "decision": "use Kimi K2.7 Code through Baseten for the tested output contract",
+      "required_open_weight_evidence": "re-evaluate when provider, prompt, or output contract changes"
     },
     {
-      "role": "compaction",
-      "decision": "inherit the active session model",
-      "required_open_weight_evidence": "semantic retention, instruction retention, privacy, and transcript-egress approval"
+      "role": "project-copy utility",
+      "decision": "retain Luna low; Kimi and GLM require repair or sanitization",
+      "required_open_weight_evidence": "zero material defects under repeated blind grading"
     }
   ],
   "matched_protocol": {
-    "metadata_gate": "Pin OpenCode version and exact provider model IDs; compare effective API IDs, context, capabilities, reasoning variants, interleaving, and system-prompt dispatch.",
+    "metadata_gate": "Pin OpenCode version and exact provider model IDs; compare effective API IDs, measured provider input ceilings, catalog context claims, capabilities, reasoning variants, interleaving, and system-prompt dispatch. Baseten GLM uses a 202,720-token operational input limit, causing automatic compaction around 182,720 tokens with the retained 20,000-token reserve.",
     "implementation_screen": "Three production-shaped iOS Swift fixtures, one balanced screening run per open-weight route plus contemporaneous Terra; advance only completed, policy-compliant routes.",
     "implementation_confirmation": "Three balanced repeats per advanced route with hidden tests and a locked quality floor.",
     "planning": "Two production-shaped iOS planning clusters, two repeats, contemporaneous Terra, and three blind graders per eligible answer.",

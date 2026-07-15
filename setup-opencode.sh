@@ -15,6 +15,12 @@ RETIRED_OPENCODE_AGENT_NAMES=(
   sol_reviewer
   technical_writer
 )
+RETIRED_OPENCODE_COMMAND_NAMES=(
+  luna
+  sol
+  sonnet
+  terra
+)
 preflight_dir=""
 transaction_snapshot_dir=""
 transaction_active=false
@@ -198,6 +204,17 @@ retire_repo_agent_link() {
   fi
 }
 
+retire_repo_command_link() {
+  local name="$1"
+  local dest="$OPENCODE_COMMANDS_DIR/$name.md"
+  local retired_target="$REPO_DIR/opencode/commands/$name.md"
+
+  if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$retired_target" ]; then
+    rm "$dest"
+    echo "UNLINK $dest (retired repo-managed command)"
+  fi
+}
+
 advisor_enabled="$(
   OPENCODE_ROUTING_PATH="$OPENCODE_DIR/model-routing.config.local.json" bun -e '
     const fs = require("node:fs")
@@ -259,6 +276,10 @@ link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
 
 for name in "${RETIRED_OPENCODE_AGENT_NAMES[@]}"; do
   retire_repo_agent_link "$name"
+done
+
+for name in "${RETIRED_OPENCODE_COMMAND_NAMES[@]}"; do
+  retire_repo_command_link "$name"
 done
 
 for src in "$REPO_DIR"/opencode/agents/*.md; do

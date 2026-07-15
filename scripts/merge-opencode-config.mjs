@@ -470,6 +470,7 @@ function mergeOpenCodeConfig(modelRouting) {
   for (const [providerID, modelID] of [
     ["openai", "gpt-5.6-luna-high-pinned"],
     ["openai", "gpt-5.6-luna-xhigh-pinned"],
+    ["openai", "gpt-5.6-sol-high-pinned"],
     ["openai", "gpt-5.6-sol-xhigh-pinned"],
     ["openai", "gpt-5.6-terra-xhigh-pinned"],
     ["anthropic", "claude-opus-4-8-xhigh-pinned"],

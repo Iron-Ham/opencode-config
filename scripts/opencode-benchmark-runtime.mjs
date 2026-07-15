@@ -79,7 +79,17 @@ const TRUSTED_PROVIDER_CONFIG = {
     options: {
       baseURL: "https://inference.baseten.co/v1",
     },
+    models: {
+      "zai-org/GLM-5.2": {
+        limit: {
+          context: 202720,
+          input: 202720,
+          output: 128000,
+        },
+      },
+    },
     whitelist: [
+      "deepseek-ai/DeepSeek-V4-Pro",
       "zai-org/GLM-5.2",
       "moonshotai/Kimi-K2.7-Code",
     ],
@@ -157,6 +167,11 @@ const MODEL_PRICING = {
     output: 4,
     cache_read: 0.16,
   },
+  "baseten/deepseek-ai/DeepSeek-V4-Pro": {
+    input: 1.74,
+    output: 3.48,
+    cache_read: 0.145,
+  },
   "fireworks-ai/accounts/fireworks/models/kimi-k2p7-code": {
     input: 0.95,
     output: 4,
@@ -231,6 +246,34 @@ export function loadOpenCodeAuthContent({
     throw new Error(`OpenCode auth path must be a regular file: ${authPath}`);
   }
   return validatedJsonObject(fs.readFileSync(authPath, "utf8"), authPath);
+}
+
+export function assertParallelModelAuthSafe({
+  authContent,
+  concurrency,
+  models,
+}) {
+  if (concurrency <= 1) return;
+
+  const auth = JSON.parse(validatedJsonObject(
+    authContent,
+    "OpenCode auth content",
+  ));
+  const selectedProviders = new Set(models.map((model) => {
+    const separator = model.indexOf("/");
+    if (separator <= 0) {
+      throw new Error(`Invalid OpenCode model identifier: ${model}`);
+    }
+    return model.slice(0, separator);
+  }));
+  const oauthProviders = [...selectedProviders]
+    .filter((provider) => auth[provider]?.type === "oauth")
+    .sort();
+  if (oauthProviders.length === 0) return;
+
+  throw new Error(
+    `Parallel benchmark routes cannot use OAuth-backed providers (${oauthProviders.join(", ")}): cloned auth homes cannot safely coordinate refresh-token rotation. Run these routes with --concurrency 1 or use non-OAuth provider credentials.`,
+  );
 }
 
 export function isolatedOpenCodeEnvironment({

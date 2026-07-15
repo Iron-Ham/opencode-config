@@ -79,6 +79,10 @@ try {
     "pre-run plugin command\n",
   );
   writeFile(
+    path.join(configDir, "commands", "user-local.md"),
+    "unmanaged user command\n",
+  );
+  writeFile(
     path.join(configDir, "agents", "accessibility_auditor.md"),
     "pre-run agent override\n",
   );
@@ -93,6 +97,12 @@ try {
     path.join(configDir, "agents", "backend_architect.md"),
   );
   fs.symlinkSync(externalTarget, path.join(configDir, "commands", "advise.md"));
+  for (const name of ["luna", "sol", "sonnet", "terra"]) {
+    fs.symlinkSync(
+      path.join(repoRoot, "opencode", "commands", `${name}.md`),
+      path.join(configDir, "commands", `${name}.md`),
+    );
+  }
   fs.symlinkSync(
     path.join(repoRoot, "skills", "split"),
     path.join(legacySkillsDir, "split"),
@@ -228,6 +238,19 @@ esac
     fs.readFileSync(path.join(configDir, "plugins", "user-local.js"), "utf8"),
     "unmanaged plugin\n",
   );
+  assert.equal(
+    fs.readFileSync(path.join(configDir, "commands", "user-local.md"), "utf8"),
+    "unmanaged user command\n",
+  );
+  for (const name of ["luna", "sol", "sonnet", "terra"]) {
+    assert.equal(
+      fs.lstatSync(
+        path.join(configDir, "commands", `${name}.md`),
+        { throwIfNoEntry: false },
+      ),
+      undefined,
+    );
+  }
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
   console.log("OK     OpenCode setup links managed plugins and restores late failures");

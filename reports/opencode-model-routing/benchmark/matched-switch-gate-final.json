@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "evidence_stage": "final-source-adjudicated-switch-gate",
+  "generated_at": "2026-07-17T12:55:57.584Z",
+  "privacy": {
+    "classification": "public aggregate",
+    "excluded": [
+      "source",
+      "repository identity",
+      "paths",
+      "symbols",
+      "prompts",
+      "rubrics",
+      "raw answers",
+      "grader keys",
+      "session identifiers"
+    ]
+  },
+  "protocol": {
+    "name": "production-shaped merged-change reconstruction with frozen mixed packet schemas",
+    "tasks": [
+      "native editor",
+      "native offline/data",
+      "modern client"
+    ],
+    "routes": [
+      "GPT-5.6 Terra xhigh",
+      "GPT-5.6 Sol high"
+    ],
+    "repeats_per_route_per_task": 2,
+    "attempts_per_route": 6,
+    "candidate_boundary_seconds": 3600,
+    "blind_judges": 3,
+    "source_adjudication": "complete",
+    "decision_rule_registered_before_outcomes": true,
+    "valid_result_definition": "candidate run completed, policy compliance passed, and effective deterministic validation passed; judged quality and handoff remain descriptive for invalid artifacts but cannot qualify them for promotion",
+    "packet_schema_provenance": {
+      "native editor": "v1",
+      "native offline/data": "v2",
+      "modern client": "v2"
+    },
+    "judging_integrity": "Historical judge outputs are frozen and were not silently regenerated after the packet schema changed. Final source reconciliation and scoring use the retained outputs under a common decision process; future matched runs use v2."
+  },
+  "route_summaries": {
+    "GPT-5.6 Terra xhigh": {
+      "attempts": 6,
+      "valid_results": 3,
+      "valid_rate": 0.5,
+      "valid_rate_wilson_95": {
+        "lower": 0.1876,
+        "upper": 0.8124
+      },
+      "results_at_or_above_85": 0,
+      "valid_mean_quality": 76.4445,
+      "total_observed_cost_usd": 9.806497,
+      "cost_per_valid_result_usd": 3.268833,
+      "cost_per_85_point_result_usd": null,
+      "mean_wall_time_seconds": 596.0428,
+      "mean_model_session_seconds": 587.7937,
+      "provider_terminal_failures": 0,
+      "benchmark_wall_time_limits": 0,
+      "carry_as_is_results": 0,
+      "per_task": {
+        "native editor": {
+          "attempts": 2,
+          "valid_results": 2,
+          "valid_mean_quality": 75.3334,
+          "total_observed_cost_usd": 2.451058,
+          "mean_wall_time_seconds": 385.0031
+        },
+        "native offline/data": {
+          "attempts": 2,
+          "valid_results": 0,
+          "valid_mean_quality": null,
+          "total_observed_cost_usd": 3.524216,
+          "mean_wall_time_seconds": 656.7308
+        },
+        "modern client": {
+          "attempts": 2,
+          "valid_results": 1,
+          "valid_mean_quality": 78.6667,
+          "total_observed_cost_usd": 3.831224,
+          "mean_wall_time_seconds": 746.3944
+        }
+      }
+    },
+    "GPT-5.6 Sol high": {
+      "attempts": 6,
+      "valid_results": 4,
+      "valid_rate": 0.6667,
+      "valid_rate_wilson_95": {
+        "lower": 0.3,
+        "upper": 0.9032
+      },
+      "results_at_or_above_85": 2,
+      "valid_mean_quality": 85.5833,
+      "total_observed_cost_usd": 17.63838,
+      "cost_per_valid_result_usd": 4.409595,
+      "cost_per_85_point_result_usd": 8.81919,
+      "mean_wall_time_seconds": 599.3978,
+      "mean_model_session_seconds": 591.6303,
+      "provider_terminal_failures": 0,
+      "benchmark_wall_time_limits": 0,
+      "carry_as_is_results": 0,
+      "per_task": {
+        "native editor": {
+          "attempts": 2,
+          "valid_results": 1,
+          "valid_mean_quality": 81.6667,
+          "total_observed_cost_usd": 3.288879,
+          "mean_wall_time_seconds": 276.4316
+        },
+        "native offline/data": {
+          "attempts": 2,
+          "valid_results": 1,
+          "valid_mean_quality": 78.3333,
+          "total_observed_cost_usd": 8.297166,
+          "mean_wall_time_seconds": 983.2831
+        },
+        "modern client": {
+          "attempts": 2,
+          "valid_results": 2,
+          "valid_mean_quality": 91.1667,
+          "total_observed_cost_usd": 6.052335,
+          "mean_wall_time_seconds": 538.4787
+        }
+      }
+    }
+  },
+  "pre_registered_switch_gate": {
+    "completion_and_correctness": {
+      "result": "pass",
+      "evidence": "Sol produced four valid results versus Terra's three; source adjudication found no catastrophic regression."
+    },
+    "quality": {
+      "result": "pass",
+      "minimum_valid_mean": 85,
+      "aggregate_noninferiority_margin_points": 3,
+      "observed_sol_minus_terra_valid_mean_points": 9.1388,
+      "risk_critical_workload_max_deficit_points": 10,
+      "risk_critical_task_dispositions": {
+        "native editor": "Sol led Terra by 6.3333 points among valid results",
+        "native offline/data": "Sol had one valid result; Terra had no valid result, so no Terra valid mean existed for a deficit comparison"
+      },
+      "sol_valid_mean": 85.5833,
+      "terra_valid_mean": 76.4445
+    },
+    "cost": {
+      "result": "fail",
+      "maximum_ratio_to_terra": 1.25,
+      "cost_per_valid_result_ratio_to_terra": 1.349,
+      "cost_per_85_point_result_ratio_to_terra": null,
+      "floor_comparison_disposition": "undefined because Terra produced zero results at or above 85"
+    },
+    "time_and_stability": {
+      "result": "pass",
+      "maximum_model_session_ratio_to_terra": 1.5,
+      "observed_model_session_ratio_to_terra": 1.0065,
+      "provider_terminal_failures": 0
+    },
+    "developer_control_and_auditability": {
+      "result": "pass",
+      "evidence": "The comparison does not alter explicit overrides or route auditability."
+    }
+  },
+  "decision": {
+    "route": "GPT-5.6 Terra xhigh",
+    "status": "retain provisional conservative default",
+    "reason": "GPT-5.6 Sol high passed every pre-registered gate except cost. Its cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling.",
+    "quality_interpretation": "GPT-5.6 Sol high is the stronger measured quality challenger. Retaining Terra is not evidence of quality parity.",
+    "production_interpretation": "Neither route produced a carry-as-is result across the matched cohort. Production verification and repair remain necessary."
+  }
+}

@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A cost-aware, evidence-labeled model-routing decision for production OpenCode work.">
+  <meta name="color-scheme" content="light dark">
+  <title>OpenCode model routing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,650&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: oklch(95.5% .018 85);
+      --paper-deep: oklch(91% .025 85);
+      --ink: oklch(25% .018 145);
+      --muted: oklch(43% .02 145);
+      --line: oklch(62% .018 145);
+      --line-strong: oklch(50% .02 145);
+      --blue: oklch(42% .12 250);
+      --blue-soft: oklch(89% .045 250);
+      --green: oklch(42% .09 155);
+      --green-soft: oklch(90% .04 155);
+      --rust: oklch(43% .12 35);
+      --rust-soft: oklch(90% .045 35);
+      --slate: oklch(39% .035 220);
+      --slate-soft: oklch(90% .02 220);
+      --feature: oklch(34% .105 250);
+      --feature-ink: oklch(95.5% .018 85);
+      --feature-muted: oklch(86% .05 250);
+      --focus: oklch(48% .16 35);
+      --serif: "Newsreader", Georgia, serif;
+      --sans: "Manrope", "Helvetica Neue", sans-serif;
+      --content: 1180px;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --paper: oklch(18% .012 155);
+      --paper-deep: oklch(24.5% .014 155);
+      --ink: oklch(92.5% .018 85);
+      --muted: oklch(77% .018 80);
+      --line: oklch(50% .018 155);
+      --line-strong: oklch(61% .02 155);
+      --blue: oklch(79% .095 250);
+      --blue-soft: oklch(31% .055 250);
+      --green: oklch(79% .085 155);
+      --green-soft: oklch(31% .045 155);
+      --rust: oklch(79% .1 35);
+      --rust-soft: oklch(31% .055 35);
+      --slate: oklch(78% .035 220);
+      --slate-soft: oklch(32% .022 220);
+      --feature: oklch(38% .1 250);
+      --feature-ink: oklch(96% .018 85);
+      --feature-muted: oklch(87% .045 250);
+      --focus: oklch(80% .13 35);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.67 var(--sans);
+      text-rendering: optimizeLegibility;
+    }
+    a { color: var(--blue); text-decoration-thickness: 1px; text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible,
+    button:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+    button { font: inherit; }
+    code {
+      padding: .08em .28em;
+      border-radius: 3px;
+      background: var(--paper-deep);
+      font-size: .88em;
+    }
+    .skip-link {
+      position: fixed;
+      z-index: 100;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      transform: translateY(-180%);
+      background: var(--ink);
+      color: var(--paper);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .progress {
+      position: fixed;
+      z-index: 90;
+      inset: 0 auto auto 0;
+      width: 0;
+      height: 3px;
+      background: var(--blue);
+    }
+    .masthead { border-bottom: 1px solid var(--line); }
+    .masthead-inner,
+    .hero,
+    .decision-inner,
+    .shell,
+    .footer-inner {
+      width: min(calc(100% - 40px), var(--content));
+      margin-inline: auto;
+    }
+    .masthead-inner {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .wordmark {
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-decoration: none;
+      text-transform: uppercase;
+    }
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .theme-toggle {
+      min-width: 44px;
+      min-height: 44px;
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .hero {
+      padding: clamp(68px, 11vw, 142px) 0 72px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(250px, .45fr);
+      gap: clamp(46px, 9vw, 118px);
+      align-items: end;
+    }
+    .eyebrow,
+    .kicker {
+      margin: 0 0 18px;
+      color: var(--blue);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1,
+    h2,
+    h3,
+    blockquote { font-family: var(--serif); }
+    h1 {
+      max-width: 910px;
+      margin: 0;
+      font-size: clamp(50px, 7vw, 94px);
+      font-weight: 500;
+      letter-spacing: -.05em;
+      line-height: .94;
+    }
+    .deck {
+      max-width: 820px;
+      margin: 30px 0 0;
+      color: var(--muted);
+      font: clamp(21px, 2.1vw, 28px)/1.38 var(--serif);
+    }
+    .verdict {
+      padding-top: 20px;
+      border-top: 5px solid var(--blue);
+    }
+    .verdict strong {
+      display: block;
+      margin-bottom: 12px;
+      font: 500 30px/1.08 var(--serif);
+    }
+    .verdict span { color: var(--muted); font-size: 12px; }
+    .decision-band { background: var(--ink); color: var(--paper); }
+    .decision-inner {
+      padding: 28px 0;
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 28px;
+      align-items: center;
+    }
+    .decision-inner b {
+      color: var(--paper);
+      font-size: 10px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    .decision-inner p { margin: 0; font: 22px/1.38 var(--serif); }
+    .shell {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: clamp(44px, 7vw, 96px);
+    }
+    .contents {
+      position: sticky;
+      top: 28px;
+      align-self: start;
+      padding: 72px 0;
+    }
+    .contents p {
+      margin: 0 0 17px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .contents ol { margin: 0; padding: 0; list-style: none; }
+    .contents a {
+      display: block;
+      padding: 7px 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .contents a[aria-current="true"] { color: var(--blue); }
+    main { min-width: 0; padding-bottom: 110px; }
+    section {
+      padding: 76px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 22px;
+    }
+    .section-number {
+      display: block;
+      margin-bottom: 20px;
+      color: var(--muted);
+      font: 15px var(--serif);
+    }
+    h2 {
+      max-width: 820px;
+      margin: 0 0 22px;
+      font-size: clamp(38px, 5vw, 59px);
+      font-weight: 500;
+      letter-spacing: -.038em;
+      line-height: 1.02;
+    }
+    h3 {
+      margin: 44px 0 13px;
+      font-size: 29px;
+      font-weight: 500;
+      letter-spacing: -.022em;
+      line-height: 1.12;
+    }
+    .lede {
+      max-width: 830px;
+      margin: 0 0 38px;
+      color: var(--muted);
+      font: 23px/1.46 var(--serif);
+    }
+    .measure { max-width: 810px; }
+    .measure p { margin: 0 0 18px; }
+    .label {
+      display: inline-block;
+      margin: 0 .35em .3em 0;
+      padding: .3em .55em .26em;
+      border-radius: 3px;
+      background: var(--slate-soft);
+      color: var(--slate);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      line-height: 1.2;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .label.observed { background: var(--green-soft); color: var(--green); }
+    .label.transfer { background: var(--rust-soft); color: var(--rust); }
+    .label.config { background: var(--blue-soft); color: var(--blue); }
+    .label.policy { background: var(--slate-soft); color: var(--slate); }
+    .label.pending { border: 1px solid var(--line-strong); background: transparent; color: var(--muted); }
+    .label-key {
+      margin: 36px 0 0;
+      padding: 25px 0 4px;
+      border-top: 1px solid var(--line-strong);
+    }
+    .label-key h3 { margin: 0 0 18px; font-size: 23px; }
+    .label-key dl {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 12px 20px;
+      margin: 0;
+    }
+    .label-key dt,
+    .label-key dd { margin: 0; }
+    .label-key dd { color: var(--muted); font-size: 12px; }
+    .routes { margin: 38px 0 0; border-top: 1px solid var(--line-strong); }
+    .route {
+      display: grid;
+      grid-template-columns: minmax(150px, .75fr) minmax(180px, .8fr) minmax(0, 1.55fr);
+      gap: 22px;
+      padding: 21px 0;
+      border-bottom: 1px solid var(--line);
+      align-items: start;
+    }
+    .route > b { font-size: 12px; }
+    .route-model { font: 21px/1.15 var(--serif); }
+    .route-model .label { margin-top: 8px; }
+    .route-note { color: var(--muted); font-size: 12px; }
+    .table-wrap {
+      margin: 34px 0;
+      overflow-x: auto;
+      border-top: 1px solid var(--line-strong);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    caption {
+      padding: 14px 0 2px;
+      color: var(--muted);
+      font-size: 11px;
+      text-align: left;
+    }
+    th,
+    td {
+      padding: 16px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th:first-child,
+    td:first-child { padding-left: 0; }
+    th {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    td strong { color: var(--ink); font-size: 14px; }
+    .good { color: var(--green); font-weight: 700; }
+    .caution { color: var(--rust); font-weight: 700; }
+    .callout {
+      margin: 42px 0;
+      padding: 30px 34px;
+      border: 1px solid var(--blue);
+      background: var(--paper-deep);
+    }
+    .callout p { margin: 0; font: 23px/1.44 var(--serif); }
+    .callout small { display: block; margin-top: 13px; color: var(--muted); }
+    .callout.caution-note { border-color: var(--rust); }
+    .feature {
+      margin: 40px 0;
+      padding: clamp(28px, 5vw, 48px);
+      background: var(--feature);
+      color: var(--feature-ink);
+    }
+    .feature .kicker { color: var(--feature-muted); }
+    .feature blockquote {
+      max-width: 800px;
+      margin: 0;
+      font-size: clamp(31px, 4.8vw, 54px);
+      line-height: 1.04;
+      letter-spacing: -.04em;
+    }
+    .feature p { max-width: 760px; margin: 24px 0 0; color: var(--feature-muted); }
+    .pending-box {
+      margin: 35px 0;
+      padding: 28px 0;
+      border-block: 1px dashed var(--line-strong);
+    }
+    .pending-box p { max-width: 800px; margin: 10px 0 0; }
+    .agent-row {
+      display: grid;
+      grid-template-columns: minmax(145px, .65fr) minmax(0, 1.65fr) minmax(180px, .8fr);
+      gap: 28px;
+      padding: 25px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .agent-row h3 { margin: 0; font-size: 23px; }
+    .agent-row p { margin: 0; color: var(--muted); font-size: 13px; }
+    .agent-row .boundary { color: var(--ink); font-size: 11px; }
+    .operational-list,
+    .limits { margin: 34px 0 0; padding: 0; list-style: none; counter-reset: item; }
+    .operational-list li,
+    .limits li {
+      counter-increment: item;
+      position: relative;
+      padding: 20px 0 20px 54px;
+      border-top: 1px solid var(--line);
+    }
+    .operational-list li::before,
+    .limits li::before {
+      content: "0" counter(item);
+      position: absolute;
+      left: 0;
+      top: 20px;
+      color: var(--rust);
+      font: 17px var(--serif);
+    }
+    .operational-list b,
+    .limits b { display: block; margin-bottom: 3px; }
+    .operational-list span,
+    .limits span { color: var(--muted); font-size: 12px; }
+    pre {
+      margin: 34px 0;
+      padding: 24px;
+      overflow-x: auto;
+      border: 1px solid var(--line-strong);
+      background: var(--paper-deep);
+      color: var(--ink);
+      font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    pre code { padding: 0; background: none; font-size: inherit; }
+    .sources { margin: 26px 0 0; padding-left: 20px; }
+    .sources li { margin-bottom: 11px; padding-left: 7px; color: var(--muted); font-size: 12px; }
+    footer { padding: 34px 0 50px; border-top: 1px solid var(--line); }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    @media (max-width: 880px) {
+      .hero { grid-template-columns: 1fr; }
+      .verdict { max-width: 440px; }
+      .shell { grid-template-columns: 1fr; }
+      .contents { position: static; padding: 32px 0 0; border-bottom: 1px solid var(--line); }
+      .contents ol { display: flex; gap: 7px 17px; padding-bottom: 22px; overflow-x: auto; }
+      .contents a { min-height: 44px; display: flex; align-items: center; white-space: nowrap; }
+    }
+    @media (max-width: 660px) {
+      .masthead .meta > span { display: none; }
+      .decision-inner { grid-template-columns: 1fr; gap: 7px; }
+      .route { grid-template-columns: 1fr; gap: 8px; }
+      .agent-row { grid-template-columns: 1fr; gap: 8px; }
+      .label-key dl { grid-template-columns: 1fr; gap: 4px; }
+      .label-key dd { margin-bottom: 12px; }
+      .footer-inner { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+    @media print {
+      :root {
+        --paper: #faf8f2;
+        --paper-deep: #eee9de;
+        --ink: #171714;
+        --muted: #55544f;
+        --line: #bbb6aa;
+        --line-strong: #77736b;
+        --blue: #234f81;
+        --green: #2b6043;
+        --rust: #7a3b2b;
+      }
+      .theme-toggle,
+      .contents,
+      .progress { display: none; }
+      .hero,
+      .shell,
+      .decision-inner,
+      .masthead-inner,
+      .footer-inner { width: 100%; }
+      .shell { display: block; }
+      section { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#report">Skip to report</a>
+  <div class="progress" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="masthead-inner">
+      <a class="wordmark" href="#top">OpenCode model routing</a>
+      <div class="meta">
+        <span>Decision memo · 17 July 2026</span>
+        <button class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle color theme">◐</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="top" class="hero">
+    <div>
+      <p class="eyebrow">Quality × cost × operational validity</p>
+      <h1>OpenCode<br>model routing.</h1>
+      <p class="deck">Terra xhigh remains the provisional production controller under the pre-registered switch rule. Sol high is the stronger measured quality challenger; it missed promotion on cost alone. Luna high is the bounded cost lane.</p>
+    </div>
+    <div class="verdict">
+      <strong>Evidence is workload-specific.</strong>
+      <span>Production: Terra xhigh, provisional<br>Challenger: Sol high<br>Bounded: Luna high</span>
+    </div>
+  </div>
+
+  <div class="decision-band">
+    <div class="decision-inner">
+      <b>Bottom line</b>
+      <p>Sol passed completion, quality, time/stability, and developer control in the final repeated switch cohort. Keep Terra xhigh provisionally because Sol cost 1.349&times; as much per valid result, above the pre-registered 1.25&times; ceiling—not because Terra matched Sol's observed quality.</p>
+    </div>
+  </div>
+
+  <div class="shell">
+    <nav class="contents" aria-label="Report sections">
+      <p>In this memo</p>
+      <ol>
+        <li><a href="#decision">01 · Decision</a></li>
+        <li><a href="#controller">02 · Production evidence</a></li>
+        <li><a href="#planning">03 · Planning</a></li>
+        <li><a href="#open-weight">04 · Open-weight</a></li>
+        <li><a href="#operations">05 · Study configuration</a></li>
+        <li><a href="#limits">06 · Limits</a></li>
+      </ol>
+    </nav>
+
+    <main id="report">
+      <section id="decision">
+        <span class="section-number">01</span>
+        <p class="kicker">Current decision</p>
+        <h2>Sane defaults, locally owned.</h2>
+        <p class="lede">The routing distinguishes observed results from transfer, configuration, policy, and work that remains unmeasured.</p>
+
+        <div class="routes">
+          <div class="route">
+            <b>Build / general</b>
+            <span class="route-model">Terra xhigh<br><span class="label policy">Conservative policy</span></span>
+            <span class="route-note">Retained under the pre-registered rule: Sol passed four of five gates but missed the locked cost-per-valid ceiling.</span>
+          </div>
+          <div class="route">
+            <b>Ultra</b>
+            <span class="route-model">Terra xhigh<br><span class="label config">Configuration fact</span></span>
+            <span class="route-note">Adds Goal and wider bounded delegation. It is a workflow mode, not a premium-model quality claim.</span>
+          </div>
+          <div class="route">
+            <b>Bounded work</b>
+            <span class="route-model">Luna high<br><span class="label policy">Policy</span></span>
+            <span class="route-note">For small, well-specified work where deterministic checks make a failed attempt inexpensive.</span>
+          </div>
+          <div class="route">
+            <b>Premium implementation</b>
+            <span class="route-model">Sol high<br><span class="label observed">Measured challenger</span></span>
+            <span class="route-note">More valid and 85-point results, higher valid-artifact quality, and effectively equal model-session time in the matched repeated cohort; explicit because the cost gate failed.</span>
+          </div>
+          <div class="route">
+            <b>Planning</b>
+            <span class="route-model">Terra xhigh<br><span class="label observed">Within-experiment</span></span>
+            <span class="route-note">The only finalist to complete all four production-shaped plans without a fatal safety cap.</span>
+          </div>
+          <div class="route">
+            <b>Automatic advisor</b>
+            <span class="route-model">Disabled<br><span class="label policy">Policy</span></span>
+            <span class="route-note">A causal pilot showed modest directional lift without an outcome change at materially higher cost.</span>
+          </div>
+          <div class="route">
+            <b>Explicit advisor</b>
+            <span class="route-model"><code>/advise</code> · configurable<br><span class="label policy">Policy</span></span>
+            <span class="route-note">Developer opt-in only; not an automatic route or an active evaluation lane.</span>
+          </div>
+          <div class="route">
+            <b>Compaction</b>
+            <span class="route-model">Active model<br><span class="label config">Configuration fact</span></span>
+            <span class="route-note">Not separately routed; no separate benchmark is planned.</span>
+          </div>
+          <div class="route">
+            <b>Open-weight</b>
+            <span class="route-model">Pinned + selectable routes<br><span class="label observed">Baseten measured</span></span>
+            <span class="route-note">Baseten outcomes are workload-specific; Fireworks remains unmeasured and neither route is an automatic coding default.</span>
+          </div>
+          <div class="route">
+            <b>Project-copy utility</b>
+            <span class="route-model">Luna low<br><span class="label observed">Measured recommendation</span></span>
+            <span class="route-note">Zero defects across 16 outputs and the best quality:value rank; this is not an installed default.</span>
+          </div>
+          <div class="route">
+            <b>Session-title utility</b>
+            <span class="route-model">Kimi · Baseten<br><span class="label observed">Measured recommendation</span></span>
+            <span class="route-note">Production-ready quality at the best observed value and speed; this is not an installed default.</span>
+          </div>
+        </div>
+
+        <aside class="label-key" aria-labelledby="label-key-title">
+          <h3 id="label-key-title">Evidence labels</h3>
+          <dl>
+            <dt><span class="label observed">Within-experiment</span></dt><dd>Directly observed under the published aggregate protocol.</dd>
+            <dt><span class="label transfer">Task-class transfer</span></dt><dd>Inferred from the nearest measured workload, not directly proven for the routed task.</dd>
+            <dt><span class="label config">Configuration fact</span></dt><dd>What the checked-in setup does; it is not an outcome claim.</dd>
+            <dt><span class="label policy">Policy</span></dt><dd>An explicit cost, risk, or consent choice informed by evidence.</dd>
+            <dt><span class="label pending">Unmeasured</span></dt><dd>No controlled result currently supports a ranking.</dd>
+          </dl>
+          <p>For every reported score, <strong>higher is better and rank 1 is best</strong>. Quality:Value cubically weights judged quality and then applies cost efficiency. The weighted metric is 60% cubic quality, 25% cost efficiency, and 15% speed efficiency. Invalid or noncompliant artifacts may retain descriptive ranks, but cannot win a promotion decision.</p>
+        </aside>
+      </section>
+
+      <section id="controller">
+        <span class="section-number">02</span>
+        <p class="kicker">Production implementation</p>
+        <h2>Workload shape changes the winner.</h2>
+        <p class="lede">The final matched gate retains Terra provisionally under a locked decision rule while identifying Sol as the stronger measured quality challenger. This is a risk-aware policy—not a universal model ranking.</p>
+
+        <div class="feature">
+          <p class="kicker">Current evidence hierarchy</p>
+          <blockquote>Validation and production handoff come first. Quality, cost, and speed rank only the artifacts that remain viable.</blockquote>
+          <p>Terra leads the access-control migration, legacy-client permission UI, and admin-capability gating workloads on the weighted metric; GLM leads release orchestration; Sol leads cross-service access IaC and produced the only mergeable artifacts on the iOS comment-identity and Android persisted-thread workloads.</p>
+        </div>
+
+        <div class="measure">
+          <p><span class="label observed">Final matched gate</span> Two repeats per route ran on each of three production-shaped tasks: native editor, native offline/data, and modern client. Every attempt completed; there were no provider terminal failures or benchmark wall-time limits.</p>
+          <p><span class="label config">Frozen packet provenance</span> Native editor used judge-packet schema v1; native offline/data and modern client used schema v2. Historical judge outputs were not silently regenerated after the harness changed. Final source reconciliation and scoring use the retained outputs under a common decision process; future matched runs use schema v2.</p>
+          <p><span class="label config">Validity definition</span> A valid result completed the candidate run, passed the declared policy boundary, and passed effective deterministic validation. Invalid artifacts retain blind scores and handoff assessments for diagnosis, but cannot qualify for promotion or the cost-per-valid denominator.</p>
+          <div class="table-wrap">
+            <table>
+              <caption>Final source-adjudicated matched switch cohort</caption>
+              <thead>
+                <tr><th scope="col">Route</th><th scope="col">Valid</th><th scope="col">Results &ge;85</th><th scope="col">Valid mean</th><th scope="col">Total cost</th><th scope="col">Cost / valid</th><th scope="col">Mean model session</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Terra xhigh</th><td>3/6</td><td>0</td><td>76.44</td><td>$9.806</td><td class="good"><strong>$3.269</strong></td><td>587.8 s</td></tr>
+                <tr><th scope="row"><strong>Sol high</strong></th><td class="good"><strong>4/6</strong></td><td class="good"><strong>2</strong></td><td class="good"><strong>85.58</strong></td><td>$17.638</td><td>$4.410</td><td>591.6 s</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><span class="label policy">Pre-registered rule</span> Sol had to match or beat Terra's valid count; average at least 85 on valid artifacts; finish no more than three aggregate quality points below Terra; stay within ten points of Terra on each risk-critical task; keep cost per valid and floor-clearing result within 1.25&times; Terra; keep mean event-derived model-session time within 1.5&times;; and preserve compliance and explicit developer control.</p>
+          <div class="table-wrap">
+            <table>
+              <caption>Switch-gate disposition</caption>
+              <thead>
+                <tr><th scope="col">Gate</th><th scope="col">Result</th><th scope="col">Evidence</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Completion and correctness</th><td class="good"><strong>Pass</strong></td><td>Source adjudication complete; Sol produced 4 valid results versus Terra's 3, with no catastrophic-regression finding.</td></tr>
+                <tr><th scope="row">Quality</th><td class="good"><strong>Pass</strong></td><td>Sol's 85.58 valid mean cleared 85 and led Terra by 9.14 points. It led by 6.33 on native editor; native offline/data had no valid Terra comparator and one valid Sol result.</td></tr>
+                <tr><th scope="row">Cost</th><td class="caution"><strong>Fail</strong></td><td>Sol cost per valid was 1.349&times; Terra, above 1.25&times;. Terra had zero 85-point results, so the floor-result ratio is undefined.</td></tr>
+                <tr><th scope="row">Time and stability</th><td class="good"><strong>Pass</strong></td><td>Sol/Terra model-session ratio 1.0065; zero provider terminal failures.</td></tr>
+                <tr><th scope="row">Developer control</th><td class="good"><strong>Pass</strong></td><td>Explicit overrides and route auditability are unchanged.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><span class="label policy">Final decision</span> Retain Terra xhigh as the provisional conservative default because the locked rule requires every gate to pass. Sol is the stronger measured quality challenger and remains the explicit premium route; cost is the only failed gate. This does not establish Terra quality parity: neither route produced a carry-as-is result, and Terra produced no 85-point result, so cost per floor-clearing result is undefined rather than favorable to Terra. <a href="benchmark/matched-switch-gate-final.json">View the privacy-safe final aggregate.</a></p>
+          <p><span class="label observed">Historical support</span> Across the earlier seven single-attempt workloads, Sol produced 7/7 valid results and 5/7 results at or above 85; Terra xhigh produced 4/7 valid and 3/7 floor-clearing results. The repeated matched gate—not that historical cohort—drives the default decision.</p>
+          <p><span class="label policy">Sampling correction</span> An internal recent-merge classification found that the selected backend, legacy-client frontend, and iOS references skew smaller than their recent domain distributions. Historical results remain valid for their exact workloads; broad labels do not.</p>
+          <p>Ten additional workloads now have calibrated historical definitions spanning modern-client collections, iOS editor and offline collections, query execution, agent-runtime protocols, external API contracts, realtime, non-AI Android maintenance, desktop native, and mixed monetization. All ten observed merged references pass their effective checks; one raw iOS broad-suite failure is retained and adjudicated to an unchanged flaky test. This establishes runnable workloads, not candidate-model quality. Tooling and IaC remain the closest current references to their recent size and task shapes; exact repository and ownership details remain private. <a href="benchmark/expanded-production-reference-calibration.json">View the calibration aggregate.</a></p>
+        </div>
+
+        <details class="measure">
+          <summary><strong>Historical source-analysis and pricing screen</strong></summary>
+          <p class="lede">Two earlier source-analysis clusters measured completion, boundary compliance, blind quality, latency, and normalized cost. They remain supporting evidence, not the lead result.</p>
+
+        <div class="table-wrap">
+          <table>
+            <caption>Matched xhigh result across two workload clusters</caption>
+            <thead>
+              <tr><th scope="col">Route</th><th scope="col">Compliant completions</th><th scope="col">Blind mean</th><th scope="col">Observed cost</th><th scope="col">Wall time</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row"><strong>Terra xhigh</strong></th><td class="good"><strong>2/2</strong></td><td><strong>80.88</strong></td><td><strong>$4.541 complete</strong></td><td><strong>20.6 min</strong></td></tr>
+              <tr><th scope="row">Luna xhigh</th><td class="caution">0/2</td><td>46.83</td><td>≥$4.190 lower bound</td><td>27.3 min</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="feature">
+          <p class="kicker">Within-experiment</p>
+          <blockquote>Terra was 24.6% faster. Its complete cost was 8.4% above Luna's incomplete lower bound.</blockquote>
+          <p>The lower per-token price did not produce the lower-cost valid result for these workloads. No route cleared the locked 85-point quality floor.</p>
+        </div>
+
+        <div class="measure">
+          <p><span class="label transfer">Task-class transfer</span> The operational gap was early directional evidence for retaining Terra xhigh. The final switch gate above now governs the default decision. Its 80.88 mean does not establish production sufficiency, and the experiment did not run a complete edit-build-simulator-CI-shipping cycle.</p>
+        </div>
+
+        <h3>Effort and premium lanes</h3>
+        <div class="measure">
+          <p>Luna high appeared in one matched cluster. It completed within policy at <strong>73.42</strong> for <strong>$0.849</strong>. Luna xhigh scored 73.00 in the same cluster, crossed the boundary, took more than twice as long, and incurred at least $1.581. That is directional support for Luna high as the bounded lane—not broad quality parity with Terra.</p>
+          <p>Terra max had one timed-out attempt at a cost of at least <strong>$5.538</strong>. This narrow result supports leaving it out of the default routes; it does not show that max effort is never useful.</p>
+        </div>
+
+        <h3>Published rate context</h3>
+        <p class="lede">Token rates explain the appeal of cheaper lanes, but completion, retries, cache behavior, and downstream rework determine route economics.</p>
+        <div class="table-wrap">
+          <table>
+            <caption>Standard published API rates per million tokens</caption>
+            <thead>
+              <tr><th scope="col">Model</th><th scope="col">Input</th><th scope="col">Cached input</th><th scope="col">Output</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row"><a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">GPT-5.6 Luna</a></th><td>$1.00</td><td>$0.10</td><td>$6.00</td></tr>
+              <tr><th scope="row"><a href="https://developers.openai.com/api/docs/models/gpt-5.6-terra">GPT-5.6 Terra</a></th><td>$2.50</td><td>$0.25</td><td>$15.00</td></tr>
+              <tr><th scope="row"><a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">GPT-5.6 Sol</a></th><td>$5.00</td><td>$0.50</td><td>$30.00</td></tr>
+              <tr><th scope="row"><a href="https://developers.openai.com/api/docs/models/gpt-5.5">GPT-5.5</a></th><td>$5.00</td><td>$0.50</td><td>$30.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="measure">
+          <p>Terra's matched published rates are half GPT-5.5's and Sol's; Luna's are 60% below Terra's. These are pricing facts, not iOS quality comparisons.</p>
+        </div>
+
+        <h3>Real pricing sample</h3>
+        <p class="lede">One production-shaped source-analysis workload compared GPT-5.5 xhigh and Sol high contemporaneously. The Terra reference used the same frozen workload and protocol but a separate seed and blind-grader panel.</p>
+        <div class="table-wrap">
+          <table>
+            <caption>Observed route economics on one production-shaped workload</caption>
+            <thead>
+              <tr><th scope="col">Route</th><th scope="col">Blind result</th><th scope="col">Observed cost</th><th scope="col">Wall time</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">GPT-5.5 xhigh</th><td>Median 73 · mean 73</td><td>$6.460</td><td>8.9 min</td></tr>
+              <tr><th scope="row"><strong>Sol high</strong></th><td><strong>Median 89 · mean 88</strong></td><td><strong>$4.100</strong></td><td><strong>7.9 min</strong></td></tr>
+              <tr><th scope="row">Terra xhigh reference</th><td>Mean 82.75 · separate panel</td><td class="good"><strong>$2.802</strong></td><td>11.1 min</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="measure">
+          <p><span class="label observed">Within-experiment</span> Sol high cost 36.5% less than GPT-5.5 xhigh, finished 11.7% faster, and gained 15 mean points despite identical published token rates.</p>
+          <p><span class="label transfer">Directional reference</span> Terra cost 56.6% less than GPT-5.5 and 31.7% less than Sol. It was slower, while its prior blind mean sat between them across separate grader panels. This historical sample is consistent with Terra as the lower-cost route and Sol as an explicit premium lane, but the final matched gate—not this separate-panel comparison—governs the default decision.</p>
+        </div>
+
+        </details>
+
+        <h3>Production-shaped implementation checkpoint</h3>
+        <p class="lede">Seven additional cohorts reconstructed previously selected merged changes from frozen pre-change snapshots. They are realistic workloads, but the recent-merge audit shows that they are not a representative cross-section of every labeled domain. Deterministic validation and boundary compliance remain separate from blind patch quality. The ten-route iOS cohort is final for its exact native comment-identity workload; representative iOS follow-ups remain necessary before broader routing changes.</p>
+        <div class="table-wrap">
+          <table>
+            <caption>Highest compliant, validation-passing weighted result by cohort</caption>
+            <thead>
+              <tr><th scope="col">Cohort</th><th scope="col">Weighted leader</th><th scope="col">Blind mean</th><th scope="col">Cost</th><th scope="col">Time</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Backend access-control migration · nine routes</th><td><strong>Terra high</strong></td><td><strong>93.67</strong></td><td class="good"><strong>$1.045</strong></td><td>8.5 min</td></tr>
+              <tr><th scope="row">Legacy-client permission UI · nine routes</th><td><strong>Terra xhigh</strong></td><td><strong>93.33</strong></td><td>$0.767</td><td>5.6 min</td></tr>
+              <tr><th scope="row">Mixed admin-capability gating · ten routes</th><td><strong>Terra high</strong></td><td>85.67</td><td class="good"><strong>$0.878</strong></td><td>7.0 min</td></tr>
+              <tr><th scope="row">Release orchestration tooling · nine routes</th><td><strong>GLM max · Baseten</strong></td><td><strong>91.00</strong></td><td>$4.221</td><td>12.3 min</td></tr>
+              <tr><th scope="row">Cross-service access IaC · nine routes</th><td><strong>Sol high</strong></td><td><strong>91.00</strong></td><td>$1.553</td><td class="good"><strong>5.3 min</strong></td></tr>
+              <tr><th scope="row">iOS comment identity · ten routes</th><td><strong>Sol high</strong></td><td><strong>90.00</strong></td><td>$3.417</td><td>22.7 min</td></tr>
+              <tr><th scope="row">Android persisted-thread lifecycle · nine entries</th><td><strong>Sol high</strong></td><td><strong>90.33</strong></td><td>$3.177</td><td class="good"><strong>10.0 min</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="measure">
+          <p><span class="label observed">Within-experiment</span> There is no universal winner: Terra led the backend access-control, legacy-client permission, and mixed admin-capability weighted metrics; Luna retained the mixed pure-value lead; GLM led release-orchestration tooling; and Sol led cross-service access IaC, iOS comment identity, and Android persisted-thread lifecycle. On Android, Terra ranked second on both value metrics but did not compile; Sol was the only passing mergeable result.</p>
+          <p><span class="label observed">Backend effort comparison</span> Terra high scored 93.67, ranked first on both value metrics, and cost $1.0449. Against xhigh on the same frozen task and panel, high gained 5.33 quality points and cost 16.2% less while taking 13.8% longer. Sol tied the next-highest compliant quality at 92.67 but cost 75% more than Terra high. The matched iOS result did not preserve this advantage, so the provisional iOS-weighted default remains xhigh.</p>
+          <p><span class="label observed">DeepSeek backend</span> DeepSeek V4 Pro completed compliantly, passed every locked check, and scored 79.33 at $3.1917 in 1,544.1 seconds. Its production logic matches the merged approach, but its tests need routine assertion and helper cleanup; it ranks sixth on Quality:Value and eighth weighted in the complete nine-route cohort.</p>
+          <p><span class="label observed">Mixed Terra effort</span> Terra high scored 85.67 at $0.8779 in 420.4 seconds, versus xhigh at 79.67, $0.9332, and 377.3 seconds. High gained six quality points and cost 5.9% less while taking 11.4% longer; it became the ten-route weighted leader. Luna high retains the pure Quality:Value lead. This positive result did not transfer to iOS.</p>
+          <p><span class="label observed">Mixed Sonnet effort</span> High and xhigh both scored 89.33 and both require the same small UI repair. High cost $5.2019 versus $9.1255 and finished in 1,244.5 seconds versus 2,101.5 seconds, making it 43.0% cheaper and 40.8% faster with no measured quality or handoff loss. Xhigh adds no measured value for this task.</p>
+          <p><span class="label caution">Tooling Sonnet effort</span> The mixed result did not transfer. High passed focused validation and cost $5.2846, 15.8% less than xhigh, but scored 75.33 versus 88 and violated the no-typecheck and source-boundary policy. Source reconciliation confirmed a merge-blocking command-construction security defect. The split panel was 49 unsafe / 88 mergeable / 89 mergeable, so the raw mean is retained but the artifact is a redrive. High's 1,229.5-second observed time was 3.5% longer than xhigh; overlapping controlled work makes that small speed difference non-causal. Xhigh is the safer Sonnet effort for this workload.</p>
+          <p><span class="label observed">Matched Luna effort</span> Luna xhigh scored 83.33 at $0.3651 in 360.3 seconds, versus Luna high at 81.33, $0.3584, and 349.8 seconds. Both required repair. Xhigh cost 1.9% more, took 3.0% longer, and did not improve the handoff class, so Luna high remains the bounded cost-sensitive lane.</p>
+          <p><span class="label observed">IaC Luna effort</span> Luna xhigh cost effectively the same as high, ran 29.7% longer, scored 55.67 versus 84, and failed the same validation gate. A raw external-path flag was a classifier false positive—the search stayed inside its own workspace—but the artifact still required a structural redrive. Luna high remains the sensible Luna effort.</p>
+          <p><span class="label observed">DeepSeek mixed</span> DeepSeek V4 Pro completed compliantly, passed all locked checks, and scored 85.67 at $1.9467 in 652.6 seconds. It ranks fifth on Quality:Value and seventh on the weighted metric in the complete ten-route cohort; this is a carry-with-repair result, not an automatic routing case.</p>
+          <p><span class="label caution">DeepSeek tooling</span> The same route passed focused checks but scored 56 at $2.1969 in 639.7 seconds and ranked ninth on both value metrics in the completed nine-route cohort. It omitted required deployable artifacts and production lifecycle controls. The artifact is a redrive, showing why focused validation and production review remain separate signals.</p>
+          <p><span class="label caution">DeepSeek IaC</span> DeepSeek failed locked validation, scored 48 at $4.4085 in 1,252.2 seconds, and ranked ninth of nine on both value metrics. Source reconciliation found production-significant region, account, and network-boundary defects that its tests did not expose. This is a true production redrive, not a policy-classification issue.</p>
+          <p><span class="label observed">Final ten-route iOS</span> Sol high produced the only Carry artifact, led judged quality at 90, and ranked first weighted at $3.4169 in 1,362.4 seconds. Its raw validation and compliance failures were retained but adjudicated: every task-area check passed, the same unrelated untouched-suite flake appeared in the Opus run, and the classifier had flagged inspection of Sol's own captured tool output. DeepSeek led pure Quality:Value at 70.33 and $1.2223 but needs repair for a stale identity transition. GLM passed at 82; Sonnet passed validation at 79.33 but exceeded the real-time limit and crossed an external-temporary-file boundary; Opus passed task-area validation at 67.67 but shared DeepSeek's lifecycle defect. Kimi passed at 67. Terra max reached the normalized one-hour boundary with a compliant patch and task-focused validation pass, but its conservative 72 mean, 2.49-times Terra-xhigh cost, 6.91-times wall time, timeout, and remaining repair do not justify an automatic premium/default route. Terra xhigh, Terra high, and Luna failed validation. Sol is the premium lane for this workload, but one native comment-identity task does not replace the conservative default; the completed editor and offline/data repeats still leave broader CRDT, IME, and interaction coverage unresolved.</p>
+          <p><span class="label observed">Android persisted-thread lifecycle</span> Sol high passed the corrected module test, scored 90.33, cost $3.1772, finished in 598.5 seconds, and ranked first on both value metrics. It was the only validation-passing mergeable result among nine judged entries. Terra xhigh was the closest repairable alternative but missed a coroutine import and did not compile. Opus passed tests at 76.67 but retained lifecycle and persistence gaps. Luna, DeepSeek, GLM, both Kimi attempts, and Sonnet required redrive; Sonnet also crossed the workspace boundary. Kimi's initial 325.2-second figure is retained model-session time rather than the later process stall. The result strengthens Sol as the challenger without establishing coverage beyond this Android AI-chat workload.</p>
+          <p><span class="label caution">Judge variance</span> A duplicate Fable pass scored the same Luna xhigh patch 59 and 94. The lower pass identified a deterministic failure confirmed against source, so the published panel retains 59. Judge output is evidence to reconcile, not ground truth to average blindly.</p>
+          <p><span class="label policy">Scope boundary</span> These single-attempt cohorts support workload-specific findings, while the completed repeated switch gate drives the provisional default decision. Representative-workload expansion remains necessary before treating the result as universal. <a href="benchmark/production-coding-cohorts.json">View the historical aggregate.</a></p>
+          <p><span class="label policy">Coverage boundary</span> Cohort labels name one workload, not an entire platform or work across engineering. The current frontend task is a small legacy-client change, the original iOS route matrix is confined to native comment identity, and the Android shortlist is concentrated in AI chat. Broad routing claims across engineering need broader iOS CRDT, IME, and editor-interaction coverage beyond the completed matched editor/offline tasks, plus query execution, agent-runtime protocols, external-API security contracts, realtime distributed state, complex client/accessibility work, and Android work outside AI.</p>
+        </div>
+      </section>
+
+      <section id="planning">
+        <span class="section-number">03</span>
+        <p class="kicker">Planning</p>
+        <h2>Stability earns the planning route.</h2>
+        <p class="lede"><code>plan</code> uses Terra xhigh. The evaluation covered two production-shaped iOS planning clusters, four finalist attempts per model, and three blind graders per eligible plan.</p>
+
+        <div class="table-wrap">
+          <table>
+            <caption>Repeated production-shaped planning result</caption>
+            <thead>
+              <tr><th scope="col">Planner</th><th scope="col">Completed</th><th scope="col">Fatal safety caps</th><th scope="col">Median plan score</th><th scope="col">Observed cost</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row"><strong>Terra xhigh</strong></th><td class="good"><strong>4/4</strong></td><td><strong>0</strong></td><td><strong>88</strong></td><td><strong>$8.303 complete</strong></td></tr>
+              <tr><th scope="row">Sonnet 5 default</th><td>4/4</td><td class="caution">4</td><td>30</td><td>$2.814 complete</td></tr>
+              <tr><th scope="row">Sol xhigh</th><td class="caution">3/4</td><td>1 among completed</td><td>89 among completed</td><td>&ge;$40.883</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <p>Terra was the only finalist to finish all four plans without a fatal safety cap.</p>
+          <small>Sonnet was faster and cheaper but repeatedly omitted central safety constraints. Sol produced two excellent plans and one prohibited plan; a fourth attempt hit the legacy evaluation's 15-minute cutoff, so it is censored rather than a demonstrated model failure. Sol's observed total was already 4.9 times Terra's.</small>
+        </div>
+
+        <div class="measure">
+          <p>Opus 4.8 and Fable 5 received two screening attempts each. Opus scored 45 and 92 at a combined $4.943; Fable scored 15 and 40 at $6.830. Their variance or repeated caps did not justify finalist expansion.</p>
+          <p><span class="label observed">Within-experiment</span> Terra is the sensible planning default for this production-risk profile. The result establishes plan quality and stability under the tested protocol; it does not prove that a Terra plan causes a cheaper implementer to deliver better code.</p>
+          <p><span class="label config">Configuration fact</span> Plan cannot edit files and shell access requires approval. The absence of a step cap supports long unattended planning; Goal execution remains unavailable from the plan agent.</p>
+        </div>
+      </section>
+
+      <section id="open-weight">
+        <span class="section-number">04</span>
+        <p class="kicker">Open-weight provider frontier</p>
+        <h2>Measured routes, narrow assignments.</h2>
+        <p class="lede">GLM 5.2 and Kimi K2.7 Code are selectable through Baseten and Fireworks; DeepSeek V4 Pro is selectable through Baseten. Baseten now has matched outcomes; Fireworks remains unmeasured. The treatment is model + provider + serving path + reasoning setting—not merely a model family name. “DeepSeek V4 Pro” is the retained OpenCode evaluation-route label; comparisons use the recorded provider and exact route identifier because catalog display names can differ.</p>
+
+        <div class="callout caution-note">
+          <p>Baseten GLM's measured input ceiling is 202,720 tokens, not the roughly 1.05M value OpenCode advertised.</p>
+          <small>Two retained attempts ended after producing substantive patches because the benchmark trusted incorrect catalog metadata. They remain judgeable, but their completion failures are censored as configuration incidents. Managed runs now compact around 182,720 tokens with the 20,000-token reserve.</small>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <caption>Published rates and operational input ceilings</caption>
+            <thead>
+              <tr><th scope="col">Route</th><th scope="col">Published rates</th><th scope="col">Operational input ceiling</th><th scope="col">Time evidence</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">DeepSeek V4 Pro · Baseten</th><td>$1.74 / $0.145 / $3.48</td><td>≈262K</td><td>Matched results range from 85.67 mixed to 48 IaC; iOS scored 70.33 and led pure Quality:Value but required repair</td></tr>
+              <tr><th scope="row">GLM · Baseten Standard</th><td>$1.40 / $0.26 / $4.40</td><td><strong>202,720 measured</strong></td><td>Matched results range from 91 tooling to 58 IaC; two context terminations are censored configuration incidents</td></tr>
+              <tr><th scope="row">GLM · Fireworks Standard</th><td>$1.40 / $0.14 / $4.40</td><td>Catalog ≈1.05M · unverified</td><td>Unmeasured</td></tr>
+              <tr><th scope="row">GLM · Fireworks Fast</th><td>$2.10 / $0.21 / $6.60</td><td>Catalog ≈1.05M · unverified</td><td>Unmeasured — vendor targets 100+ generated tokens/s</td></tr>
+              <tr><th scope="row">Kimi · Baseten Standard</th><td>$0.95 / $0.16 / $4.00</td><td>Catalog ≈262K</td><td>Mixed coding; production-ready session titles</td></tr>
+              <tr><th scope="row">Kimi · Fireworks Standard</th><td>$0.95 / $0.19 / $4.00</td><td>Catalog ≈262K</td><td>Unmeasured</td></tr>
+              <tr><th scope="row">Kimi · Fireworks Fast</th><td>$1.90 / $0.38 / $8.00</td><td>Catalog ≈262K</td><td>Unmeasured — explicit latency experiment</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pending-box">
+          <span class="label pending">Fireworks outcome trials pending</span>
+          <p>Baseten outcomes do not transfer across providers. No Fireworks credential was present for authenticated trials in this snapshot, so there is no defensible Fireworks-versus-Baseten quality, reliability, or realized-latency winner yet.</p>
+        </div>
+
+        <div class="measure">
+          <p><span class="label config">Configuration fact</span> Bare <code>/glm</code> and <code>/kimi</code> retain Baseten as matched controls. The <code>-fireworks</code> commands pin Standard; <code>-fireworks-fast</code> isolates the premium serving path. Neither hidden agent is reachable through automatic Task routing.</p>
+          <p><span class="label policy">Decision</span> Production Build and Plan stay Terra; automatic advice stays off and <code>/advise</code> remains optional. GLM remains an explicit coding experiment because its strong tooling result did not transfer to IaC. Kimi earns the bounded session-title utility and remains an explicit bounded reader, not a general coding or default reader route.</p>
+          <p>Fireworks Standard matches Baseten's fresh-input and output rates. It has cheaper GLM cache reads, while Baseten has slightly cheaper Kimi cache reads. Fireworks Fast costs 1.5× Standard for GLM and 2× for Kimi, so it must earn that premium through total model-session time per valid result—not a vendor throughput claim.</p>
+        </div>
+
+        <h3>Matched decision gate</h3>
+        <div class="table-wrap">
+          <table>
+            <caption>Evidence required before changing a role</caption>
+            <thead>
+              <tr><th scope="col">Role</th><th scope="col">Current route</th><th scope="col">Required evidence</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Production controller / general</th><td>Terra xhigh, provisional</td><td>Final repeated three-task switch gate; Sol passed every gate except the pre-registered cost ceiling</td></tr>
+              <tr><th scope="row">Bounded implementer</th><td>Explicit GLM, Kimi, or DeepSeek only</td><td>Repeated route-specific success; current results vary materially by workload</td></tr>
+              <tr><th scope="row">Plan</th><td>Terra xhigh</td><td>Repeated blind-graded planning with fatal-safety caps</td></tr>
+              <tr><th scope="row">Reader</th><td>Explicit Kimi only</td><td>Exact-file answer-key citation precision, recall, completion, cost, and latency</td></tr>
+              <tr><th scope="row">Advisor</th><td>No default; <code>/advise</code> opt-in</td><td>No separate study planned</td></tr>
+              <tr><th scope="row">Session-title utility</th><td>Kimi · Baseten, measured recommendation</td><td>Not an installed default; re-evaluate when provider, prompt, or output contract changes</td></tr>
+              <tr><th scope="row">Project-copy utility</th><td>Luna low, measured recommendation</td><td>Not an installed default; re-evaluate when provider, prompt, or output contract changes</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="measure">
+          <p>The runners retain cost and time for every route, including failed and censored attempts. These event-derived measures are not vendor TTFT. Promotion or default-switch decisions consider economics only after completion, compliance, validation, quality, and handoff gates.</p>
+          <p>Sources: <a href="https://docs.fireworks.ai/serverless/pricing">Fireworks pricing</a>, <a href="https://docs.fireworks.ai/serverless/serving-paths">Fireworks serving paths</a>, and <a href="https://www.baseten.co/pricing/">Baseten pricing</a>.</p>
+        </div>
+
+        <h3>Bounded small-model utility recommendations</h3>
+        <p class="lede">Eight production-shaped contexts, two repetitions, two output contracts, and three routes produced 96 invocations. Deterministic checks were combined with an uncapped blind Sol/Opus/Fable panel.</p>
+        <div class="table-wrap">
+          <table>
+            <caption>Measured utility recommendations; not installed defaults</caption>
+            <thead>
+              <tr><th scope="col">Utility</th><th scope="col">Measured recommendation</th><th scope="col">Combined quality</th><th scope="col">Median latency</th><th scope="col">Defects</th><th scope="col">Weighted rank</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Project-copy name</th><td><strong>Luna low</strong></td><td><strong>97.40</strong></td><td>1.146 s</td><td class="good"><strong>0/16</strong></td><td><strong>1</strong></td></tr>
+              <tr><th scope="row">Session title</th><td><strong>Kimi · Baseten</strong></td><td>96.32</td><td class="good"><strong>0.317 s</strong></td><td class="good"><strong>0/16</strong></td><td><strong>1</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="measure">
+          <p>Luna scored slightly higher on session titles, but Kimi was about 3.8× faster at the median and had the better rate proxy. Kimi was unsafe for project-copy naming: four of 16 outputs were materially defective. GLM non-thinking exposed reasoning/self-correction artifacts despite passing deterministic title-shape checks.</p>
+          <p>The utility endpoints did not expose token usage, so exact USD is intentionally absent. Cost uses a disclosed list-rate proxy. These routes are measured recommendations, not installed defaults, and the results do not transfer to coding, planning, reading, or advising. <a href="benchmark/small-model-utility.json">View the aggregate.</a></p>
+        </div>
+      </section>
+
+      <section id="operations">
+        <span class="section-number">05</span>
+        <p class="kicker">Study configuration</p>
+        <h2>The measured local workflow.</h2>
+        <p class="lede">This records the user-level configuration used for the study. It is not a repository-level OpenCode default across engineering.</p>
+        <ol class="operational-list">
+          <li><b>Controller routing</b><span>Build, plan, and Ultra use Terra xhigh. Personal Luna, Terra, Sonnet, and Sol slash commands are not installed; those evaluated models remain available through explicit model selection. The optional <code>/advise</code> lane currently uses Opus 4.8 xhigh.</span></li>
+          <li><b>Iteration policy</b><span>Build, plan, Luna, Terra, Sonnet, Sol, and Ultra have no OpenCode step cap.</span></li>
+          <li><b>Goal safety rails</b><span>Ordinary Goal runs may use configured limits. Ultra explicitly creates a durable Goal without a default token, turn, or elapsed-time cap; provider-failure and no-progress loop guards still apply.</span></li>
+          <li><b>Advisor consent</b><span>The legacy advisor tool is denied everywhere. The isolated <code>/advise</code> lane is developer-invoked, read-only, configurable, and disableable.</span></li>
+          <li><b>Compaction</b><span>The active session model compacts; old tool output is pruned, three recent turns and 12,000 recent tokens are preserved, and 20,000 tokens are reserved. It is not a separately routed role.</span></li>
+          <li><b>Open-weight availability</b><span>Exact Baseten and Fireworks Standard/Fast commands are selectable, but remain outside default models, <code>small_model</code>, and automatic Task routing.</span></li>
+        </ol>
+      </section>
+
+      <section id="limits">
+        <span class="section-number">06</span>
+        <p class="kicker">Limits and next decisions</p>
+        <h2>Useful now. Designed to be overturned.</h2>
+        <ol class="limits">
+          <li><b>No full shipping loop.</b><span>The implementation cohorts produced and validated patches, but did not complete an edit-build-simulator-CI-release sequence for every route.</span></li>
+          <li><b>Small and uneven production sample.</b><span>The seven historical implementation cohorts have one attempt per route, while the switch cohort has six attempts per route across three tasks. Several large product-risk surfaces remain unsampled; this supports a provisional routing policy, not a universal model ranking across engineering.</span></li>
+          <li><b>The original source-analysis routes did not pass 85.</b><span>Several implementation artifacts did, but no model substitutes for builds, tests, runtime evidence, independent review, or human ownership.</span></li>
+          <li><b>Incomplete attempts have lower-bound cost.</b><span>The historical source-analysis Luna xhigh and Terra max figures exclude unfinished future work and are not complete route totals. The separate iOS Terra max attempt is reported as a censored one-hour route with its retained patch and observed cost.</span></li>
+          <li><b>Luna high is workload-sensitive.</b><span>It led the mixed value frontier and was inexpensive in frontend, but scored poorly in tooling, failed IaC validation, and produced a redrive iOS artifact; keep it bounded.</span></li>
+          <li><b>Planner-to-implementer effect unmeasured.</b><span>Terra produced the most stable plans; this study did not execute each plan with a cheaper downstream implementer.</span></li>
+          <li><b>Open-weight evidence is preliminary.</b><span>Matched Baseten outcomes now exist for several workloads and the ten added references passed calibration, but the full cross-area candidate matrix and provider comparison are incomplete. Vendor token-throughput claims do not establish end-to-end OpenCode speed.</span></li>
+          <li><b>List price is not a bill.</b><span>Subscription terms, discounts, caching, and regional or long-context rules can change out-of-pocket spend.</span></li>
+          <li><b>Sol effort is deferred.</b><span>High versus xhigh versus max remains a separate experiment.</span></li>
+          <li><b>No carry-as-is parity.</b><span>None of the 12 matched attempts cleared source reconciliation without repair. The gate measures relative route performance, not proof that either route can replace production verification.</span></li>
+        </ol>
+
+        <h3>Public evidence</h3>
+        <ol class="sources">
+          <li><a href="benchmark/production-confirmation.json">Production-controller completion, quality, cost, and latency aggregate</a>.</li>
+          <li><a href="benchmark/planning-evaluation.json">Repeated planning quality, safety, cost, and completion aggregate</a>.</li>
+          <li><a href="benchmark/pricing-frontier-sample.json">Terra, Sol high, and GPT-5.5 xhigh pricing-frontier sample</a>.</li>
+          <li><a href="benchmark/production-coding-cohorts.json">Production-shaped backend, frontend, mixed, tooling, IaC, Android, and final ten-route iOS implementation cohorts</a>.</li>
+          <li><a href="benchmark/matched-switch-gate-final.json">Matched Terra-versus-Sol default-switch gate, final source-adjudicated aggregate</a>.</li>
+          <li><a href="benchmark/expanded-production-reference-calibration.json">Ten calibrated representative-workload definitions and their effective reference-validation dispositions</a>.</li>
+          <li><a href="benchmark/small-model-utility.json">Repeated session-title and project-copy-name utility study</a>.</li>
+          <li><a href="benchmark/open-weight-provider-frontier.json">GLM and Kimi provider routes, prices, timing claims, and matched-trial protocol</a>.</li>
+          <li>Official model pages: <a href="https://developers.openai.com/api/docs/models/gpt-5.6-luna">Luna</a>, <a href="https://developers.openai.com/api/docs/models/gpt-5.6-terra">Terra</a>, <a href="https://developers.openai.com/api/docs/models/gpt-5.6-sol">Sol</a>, and <a href="https://developers.openai.com/api/docs/models/gpt-5.5">GPT-5.5</a>.</li>
+          <li>Official provider references: <a href="https://docs.fireworks.ai/serverless/pricing">Fireworks pricing</a>, <a href="https://docs.fireworks.ai/serverless/serving-paths">Fireworks serving paths</a>, and <a href="https://www.baseten.co/pricing/">Baseten pricing</a>.</li>
+        </ol>
+        <div class="callout caution-note">
+          <p>The public report excludes source, repository identity, paths, symbols, prompts, rubrics, raw answers, grader keys, and session identifiers.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="footer-inner"><span>OpenCode model routing</span><span>Evidence snapshot · 17 July 2026</span></div>
+  </footer>
+
+  <script>
+    const root = document.documentElement;
+    const themeButton = document.querySelector('.theme-toggle');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function readStoredTheme() {
+      try {
+        return localStorage.getItem('report-theme');
+      } catch {
+        return null;
+      }
+    }
+
+    function storeTheme(theme) {
+      try {
+        localStorage.setItem('report-theme', theme);
+      } catch {
+        // Theme selection still applies for the current document.
+      }
+    }
+
+    function setTheme(theme) {
+      root.dataset.theme = theme;
+      const nextTheme = theme === 'dark' ? 'light' : 'dark';
+      themeButton.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
+      themeButton.setAttribute('title', `Switch to ${nextTheme} theme`);
+    }
+
+    setTheme(readStoredTheme() || (systemTheme.matches ? 'dark' : 'light'));
+    themeButton.addEventListener('click', () => {
+      const nextTheme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      setTheme(nextTheme);
+      storeTheme(nextTheme);
+    });
+
+    const progress = document.querySelector('.progress');
+    function updateProgress() {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = `${scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0}%`;
+    }
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress, { passive: true });
+
+    const links = [...document.querySelectorAll('.contents a')];
+    const sections = [...document.querySelectorAll('main section')];
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        links.forEach((link) => link.removeAttribute('aria-current'));
+        document.querySelector(`.contents a[href="#${visible.target.id}"]`)?.setAttribute('aria-current', 'true');
+      }, { rootMargin: '-18% 0px -70% 0px', threshold: [0, .2, .6] });
+      sections.forEach((section) => observer.observe(section));
+    }
+  </script>
+</body>
+</html>
