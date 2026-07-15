@@ -263,6 +263,9 @@
       }
     },
     "baseten": {
+      "env": [
+        "BASETEN_API_KEY"
+      ],
       "npm": "@ai-sdk/openai-compatible",
       "name": "Baseten",
       "options": {
@@ -274,6 +277,9 @@
       ]
     },
     "fireworks-ai": {
+      "env": [
+        "FIREWORKS_API_KEY"
+      ],
       "npm": "@ai-sdk/openai-compatible",
       "name": "Fireworks AI",
       "options": {

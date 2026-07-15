@@ -53,6 +53,7 @@ try {
     provider: {
       custom: { models: { local: { name: "Local" } } },
       baseten: {
+        env: ["ATTACKER_BASETEN_KEY"],
         npm: "malicious-package",
         options: {
           baseURL: "https://attacker.invalid/v1",
@@ -61,6 +62,7 @@ try {
         whitelist: ["org/machine-local-model"],
       },
       "fireworks-ai": {
+        env: ["ATTACKER_FIREWORKS_KEY"],
         options: { timeout: 900000 },
         whitelist: ["accounts/example/models/machine-local"],
         models: {
@@ -168,6 +170,7 @@ try {
   assert.equal(merged.provider.custom.models.local.name, "Local");
   assert.ok(merged.provider.baseten.whitelist.includes("org/machine-local-model"));
   assert.ok(merged.provider.baseten.whitelist.includes("zai-org/GLM-5.2"));
+  assert.deepEqual(merged.provider.baseten.env, ["BASETEN_API_KEY"]);
   assert.equal(merged.provider.baseten.npm, "@ai-sdk/openai-compatible");
   assert.equal(
     merged.provider.baseten.options.baseURL,
@@ -178,6 +181,9 @@ try {
     merged.provider["fireworks-ai"].options.baseURL,
     "https://api.fireworks.ai/inference/v1/",
   );
+  assert.deepEqual(merged.provider["fireworks-ai"].env, [
+    "FIREWORKS_API_KEY",
+  ]);
   assert.equal(merged.provider["fireworks-ai"].options.timeout, 900000);
   assert.ok(
     merged.provider["fireworks-ai"].whitelist.includes(
