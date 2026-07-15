@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { isDeepStrictEqual } from "node:util";
 
 const repoRoot = path.resolve(process.argv[2]);
 const configDir = path.resolve(process.argv[3]);
@@ -78,8 +79,31 @@ function finalPermission(agent, permission, pattern = "*") {
   return action;
 }
 
+function normalizedPermissions(agent, ignoredPermissions = new Set()) {
+  const finalRules = new Map();
+  for (const rule of agent.permission ?? []) {
+    if (ignoredPermissions.has(rule.permission)) continue;
+    const pattern = rule.pattern ?? "*";
+    finalRules.set(`${rule.permission}\0${pattern}`, {
+      permission: rule.permission,
+      pattern,
+      action: rule.action,
+    });
+  }
+  return [...finalRules.values()].sort((left, right) =>
+    left.permission.localeCompare(right.permission) ||
+    left.pattern.localeCompare(right.pattern)
+  );
+}
+
 const config = JSON.parse(
   fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"),
+);
+const managedDefaults = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, "opencode", "opencode.defaults.json"),
+    "utf8",
+  ),
 );
 const modelRoutingPath = path.join(configDir, "model-routing.config.local.json");
 const modelRouting = fs.existsSync(modelRoutingPath)
@@ -136,6 +160,21 @@ const inheritedModelAgents = [
   "software_architect",
 ];
 const inheritedModelAgentNames = new Set(inheritedModelAgents);
+
+const {
+  question: managedUltraQuestion,
+  plan_enter: managedUltraPlanEnter,
+  ...managedUltraSharedPermissions
+} = managedDefaults.agent.ultra.permission;
+if (managedUltraQuestion !== "deny" || managedUltraPlanEnter !== "deny") {
+  fail("the managed Ultra profile must explicitly deny questions and Plan entry");
+}
+if (!isDeepStrictEqual(
+  managedUltraSharedPermissions,
+  managedDefaults.agent.build.permission,
+)) {
+  fail("the managed Ultra permissions must match Build except for unattended-mode denials");
+}
 
 if (config.agent?.compaction?.model === "anthropic/claude-sonnet-5") {
   fail("the retired fixed Sonnet compaction override is still configured");
@@ -219,6 +258,41 @@ for (const name of goalControllers) {
       fail(`${name} must deny automatic Task delegation to ${target}`);
     }
   }
+}
+
+const ultra = agents.ultra;
+if (ultra.mode !== "primary" || ultra.hidden !== true) {
+  fail("ultra must remain a hidden primary used by /ultra");
+}
+for (const permission of ["question", "plan_enter"]) {
+  if (finalPermission(ultra, permission) !== "deny") {
+    fail(`ultra must deny ${permission} for unattended execution`);
+  }
+}
+if (ultra.tools?.question === true) {
+  fail("ultra must not expose the interactive question tool");
+}
+const unattendedPermissionDifferences = new Set(["question", "plan_enter"]);
+if (!isDeepStrictEqual(
+  normalizedPermissions(agents.build, unattendedPermissionDifferences),
+  normalizedPermissions(ultra, unattendedPermissionDifferences),
+)) {
+  fail("resolved Ultra permissions must match Build except for unattended-mode denials");
+}
+
+const ultraCommandSource = fs.readFileSync(
+  path.join(repoRoot, "opencode", "commands", "ultra.md"),
+  "utf8",
+);
+if (!ultraCommandSource.startsWith("---\n") || !ultraCommandSource.includes("\nagent: ultra\n")) {
+  fail("/ultra must target the hidden Ultra execution profile");
+}
+const resolvedUltraCommand = resolvedConfig.command?.ultra;
+if (!resolvedUltraCommand || resolvedUltraCommand.agent !== "ultra") {
+  fail("/ultra must resolve to the hidden Ultra execution profile");
+}
+if (resolvedUltraCommand.model !== undefined || resolvedUltraCommand.subtask === true) {
+  fail("/ultra must run as a primary and inherit the Ultra profile model");
 }
 
 const experimentalCommands = {
