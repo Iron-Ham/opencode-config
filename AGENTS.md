@@ -271,6 +271,7 @@ This file and the surrounding config (`settings.json`, `agents/`, `codex/agents/
 
 ## Testing Requirements
 
+- In `notion-next`, never run a local typecheck command, including `notion typecheck`, `tsc`, or a package-level typecheck script. Typechecking is CI-owned because even scoped local runs can take an unreasonable amount of time. Use language-server diagnostics, targeted lint, focused tests, builds, and CI results for type evidence.
 - Write tests for new functionality when a test suite exists in the project
 - Run existing tests before committing to ensure no regressions
 - If tests fail, fix them before proceeding (unless user explicitly says otherwise)
