@@ -140,10 +140,6 @@ const agentNames = [...new Set([
   "general",
   "explore",
   "compaction",
-  "luna",
-  "sonnet",
-  "sol",
-  "terra",
   "ultra",
   ...managedAgentNames,
 ])].filter((name) => !disabledAgentNames.has(name)).sort();
@@ -158,6 +154,7 @@ const inheritedModelAgents = [
   "general",
   "security_engineer",
   "software_architect",
+  "ultra",
 ];
 const inheritedModelAgentNames = new Set(inheritedModelAgents);
 
@@ -211,7 +208,7 @@ for (const [name, agent] of Object.entries(agents)) {
     fail(`${name} must deny the external advisor tool`);
   }
 }
-const goalControllers = new Set(["build", "luna", "sonnet", "sol", "terra", "ultra"]);
+const goalControllers = new Set(["build", "ultra"]);
 const goalMutationTools = [
   "create_goal",
   "set_goal",
@@ -517,13 +514,8 @@ const expectedModels = {
   build: ["openai", "gpt-5.6-terra-xhigh-pinned"],
   glm_worker: ["baseten", "zai-org/GLM-5.2"],
   kimi_reader: ["baseten", "moonshotai/Kimi-K2.7-Code"],
-  luna: ["openai", "gpt-5.6-luna-high-pinned"],
   plan: ["openai", "gpt-5.6-terra-xhigh-pinned"],
   advisor_reviewer: ["anthropic", "claude-opus-4-8-xhigh-pinned"],
-  sonnet: ["anthropic", "claude-sonnet-5-default-pinned"],
-  sol: ["openai", "gpt-5.6-sol-high-pinned"],
-  terra: ["openai", "gpt-5.6-terra-xhigh-pinned"],
-  ultra: ["openai", "gpt-5.6-terra-xhigh-pinned"],
 };
 if (modelRouting.agents?.compaction) {
   expectedModels.compaction = undefined;
@@ -659,10 +651,6 @@ if (withPlugins) {
     if (childWithPlugins.tools?.advisor === true) {
       fail(`${name} must not expose an installed external advisor tool`);
     }
-  }
-  const solWithPlugins = debugAgent("sol", true);
-  if (solWithPlugins.tools?.advisor === true) {
-    fail("sol must not expose an installed external advisor tool");
   }
 }
 
