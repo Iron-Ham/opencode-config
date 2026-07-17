@@ -18,7 +18,7 @@ Invoke /impeccable, which contains design principles, anti-patterns, and the **C
 
 Launch two independent assessments. **Neither must see the other's output** to avoid bias.
 
-You SHOULD delegate each assessment to a separate sub-agent for independence. Use your environment's agent spawning mechanism (e.g., Claude Code's `Agent` tool, or Codex's subagent spawning). Sub-agents should return their findings as structured text. Do NOT output findings to the user yet.
+You SHOULD delegate each assessment to a separate OpenCode `Task` subagent for independence. Subagents should return their findings as structured text. Do NOT output findings to the user yet.
 
 If sub-agents are not available in the current environment, complete each assessment sequentially, writing findings to internal notes before proceeding.
 

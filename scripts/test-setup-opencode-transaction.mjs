@@ -10,7 +10,6 @@ const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "
 const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "setup-opencode-transaction-test-"));
 const homeDir = path.join(testRoot, "home");
 const configDir = path.join(homeDir, ".config", "opencode");
-const legacySkillsDir = path.join(homeDir, ".agents", "skills");
 const stubBin = path.join(testRoot, "bin");
 const transactionTempDir = path.join(testRoot, "transaction-tmp");
 const externalTarget = path.join(testRoot, "external-target");
@@ -61,8 +60,6 @@ try {
   fs.mkdirSync(transactionTempDir, { recursive: true });
   fs.mkdirSync(configDir, { recursive: true, mode: 0o751 });
   fs.chmodSync(configDir, 0o751);
-  fs.mkdirSync(legacySkillsDir, { recursive: true, mode: 0o750 });
-  fs.chmodSync(legacySkillsDir, 0o750);
   writeFile(externalTarget, "external symlink target\n", 0o600);
 
   writeFile(path.join(configDir, "AGENTS.md"), "pre-run local instructions\n");
@@ -96,6 +93,14 @@ try {
     path.join(repoRoot, "opencode", "agents", "backend_architect.md"),
     path.join(configDir, "agents", "backend_architect.md"),
   );
+  const retiredSkillPath = path.join(configDir, "skills", "legacy-generated-skill");
+  const retiredSkillTarget = path.join(
+    repoRoot,
+    "codex",
+    "skills",
+    "legacy-generated-skill",
+  );
+  fs.symlinkSync(retiredSkillTarget, retiredSkillPath);
   fs.symlinkSync(externalTarget, path.join(configDir, "commands", "advise.md"));
   for (const name of ["luna", "sol", "sonnet", "terra"]) {
     fs.symlinkSync(
@@ -103,13 +108,6 @@ try {
       path.join(configDir, "commands", `${name}.md`),
     );
   }
-  fs.symlinkSync(
-    path.join(repoRoot, "skills", "split"),
-    path.join(legacySkillsDir, "split"),
-  );
-  writeFile(path.join(legacySkillsDir, "user-skill", "SKILL.md"), "pre-run user skill\n");
-  fs.symlinkSync(externalTarget, path.join(legacySkillsDir, "external-link"));
-
   writeExecutable("opencode", "#!/bin/sh\nexit 0\n");
   writeExecutable("notion", String.raw`#!/bin/bash
 set -eu
@@ -188,7 +186,6 @@ esac
 `);
 
   const configBefore = fingerprintTree(configDir);
-  const legacyBefore = fingerprintTree(legacySkillsDir);
   const result = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
     cwd: repoRoot,
     env: {
@@ -207,7 +204,6 @@ esac
   assert.match(result.stderr.toString(), /forced late validation failure/);
   assert.match(result.stderr.toString(), /ROLLBACK OpenCode setup failed/);
   assert.deepEqual(fingerprintTree(configDir), configBefore);
-  assert.deepEqual(fingerprintTree(legacySkillsDir), legacyBefore);
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
   const success = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
@@ -224,6 +220,26 @@ esac
     stderr: "pipe",
   });
   assert.equal(success.exitCode, 0, success.stderr.toString());
+  for (const name of fs.readdirSync(path.join(repoRoot, "skills"))) {
+    const source = path.join(repoRoot, "skills", name);
+    if (!fs.statSync(source).isDirectory() || !fs.existsSync(path.join(source, "SKILL.md"))) {
+      continue;
+    }
+    const installed = path.join(configDir, "skills", name);
+    assert.equal(fs.lstatSync(installed).isSymbolicLink(), true);
+    assert.equal(fs.readlinkSync(installed), source);
+  }
+  assert.equal(fs.lstatSync(retiredSkillPath, { throwIfNoEntry: false }), undefined);
+  const retiredSkillBackup = fs.readdirSync(
+    path.join(configDir, "backups", "setup-opencode"),
+  ).find((name) => name.startsWith("skills-legacy-generated-skill.bak."));
+  assert.notEqual(retiredSkillBackup, undefined);
+  assert.equal(
+    fs.readlinkSync(
+      path.join(configDir, "backups", "setup-opencode", retiredSkillBackup),
+    ),
+    retiredSkillTarget,
+  );
   const workflowGuardPath = path.join(
     configDir,
     "plugins",

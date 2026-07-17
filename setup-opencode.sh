@@ -6,7 +6,6 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCODE_DIR="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
-LEGACY_SHARED_SKILLS_DIR="$HOME/.agents/skills"
 RETIRED_OPENCODE_AGENT_NAMES=(
   backend_architect
   evidence_collector
@@ -39,7 +38,6 @@ normalize_path() {
 
 normalized_home="$(normalize_path "$HOME")"
 OPENCODE_DIR="$(normalize_path "$OPENCODE_DIR")"
-LEGACY_SHARED_SKILLS_DIR="$(normalize_path "$LEGACY_SHARED_SKILLS_DIR")"
 TRANSACTION_TMP_ROOT="$(normalize_path "${OPENCODE_SETUP_TMPDIR:-${TMPDIR:-/tmp}}")"
 
 assert_safe_tree() {
@@ -52,17 +50,8 @@ assert_safe_tree() {
 }
 
 assert_safe_tree "$OPENCODE_DIR" "OpenCode configuration"
-assert_safe_tree "$LEGACY_SHARED_SKILLS_DIR" "legacy shared skills"
-if [ "$OPENCODE_DIR" = "$LEGACY_SHARED_SKILLS_DIR" ] || \
-  [[ "$OPENCODE_DIR/" == "$LEGACY_SHARED_SKILLS_DIR/"* ]] || \
-  [[ "$LEGACY_SHARED_SKILLS_DIR/" == "$OPENCODE_DIR/"* ]]; then
-  echo "ERROR  OpenCode and legacy shared-skill trees must not overlap" >&2
-  exit 1
-fi
 if [ "$TRANSACTION_TMP_ROOT" = "$OPENCODE_DIR" ] || \
-  [ "$TRANSACTION_TMP_ROOT" = "$LEGACY_SHARED_SKILLS_DIR" ] || \
-  [[ "$TRANSACTION_TMP_ROOT/" == "$OPENCODE_DIR/"* ]] || \
-  [[ "$TRANSACTION_TMP_ROOT/" == "$LEGACY_SHARED_SKILLS_DIR/"* ]]; then
+  [[ "$TRANSACTION_TMP_ROOT/" == "$OPENCODE_DIR/"* ]]; then
   echo "ERROR  OpenCode setup temporary storage must be outside active configuration trees" >&2
   exit 1
 fi
@@ -109,7 +98,6 @@ begin_transaction() {
   transaction_snapshot_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-transaction.XXXXXX")"
   chmod 700 "$transaction_snapshot_dir"
   snapshot_tree "$OPENCODE_DIR" opencode
-  snapshot_tree "$LEGACY_SHARED_SKILLS_DIR" legacy-shared-skills
   transaction_active=true
 }
 
@@ -132,7 +120,6 @@ on_exit() {
   if [ "$transaction_active" = true ] && [ "$transaction_committed" != true ]; then
     echo "ROLLBACK OpenCode setup failed; restoring the previous configuration" >&2
     restore_tree "$OPENCODE_DIR" opencode || rollback_status=1
-    restore_tree "$LEGACY_SHARED_SKILLS_DIR" legacy-shared-skills || rollback_status=1
     if [ "$rollback_status" -ne 0 ]; then
       echo "ERROR  OpenCode setup rollback could not restore every active tree" >&2
       echo "KEEP   recovery snapshot at $transaction_snapshot_dir" >&2
@@ -311,7 +298,7 @@ begin_transaction
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --retire-obsolete
 
-mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
+mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR"
 chmod 700 "$OPENCODE_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
@@ -330,56 +317,24 @@ for src in "$REPO_DIR"/opencode/agents/*.md; do
   link_item "$src" "$OPENCODE_AGENTS_DIR/$name" "OpenCode agent $name"
 done
 
-SKILLS_SOURCE_DIR="$REPO_DIR/skills"
-if [ ! -d "$SKILLS_SOURCE_DIR" ]; then
-  SKILLS_SOURCE_DIR="$REPO_DIR/codex/skills"
-fi
-
-for src in "$SKILLS_SOURCE_DIR"/*; do
+for src in "$REPO_DIR"/skills/*; do
   [ -d "$src" ] || continue
   [ -f "$src/SKILL.md" ] || continue
   name="$(basename "$src")"
   dest="$OPENCODE_SKILLS_DIR/$name"
-  legacy_dest="$LEGACY_SHARED_SKILLS_DIR/$name"
-  if [ -L "$legacy_dest" ]; then
-    current="$(readlink "$legacy_dest")"
-    if [ "$current" = "$REPO_DIR/skills/$name" ] || \
-      [ "$current" = "$REPO_DIR/codex/skills/$name" ]; then
-      rm "$legacy_dest"
-      echo "UNLINK $legacy_dest (legacy repo-managed skill link)"
-    fi
-  fi
-  claude_skill="$HOME/.claude/skills/$name/SKILL.md"
-  if [ -f "$claude_skill" ]; then
-    if [ -L "$dest" ]; then
-      current="$(readlink "$dest")"
-      if [ "$current" = "$REPO_DIR/skills/$name" ] || \
-        [ "$current" = "$REPO_DIR/codex/skills/$name" ]; then
-        rm "$dest"
-        echo "UNLINK $dest (the same skill is available through ~/.claude/skills)"
-      fi
-    fi
-    echo "OK     shared skill $name (discovered through ~/.claude/skills)"
-    continue
-  fi
   link_item "$src" "$dest" "shared skill $name"
 done
 
-if [ -d "$REPO_DIR/codex/skills" ]; then
-  for src in "$REPO_DIR"/codex/skills/*; do
-    [ -d "$src" ] || continue
-    [ -f "$src/SKILL.md" ] || continue
-    name="$(basename "$src")"
-    [ -d "$REPO_DIR/skills/$name" ] && continue
-    [ -f "$HOME/.claude/skills/$name/SKILL.md" ] && continue
-    legacy_dest="$LEGACY_SHARED_SKILLS_DIR/$name"
-    if [ -L "$legacy_dest" ] && [ "$(readlink "$legacy_dest")" = "$src" ]; then
-      rm "$legacy_dest"
-      echo "UNLINK $legacy_dest (migrated to OpenCode-only skill discovery)"
-    fi
-    link_item "$src" "$OPENCODE_SKILLS_DIR/$name" "OpenCode-only skill $name"
-  done
-fi
+for dest in "$OPENCODE_SKILLS_DIR"/*; do
+  [ -L "$dest" ] || continue
+  current="$(readlink "$dest")"
+  case "$current" in
+    "$REPO_DIR"/codex/skills/*)
+      backup_item "$dest"
+      echo "RETIRE $dest (retired generated skill)"
+      ;;
+  esac
+done
 
 for src in "$REPO_DIR"/opencode/commands/*.md; do
   [ -e "$src" ] || continue
@@ -444,5 +399,5 @@ commit_transaction
 echo ""
 echo "Done. OpenCode rules, agents, commands, plugins, and managed defaults are installed."
 echo "Unmanaged provider, MCP, plugin, agent, and permission entries were preserved."
-echo "Repo-managed global skill duplicates were removed; project-local name collisions may still require alignment."
+echo "Repo-managed global skills are linked directly; project-local name collisions may still require alignment."
 echo "Restart running OpenCode sessions to load configuration-time changes."

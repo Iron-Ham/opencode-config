@@ -3,9 +3,6 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Plugin marketplace metadata
-.claude-plugin/
-
 # Local worktrees
 .claude/worktrees/
 
