@@ -1,7 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js"
-import type { Session } from "@opencode-ai/sdk/v2"
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
 
 import { summarizeCostTree, type CostSession, type CostSummary } from "../tui/total-cost"
@@ -19,14 +18,20 @@ const money = new Intl.NumberFormat("en-US", {
 	maximumFractionDigits: 4,
 })
 
-function formatCost(value: number) {
+function formatCost(value: number): string {
 	return money.format(value)
 }
 
-async function getSession(api: TuiPluginApi, sessionID: string): Promise<Session | undefined> {
+async function getSession(
+	api: TuiPluginApi,
+	sessionID: string,
+): Promise<CostSession | undefined> {
 	const cached = api.state.session.get(sessionID)
 	if (cached) return cached
-	const result = await api.client.session.get({ sessionID }, { throwOnError: true })
+	const result = await api.client.session.get(
+		{ sessionID },
+		{ throwOnError: true },
+	)
 	return result.data
 }
 
@@ -74,7 +79,7 @@ function CostView(props: CostViewProps) {
 		const currentRequest = ++request
 		setError()
 		void loadSessionTree(props.api, props.sessionID)
-			.then((sessions) => {
+			.then(sessions => {
 				if (currentRequest !== request) return
 				setSummary(summarizeCostTree(sessions[0]?.id ?? "", sessions))
 			})
@@ -90,20 +95,20 @@ function CostView(props: CostViewProps) {
 
 	const label = createMemo(() => {
 		const value = summary()
-		if (!value) return error() ? "cost unavailable" : "cost …"
+		if (!value) return error() ? "cost unavailable" : "cost ..."
 
 		const parts = [`session ${formatCost(value.rootCost)}`]
 		if (value.subagentCount > 0) {
 			parts.push(`agents ${formatCost(value.subagentCost)}`)
 		}
 		parts.push(`total ${formatCost(value.totalCost)}`)
-		return parts.join(" · ")
+		return parts.join(" / ")
 	})
 
 	return <text fg={props.api.theme.current.textMuted}>{label()}</text>
 }
 
-const tui: TuiPlugin = async (api) => {
+const tui: TuiPlugin = async api => {
 	const [revision, setRevision] = createSignal(0)
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -111,7 +116,7 @@ const tui: TuiPlugin = async (api) => {
 		if (refreshTimer) clearTimeout(refreshTimer)
 		refreshTimer = setTimeout(() => {
 			refreshTimer = undefined
-			setRevision((value) => value + 1)
+			setRevision(value => value + 1)
 		}, 250)
 	}
 
@@ -132,7 +137,13 @@ const tui: TuiPlugin = async (api) => {
 	api.slots.register({
 		slots: {
 			session_prompt_right(_context, props) {
-				return <CostView api={api} sessionID={props.session_id} revision={revision} />
+				return (
+					<CostView
+						api={api}
+						sessionID={props.session_id}
+						revision={revision}
+					/>
+				)
 			},
 		},
 	})

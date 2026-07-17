@@ -1,6 +1,8 @@
-import type { Session } from "@opencode-ai/sdk/v2"
-
-export type CostSession = Pick<Session, "id" | "parentID" | "cost">
+export type CostSession = {
+	id: string
+	parentID?: string
+	cost?: number
+}
 
 export type CostSummary = {
 	rootCost: number
@@ -9,8 +11,11 @@ export type CostSummary = {
 	totalCost: number
 }
 
-export function summarizeCostTree(rootID: string, sessions: readonly CostSession[]): CostSummary {
-	const sessionsByID = new Map(sessions.map((session) => [session.id, session]))
+export function summarizeCostTree(
+	rootID: string,
+	sessions: readonly CostSession[],
+): CostSummary {
+	const sessionsByID = new Map(sessions.map(session => [session.id, session]))
 	const childrenByParentID = new Map<string, CostSession[]>()
 
 	for (const session of sessions) {
@@ -37,7 +42,7 @@ export function summarizeCostTree(rootID: string, sessions: readonly CostSession
 	let subagentCost = 0
 	let subagentCount = 0
 
-	function visit(session: CostSession, isRoot: boolean) {
+	function visit(session: CostSession, isRoot: boolean): number {
 		if (visited.has(session.id)) return 0
 		visited.add(session.id)
 
@@ -47,9 +52,12 @@ export function summarizeCostTree(rootID: string, sessions: readonly CostSession
 			subagentCount += 1
 		}
 
-		return cost + (childrenByParentID.get(session.id) ?? []).reduce(
-			(total, child) => total + visit(child, false),
-			0,
+		return (
+			cost +
+			(childrenByParentID.get(session.id) ?? []).reduce(
+				(total, child) => total + visit(child, false),
+				0,
+			)
 		)
 	}
 
