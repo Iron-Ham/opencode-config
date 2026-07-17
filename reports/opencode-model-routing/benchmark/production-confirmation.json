@@ -122,7 +122,7 @@
   "decision": {
     "production_default": "terra-xhigh",
     "bounded_cost_saving_lane": "luna-high",
-    "automatic_advisor_policy": "off_by_default_pending_outcome-changing_evidence",
+    "automatic_advisor_policy": "off_by_default_no_further_study_planned",
     "requested_advisor_model": "not_determined_by_this_experiment",
     "luna_high": "directional_bounded_lane_from_one_matched_cluster",
     "terra_max": "not_selected_after_one_timed_out_attempt",

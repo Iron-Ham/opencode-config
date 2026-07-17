@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "protocol": "observed-merged-reference-calibration-v1",
+  "privacy": "aggregate_only",
+  "direction": "a passing reference proves the historical workload and locked checks are runnable; it is not candidate-model evidence",
+  "summary": {
+    "workloads": 10,
+    "effective_passes": 10,
+    "raw_failures": 1,
+    "effective_failures": 0
+  },
+  "workloads": [
+    {"label":"native mobile data","status":"pass"},
+    {"label":"native mobile editor","status":"pass","raw_status":"fail","adjudication":"the changed-area suite passed; the sole broad-suite failure was an unchanged repeatedly observed test"},
+    {"label":"Android maintenance","status":"pass"},
+    {"label":"desktop native","status":"pass"},
+    {"label":"external API","status":"pass"},
+    {"label":"modern client","status":"pass"},
+    {"label":"realtime systems","status":"pass"},
+    {"label":"agent runtime","status":"pass"},
+    {"label":"mixed monetization","status":"pass"},
+    {"label":"query execution","status":"pass"}
+  ],
+  "next_gate": "run matched candidate routes and retain implementation, validation, compliance, blind quality, cost, and wall time separately"
+}

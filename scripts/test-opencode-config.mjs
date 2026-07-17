@@ -177,11 +177,20 @@ try {
   assert.equal(merged.provider.custom.models.local.name, "Local");
   assert.ok(merged.provider.baseten.whitelist.includes("org/machine-local-model"));
   assert.ok(merged.provider.baseten.whitelist.includes("zai-org/GLM-5.2"));
+  assert.ok(
+    merged.provider.baseten.whitelist.includes(
+      "deepseek-ai/DeepSeek-V4-Pro",
+    ),
+  );
   assert.deepEqual(merged.provider.baseten.env, ["BASETEN_API_KEY"]);
   assert.equal(merged.provider.baseten.npm, "@ai-sdk/openai-compatible");
   assert.equal(
     merged.provider.baseten.options.baseURL,
     "https://inference.baseten.co/v1",
+  );
+  assert.deepEqual(
+    merged.provider.baseten.models["zai-org/GLM-5.2"].limit,
+    { context: 202_720, input: 202_720, output: 128_000 },
   );
   assert.equal(merged.provider.baseten.options.timeout, 750000);
   assert.equal(
@@ -229,8 +238,11 @@ try {
   const solAlias = merged.provider.openai.models["gpt-5.6-sol-xhigh-pinned"];
   assert.equal(solAlias.options.reasoningEffort, "xhigh");
   assert.ok(Object.values(solAlias.variants).every((variant) => variant.disabled));
+  const solHighAlias = merged.provider.openai.models["gpt-5.6-sol-high-pinned"];
+  assert.equal(solHighAlias.options.reasoningEffort, "high");
+  assert.ok(Object.values(solHighAlias.variants).every((variant) => variant.disabled));
   const pinnedGptLimit = { context: 1_050_000, input: 256_000, output: 128_000 };
-  for (const alias of [lunaAlias, lunaHighAlias, terraAlias, solAlias]) {
+  for (const alias of [lunaAlias, lunaHighAlias, terraAlias, solAlias, solHighAlias]) {
     assert.deepEqual(alias.limit, pinnedGptLimit);
   }
   for (const modelID of ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]) {
@@ -238,6 +250,11 @@ try {
   }
   assert.equal(merged.compaction.reserved, 20_000);
   assert.equal(merged.compaction.auto, true);
+  assert.equal(
+    merged.provider.baseten.models["zai-org/GLM-5.2"].limit.input -
+      merged.compaction.reserved,
+    182_720,
+  );
   const compactAt = pinnedGptLimit.input - merged.compaction.reserved;
   assert.equal(compactAt, 236_000);
   assert.equal(272_000 - compactAt, 36_000);

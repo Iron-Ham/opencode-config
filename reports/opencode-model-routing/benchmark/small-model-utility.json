@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "protocol": "production-shaped-small-model-utility-v1",
+  "coverage": {
+    "contexts": 8,
+    "repetitions": 2,
+    "workloads": 2,
+    "routes": 3,
+    "total_invocations": 96,
+    "blind_graders": ["sol-high", "opus-4.8-xhigh", "fable-5-xhigh"]
+  },
+  "scoring": {
+    "quality": "35% deterministic checks + 65% mean blind-judge score",
+    "quality_value": "cubic quality multiplied by cost efficiency",
+    "weighted": "60% cubic quality + 25% cost efficiency + 15% speed efficiency",
+    "direction": "higher metric is better; rank 1 is best",
+    "cost_caveat": "The native utility endpoints did not expose token usage. Cost efficiency uses a disclosed 90/10 input/output list-rate proxy; exact run USD is not reported."
+  },
+  "results": {
+    "project-copy-name": [
+      {"route":"luna-low","deterministic_score":100,"judge_mean":96,"combined_quality":97.4,"median_wall_time_seconds":1.1458,"material_defect_rate":0,"quality_value_rank":1,"weighted_rank":1,"panel_decision":"ship"},
+      {"route":"glm-5.2-non-thinking-baseten","deterministic_score":92.8125,"judge_mean":77.6667,"combined_quality":82.9677,"median_wall_time_seconds":0.4715,"material_defect_rate":0.125,"quality_value_rank":2,"weighted_rank":2,"panel_decision":"repair"},
+      {"route":"kimi-k2.7-code-baseten","deterministic_score":82.5,"judge_mean":60,"combined_quality":67.875,"median_wall_time_seconds":0.2686,"material_defect_rate":0.25,"quality_value_rank":3,"weighted_rank":3,"panel_decision":"reject_or_repair"}
+    ],
+    "session-title": [
+      {"route":"kimi-k2.7-code-baseten","deterministic_score":100,"judge_mean":94.3333,"combined_quality":96.3167,"median_wall_time_seconds":0.3171,"material_defect_rate":0,"quality_value_rank":1,"weighted_rank":1,"panel_decision":"ship"},
+      {"route":"luna-low","deterministic_score":100,"judge_mean":95.6667,"combined_quality":97.1833,"median_wall_time_seconds":1.1968,"material_defect_rate":0,"quality_value_rank":2,"weighted_rank":2,"panel_decision":"ship"},
+      {"route":"glm-5.2-non-thinking-baseten","deterministic_score":100,"judge_mean":44,"combined_quality":63.6,"median_wall_time_seconds":0.9289,"material_defect_rate":0.125,"quality_value_rank":3,"weighted_rank":3,"panel_decision":"reject_or_repair"}
+    ]
+  },
+  "decision": {
+    "installation_status": "measured recommendations; not installed defaults",
+    "project_copy_name_recommendation": "luna-low",
+    "session_title_recommendation": "kimi-k2.7-code-baseten",
+    "reason": "These workload-specific recommendations identify the best measured routes for the tested output contracts. Luna was the only project-copy arm with zero defects and an aggregate panel decision of Ship, while Kimi matched production-ready session-title quality at the best observed value and speed."
+  },
+  "limitations": [
+    "The findings apply to these bounded utility functions, not coding, planning, reading, or advising.",
+    "The cost comparison is a list-rate proxy because exact usage was unavailable.",
+    "Provider and serving path are part of the treatment; these Baseten results do not transfer automatically to Fireworks."
+  ]
+}

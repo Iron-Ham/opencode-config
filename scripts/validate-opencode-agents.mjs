@@ -521,7 +521,7 @@ const expectedModels = {
   plan: ["openai", "gpt-5.6-terra-xhigh-pinned"],
   advisor_reviewer: ["anthropic", "claude-opus-4-8-xhigh-pinned"],
   sonnet: ["anthropic", "claude-sonnet-5-default-pinned"],
-  sol: ["openai", "gpt-5.6-sol-xhigh-pinned"],
+  sol: ["openai", "gpt-5.6-sol-high-pinned"],
   terra: ["openai", "gpt-5.6-terra-xhigh-pinned"],
   ultra: ["openai", "gpt-5.6-terra-xhigh-pinned"],
 };

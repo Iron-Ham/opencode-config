@@ -11,6 +11,7 @@ import {
   assertRawBenchmarkOutputOutsideRepository,
 } from "./benchmark-output-containment.mjs";
 import {
+  assertParallelModelAuthSafe,
   benchmarkConfigWithProviders,
   benchmarkInstructionManifest,
   isolatedOpenCodeEnvironment,
@@ -31,12 +32,24 @@ const combinations = {
     implementer: { model: "openai/gpt-5.6-terra", variant: "xhigh" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "plan-terra-high": {
+    implementer: { model: "openai/gpt-5.6-terra", variant: "high" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
   "plan-sonnet-default": {
     implementer: { model: "anthropic/claude-sonnet-5" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "plan-sonnet-xhigh": {
+    implementer: { model: "anthropic/claude-sonnet-5", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
   "plan-sol": {
     implementer: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "plan-sol-high": {
+    implementer: { model: "openai/gpt-5.6-sol", variant: "high" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
   "plan-opus": {
@@ -129,6 +142,10 @@ const combinations = {
     implementer: { model: "baseten/moonshotai/Kimi-K2.7-Code" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "deepseek-baseten": {
+    implementer: { model: "baseten/deepseek-ai/DeepSeek-V4-Pro" },
+    advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
   "kimi-fireworks": {
     implementer: {
       model: "fireworks-ai/accounts/fireworks/models/kimi-k2p7-code",
@@ -174,9 +191,24 @@ const MESSAGE_TRUNCATE_MAX = 4000;
 const TRANSCRIPT_CHAR_BUDGET = 60000;
 const LEGACY_CONTROLLER_STEPS = 100;
 const ADVISOR_STEPS = 4;
-const REQUEST_TIMEOUT_MS = 15 * 60 * 1000;
-const DIRECT_REQUEST_TIMEOUT_MS = 15 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = benchmarkTimeout(
+  "OPENCODE_BENCHMARK_REQUEST_TIMEOUT_MS",
+  60 * 60 * 1000,
+);
+const DIRECT_REQUEST_TIMEOUT_MS = benchmarkTimeout(
+  "OPENCODE_BENCHMARK_DIRECT_REQUEST_TIMEOUT_MS",
+  REQUEST_TIMEOUT_MS,
+);
 const TERMINATION_GRACE_MS = 5000;
+
+function benchmarkTimeout(environmentVariable, fallback) {
+  const value = Number(process.env[environmentVariable] ?? fallback);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${environmentVariable} must be a positive number of milliseconds`);
+  }
+  return value;
+}
+
 function ensurePrivateDirectory(directory) {
   const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
   if (existing && (!existing.isDirectory() || existing.isSymbolicLink())) {
@@ -392,8 +424,20 @@ function extractText(events) {
     .trim();
 }
 
-function assertToolPathsStayInWorkdir(events, cwd) {
-  const root = path.resolve(cwd);
+function canonicalPath(candidate) {
+  let existingAncestor = path.resolve(candidate);
+  const missingSegments = [];
+  while (!fs.existsSync(existingAncestor)) {
+    const parent = path.dirname(existingAncestor);
+    if (parent === existingAncestor) return path.resolve(candidate);
+    missingSegments.unshift(path.basename(existingAncestor));
+    existingAncestor = parent;
+  }
+  return path.join(fs.realpathSync(existingAncestor), ...missingSegments);
+}
+
+export function assertToolPathsStayInWorkdir(events, cwd) {
+  const root = canonicalPath(cwd);
   const rootPrefix = `${root}${path.sep}`;
   const pathKeys = new Set(["directory", "filePath", "path", "workdir"]);
   for (const event of events) {
@@ -411,7 +455,7 @@ function assertToolPathsStayInWorkdir(events, cwd) {
       const pathValue = isGlobPattern
         ? value.split(/[*?{[]/u, 1)[0]
         : value;
-      const resolved = path.resolve(root, pathValue || ".");
+      const resolved = canonicalPath(path.resolve(cwd, pathValue || "."));
       if (resolved !== root && !`${resolved}${path.sep}`.startsWith(rootPrefix)) {
         throw new Error(`Benchmark tool attempted to access outside --workdir: ${value}`);
       }
@@ -658,6 +702,24 @@ function deterministicOrder(values, seed, identity = (value) => String(value)) {
   });
 }
 
+export function benchmarkRepetitionProvenance({
+  round,
+  seed,
+  repetition,
+  concurrency,
+  executionOrder,
+  runnerSha256 = RUNNER_SHA256,
+}) {
+  return {
+    round,
+    seed: String(seed),
+    repetition,
+    concurrency,
+    execution_order: [...executionOrder],
+    runner_sha256: runnerSha256,
+  };
+}
+
 function draftFingerprintWithRunnerSha({
   cwd,
   task,
@@ -689,7 +751,7 @@ function draftFingerprint({
   provenance,
 }) {
   return createHash("sha256").update(JSON.stringify({
-    schema: 6,
+    schema: 7,
     protocol,
     cwd,
     task,
@@ -1094,11 +1156,14 @@ function validatedArtifactOrigin({
   if (
     metadata.round !== round ||
     String(metadata.seed) !== String(provenance.seed) ||
+    metadata.concurrency !== provenance.concurrency ||
     !Number.isInteger(metadata.repeat) ||
     metadata.repeat < repetition ||
     !Array.isArray(originOrder)
   ) {
-    throw new Error("legacy artifact origin does not match round, seed, or repetition");
+    throw new Error(
+      "legacy artifact origin does not match round, seed, repetition, or concurrency",
+    );
   }
   let sourceRoute;
   if (combinationName) {
@@ -1127,6 +1192,7 @@ function validatedArtifactOrigin({
     round: metadata.round,
     seed: String(metadata.seed),
     repetition,
+    concurrency: metadata.concurrency,
     execution_order: [...originOrder],
     source_route: sourceRoute,
     runner_sha256: metadata.runner_sha256 ?? null,
@@ -1174,13 +1240,14 @@ function frozenDraftFingerprint({
     task,
     implementer,
     protocol,
-    provenance: {
+    provenance: benchmarkRepetitionProvenance({
       round: metadata.round,
       seed: String(metadata.seed),
       repetition,
-      execution_order: [...originOrder],
-      runner_sha256: metadata.runner_sha256,
-    },
+      concurrency: metadata.concurrency,
+      executionOrder: originOrder,
+      runnerSha256: metadata.runner_sha256,
+    }),
   });
 }
 
@@ -1368,12 +1435,16 @@ async function runDraft({
     protocol,
     provenance,
   });
-  const legacyFingerprints = new Set(compatibleLegacyDraftFingerprints({
-    cwd,
-    task,
-    implementer,
-    protocol,
-  }));
+  const legacyFingerprints = new Set(
+    legacyOriginMetadata?.concurrency === provenance.concurrency
+      ? compatibleLegacyDraftFingerprints({
+        cwd,
+        task,
+        implementer,
+        protocol,
+      })
+      : [],
+  );
   const compatibleFrozenFingerprint = frozenDraftFingerprint({
     metadata: frozenOriginMetadata,
     cwd,
@@ -1908,8 +1979,13 @@ async function main() {
   if (!Number.isInteger(args.repeat) || args.repeat < 1) {
     throw new Error("--repeat must be a positive integer");
   }
-  if (args.concurrency !== 1) {
-    throw new Error("--concurrency must be 1 so OAuth refresh state and latency remain isolated");
+  if (!Number.isInteger(args.concurrency) || args.concurrency < 1) {
+    throw new Error("--concurrency must be a positive integer");
+  }
+  if (args.concurrency !== 1 && !args.draft_only) {
+    throw new Error(
+      "--concurrency greater than 1 is supported only for independent draft-only routes",
+    );
   }
 
   let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
@@ -1951,6 +2027,11 @@ async function main() {
   const dataHome = preparePrivateDataHome(outputDir);
   const authState = { content: loadOpenCodeAuthContent() };
   absorbAndScrubPersistedAuth(dataHome, authState);
+  assertParallelModelAuthSafe({
+    authContent: authState.content,
+    concurrency: args.concurrency,
+    models: selected.map((name) => combinations[name].implementer.model),
+  });
   writePrivateFile(path.join(outputDir, `${args.round}-task.md`), `${task}\n`);
   const metadataPath = path.join(outputDir, `${args.round}-metadata.json`);
   const summaryPath = path.join(outputDir, `${args.round}-summary.json`);
@@ -2089,7 +2170,7 @@ async function main() {
       .digest("hex"),
     benchmark_instructions: benchmarkInstructionManifest(cwd),
     fingerprint_schema: {
-      draft: 6,
+      draft: 7,
       trial: 3,
       legacy_provider_catalog_fingerprints: "validated_when_reproducible",
     },
@@ -2109,6 +2190,7 @@ async function main() {
         round: legacyOriginMetadata.round,
         seed: String(legacyOriginMetadata.seed),
         repeat: legacyOriginMetadata.repeat,
+        concurrency: legacyOriginMetadata.concurrency ?? null,
         runner_sha256: legacyOriginMetadata.runner_sha256 ?? null,
         protocol: legacyOriginMetadata.protocol,
         draft_protocol: legacyOriginMetadata.draft_protocol,
@@ -2125,6 +2207,7 @@ async function main() {
         round: frozenOriginMetadata.round,
         seed: String(frozenOriginMetadata.seed),
         repeat: frozenOriginMetadata.repeat,
+        concurrency: frozenOriginMetadata.concurrency ?? null,
         runner_sha256: frozenOriginMetadata.runner_sha256,
         protocol: frozenOriginMetadata.protocol,
         draft_protocol: frozenOriginMetadata.draft_protocol,
@@ -2151,27 +2234,49 @@ async function main() {
   const results = [];
   for (let repetition = 1; repetition <= args.repeat; repetition += 1) {
     const orderedCombinations = executionOrder[`repetition_${repetition}`];
-    const repetitionProvenance = {
+    const repetitionProvenance = benchmarkRepetitionProvenance({
       round: args.round,
-      seed: String(args.seed),
+      seed: args.seed,
       repetition,
-      execution_order: [...orderedCombinations],
-      runner_sha256: RUNNER_SHA256,
-    };
+      concurrency: args.concurrency,
+      executionOrder: orderedCombinations,
+    });
     const drafts = new Map();
+    const uniqueImplementers = [];
     for (const combinationName of orderedCombinations) {
       const implementer = combinations[combinationName].implementer;
       const key = implementerKey(implementer);
-      if (!drafts.has(key)) {
-        drafts.set(key, await runDraft({
+      if (!uniqueImplementers.some(entry => entry.key === key)) {
+        uniqueImplementers.push({ key, implementer });
+      }
+    }
+    for (let index = 0; index < uniqueImplementers.length; index += args.concurrency) {
+      const batch = uniqueImplementers.slice(index, index + args.concurrency);
+      const completedDrafts = await Promise.all(batch.map(async ({ key, implementer }) => {
+        const useIsolatedAuthHome = args.concurrency > 1;
+        const draftDataHome = useIsolatedAuthHome
+          ? preparePrivateDataHome(path.join(
+              outputDir,
+              "isolated-draft-auth",
+              `repetition-${repetition}`,
+              key,
+            ))
+          : dataHome;
+        const draftAuthState = useIsolatedAuthHome
+          ? { content: authState.content }
+          : authState;
+        if (useIsolatedAuthHome) {
+          absorbAndScrubPersistedAuth(draftDataHome, draftAuthState);
+        }
+        const draft = await runDraft({
           cwd,
           task,
           round: args.round,
           outputDir,
           implementer,
           repetition,
-          dataHome,
-          authState,
+          dataHome: draftDataHome,
+          authState: draftAuthState,
           protocol: draftProtocol,
           planningOnly: args.planning_only,
           provenance: repetitionProvenance,
@@ -2179,8 +2284,10 @@ async function main() {
           legacyOriginDrafts,
           frozenOriginMetadata,
           frozenOriginDrafts,
-        }));
-      }
+        });
+        return { key, draft };
+      }));
+      for (const { key, draft } of completedDrafts) drafts.set(key, draft);
     }
     if (args.draft_only) {
       for (const combinationName of orderedCombinations) {

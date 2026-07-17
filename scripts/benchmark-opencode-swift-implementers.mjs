@@ -86,6 +86,18 @@ const candidates = {
   },
 };
 const DEFAULT_CANDIDATES = ["sonnet", "luna", "terra"];
+const IMPLEMENTER_TIMEOUT_MS = benchmarkTimeout(
+  "OPENCODE_BENCHMARK_IMPLEMENTER_TIMEOUT_MS",
+  60 * 60 * 1000,
+);
+
+function benchmarkTimeout(environmentVariable, fallback) {
+  const value = Number(process.env[environmentVariable] ?? fallback);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${environmentVariable} must be a positive number of milliseconds`);
+  }
+  return value;
+}
 
 let openCodeLauncher = "direct";
 
@@ -831,7 +843,7 @@ async function runOpenCodeTurn({
         cwd,
       }),
     },
-    10 * 60 * 1000,
+    IMPLEMENTER_TIMEOUT_MS,
   );
   absorbAndScrubPersistedAuth(dataHome, authState);
   const events = parseEvents(execution.stdout);

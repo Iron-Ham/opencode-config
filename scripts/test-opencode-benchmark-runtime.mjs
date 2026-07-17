@@ -7,6 +7,7 @@ import path from "node:path";
 
 import {
   aggregateEventTiming,
+  assertParallelModelAuthSafe,
   benchmarkConfigWithProviders,
   benchmarkInstructionManifest,
   isolatedOpenCodeEnvironment,
@@ -18,6 +19,68 @@ import {
 import {
   summarizeSwiftPhaseTiming,
 } from "./benchmark-opencode-swift-implementers.mjs";
+import {
+  assertToolPathsStayInWorkdir,
+  benchmarkRepetitionProvenance,
+} from "./benchmark-opencode-model-pairs.mjs";
+
+const serialProvenance = benchmarkRepetitionProvenance({
+  round: "round-a",
+  seed: 123,
+  repetition: 2,
+  concurrency: 1,
+  executionOrder: ["terra", "sol"],
+  runnerSha256: "runner-sha",
+});
+assert.deepEqual(serialProvenance, {
+  round: "round-a",
+  seed: "123",
+  repetition: 2,
+  concurrency: 1,
+  execution_order: ["terra", "sol"],
+  runner_sha256: "runner-sha",
+});
+assert.notDeepEqual(
+  serialProvenance,
+  benchmarkRepetitionProvenance({
+    round: "round-a",
+    seed: 123,
+    repetition: 2,
+    concurrency: 2,
+    executionOrder: ["terra", "sol"],
+    runnerSha256: "runner-sha",
+  }),
+);
+
+const pathGuardRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), "opencode-benchmark-path-guard-"),
+);
+try {
+  const realWorkdir = path.join(pathGuardRoot, "real-workdir");
+  const aliasedWorkdir = path.join(pathGuardRoot, "aliased-workdir");
+  fs.mkdirSync(realWorkdir);
+  fs.writeFileSync(path.join(realWorkdir, "source.swift"), "source\n");
+  fs.symlinkSync(realWorkdir, aliasedWorkdir);
+  assertToolPathsStayInWorkdir([{
+    type: "tool_use",
+    part: {
+      tool: "read",
+      state: { input: { filePath: path.join(realWorkdir, "source.swift") } },
+    },
+  }], aliasedWorkdir);
+  assert.throws(
+    () => assertToolPathsStayInWorkdir([{
+      type: "tool_use",
+      part: {
+        tool: "read",
+        state: { input: { filePath: path.join(pathGuardRoot, "outside.swift") } },
+      },
+    }], aliasedWorkdir),
+    /outside --workdir/,
+  );
+} finally {
+  fs.rmSync(pathGuardRoot, { recursive: true, force: true });
+}
 
 const timing = summarizeEventTiming([
   { type: "step_start", timestamp: 1100 },
@@ -169,6 +232,15 @@ try {
     merged.provider.baseten.options.baseURL,
     "https://inference.baseten.co/v1",
   );
+  assert.deepEqual(
+    merged.provider.baseten.models["zai-org/GLM-5.2"].limit,
+    { context: 202_720, input: 202_720, output: 128_000 },
+  );
+  assert.ok(
+    merged.provider.baseten.whitelist.includes(
+      "deepseek-ai/DeepSeek-V4-Pro",
+    ),
+  );
   assert.deepEqual(merged.instructions, [path.join(workspace, "AGENTS.md")]);
   assert.deepEqual(merged.permission, { "*": "deny" });
   assert.equal(benchmarkInstructionManifest(workspace)[0].sha256.length, 64);
@@ -217,6 +289,42 @@ try {
       dataHome,
     }),
     /JSON object/,
+  );
+
+  assert.doesNotThrow(() => assertParallelModelAuthSafe({
+    authContent: '{"openai":{"type":"oauth"}}',
+    concurrency: 1,
+    models: ["openai/gpt-5.6-terra"],
+  }));
+  assert.doesNotThrow(() => assertParallelModelAuthSafe({
+    authContent: '{"openai":{"type":"api"}}',
+    concurrency: 2,
+    models: ["openai/gpt-5.6-terra"],
+  }));
+  assert.doesNotThrow(() => assertParallelModelAuthSafe({
+    authContent: "{}",
+    concurrency: 2,
+    models: ["baseten/zai-org/GLM-5.2"],
+  }));
+  assert.doesNotThrow(() => assertParallelModelAuthSafe({
+    authContent: '{"openai":{"type":"oauth"}}',
+    concurrency: 2,
+    models: ["baseten/zai-org/GLM-5.2"],
+  }));
+  assert.throws(
+    () => assertParallelModelAuthSafe({
+      authContent: JSON.stringify({
+        openai: { type: "oauth" },
+        anthropic: { type: "oauth" },
+      }),
+      concurrency: 2,
+      models: [
+        "openai/gpt-5.6-terra",
+        "anthropic/claude-sonnet-5",
+        "openai/gpt-5.6-sol",
+      ],
+    }),
+    /OAuth-backed providers \(anthropic, openai\).*refresh-token rotation.*--concurrency 1/,
   );
 } finally {
   fs.rmSync(workspace, { recursive: true, force: true });

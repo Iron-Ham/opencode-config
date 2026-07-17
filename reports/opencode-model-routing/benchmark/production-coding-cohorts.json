@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "protocol": "production-shaped-merged-change-reconstruction-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "repository_identity",
+      "source",
+      "paths",
+      "symbols",
+      "commit_identifiers",
+      "task_text",
+      "reference_changes",
+      "raw_patches",
+      "rubrics",
+      "grader_keys",
+      "session_identifiers"
+    ]
+  },
+  "protocol_summary": {
+    "workload_cohorts": 7,
+    "cohort_labels": {
+      "backend": "backend access-control migration",
+      "frontend": "legacy-client permission UI",
+      "mixed": "mixed admin-capability gating",
+      "tooling": "release orchestration tooling",
+      "iac": "cross-service access IaC",
+      "ios": "iOS comment identity",
+      "android": "Android persisted-thread lifecycle"
+    },
+    "blind_graders_per_candidate": 3,
+    "candidate_time_limit_seconds": 3600,
+    "cost_source": "recomputed from observed usage using the retained verified list-rate table",
+    "quality_value_formula": "100 * (mean_judge_score / 100)^3 * cost_efficiency / 100",
+    "weighted_formula": "60% cubic quality + 25% cost efficiency + 15% speed efficiency",
+    "direction": "higher metric is better; rank 1 is best"
+  },
+  "cohorts": {
+    "backend": [
+      {"route":"terra-high","judge_mean":93.6667,"validation":"pass","compliance":"compliant","cost_usd":1.044949,"wall_time_seconds":512.854,"quality_value_rank":1,"weighted_rank":1,"handoff":"carry","effort_note":"beat Terra xhigh by 5.33 quality points and cost 16.2% less, but took 13.8% longer"},
+      {"route":"sonnet-5-xhigh","judge_mean":92.6667,"validation":"pass","compliance":"noncompliant","cost_usd":6.6693383,"wall_time_seconds":1517.5176,"quality_value_rank":8,"weighted_rank":6,"handoff":"carry","compliance_note":"the candidate changed into and listed an external benchmark directory; artifact quality and route safety are reported separately"},
+      {"route":"sol-high","judge_mean":92.6667,"validation":"pass","compliance":"compliant","cost_usd":1.831314,"wall_time_seconds":482.568,"quality_value_rank":3,"weighted_rank":3,"handoff":"carry"},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":92,"validation":"pass","compliance":"compliant","cost_usd":4.3678781,"wall_time_seconds":568.5555,"quality_value_rank":4,"weighted_rank":4,"handoff":"carry"},
+      {"route":"glm-5.2-max-baseten","judge_mean":91.6667,"validation":"pass","compliance":"compliant","cost_usd":4.5296709,"wall_time_seconds":1433.7946,"quality_value_rank":5,"weighted_rank":5,"handoff":"carry"},
+      {"route":"terra-xhigh","judge_mean":88.3333,"validation":"pass","compliance":"compliant","cost_usd":1.246256,"wall_time_seconds":450.671,"quality_value_rank":2,"weighted_rank":2,"handoff":"carry"},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":79.3333,"validation":"pass","compliance":"compliant","cost_usd":3.1917448,"wall_time_seconds":1544.0788,"quality_value_rank":6,"weighted_rank":8,"handoff":"carry-with-repair","repair_note":"production logic matches the merged approach; tests should directly assert the removed-record behavior and replace unsafe casts, suppressions, dynamic import, and duplicated helpers"},
+      {"route":"opus-4.8-high","judge_mean":58.3333,"validation":"fail","compliance":"compliant","cost_usd":5.3224923,"wall_time_seconds":671.0791,"quality_value_rank":9,"weighted_rank":9,"handoff":"carry-with-repair","validation_note":"duplicate import causes the changed-file lint gate to fail"},
+      {"route":"luna-high","judge_mean":49.3333,"validation":"fail","compliance":"compliant","cost_usd":0.8597672,"wall_time_seconds":668.2454,"quality_value_rank":7,"weighted_rank":7,"handoff":"redrive"}
+    ],
+    "frontend": [
+      {"route":"terra-xhigh","judge_mean":93.3333,"validation":"pass","compliance":"compliant","cost_usd":0.766541,"wall_time_seconds":338.8733,"quality_value_rank":3,"weighted_rank":1},
+      {"route":"sol-high","judge_mean":91.3333,"validation":"pass","compliance":"compliant","cost_usd":1.433317,"wall_time_seconds":318.7534,"quality_value_rank":4,"weighted_rank":4},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":88.3333,"validation":"pass","compliance":"compliant","cost_usd":2.6727999,"wall_time_seconds":852.2458,"quality_value_rank":6,"weighted_rank":7},
+      {"route":"opus-4.8-high","judge_mean":87.3333,"validation":"pass","compliance":"noncompliant","cost_usd":3.1399335,"wall_time_seconds":391.9727,"quality_value_rank":7,"weighted_rank":5},
+      {"route":"luna-xhigh","judge_mean":83.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3650534,"wall_time_seconds":360.343,"quality_value_rank":1,"weighted_rank":2,"judge_adjudication":"one repeated-judge disagreement retained the lower score after its deterministic failure claim was confirmed"},
+      {"route":"glm-5.2-max-baseten","judge_mean":82.3333,"validation":"pass","compliance":"compliant","cost_usd":2.72315,"wall_time_seconds":638.8509,"quality_value_rank":8,"weighted_rank":8},
+      {"route":"luna-high","judge_mean":81.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3583894,"wall_time_seconds":349.7718,"quality_value_rank":2,"weighted_rank":3},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":80.3333,"validation":"pass","compliance":"compliant","cost_usd":1.7845014,"wall_time_seconds":320.7077,"quality_value_rank":5,"weighted_rank":6},
+      {"route":"sonnet-5-xhigh","judge_mean":71.3333,"validation":"pass","compliance":"noncompliant","cost_usd":4.4357096,"wall_time_seconds":1379.8946,"quality_value_rank":9,"weighted_rank":9}
+    ],
+    "mixed": [
+      {"route":"opus-4.8-high","judge_mean":93,"validation":"pass","compliance":"compliant","cost_usd":6.4576908,"wall_time_seconds":916.6773,"quality_value_rank":9,"weighted_rank":6},
+      {"route":"glm-5.2-max-baseten","judge_mean":92.6667,"validation":"pass","compliance":"compliant","cost_usd":4.0136926,"wall_time_seconds":898.0892,"quality_value_rank":6,"weighted_rank":5},
+      {"route":"sonnet-5-xhigh","judge_mean":89.3333,"validation":"pass","compliance":"compliant","cost_usd":9.1254527,"wall_time_seconds":2101.4721,"quality_value_rank":10,"weighted_rank":10,"effort_note":"matched high effort produced the same mean and handoff while costing 43.0% less and finishing 40.8% faster"},
+      {"route":"sonnet-5-high","judge_mean":89.3333,"validation":"pass","compliance":"compliant","cost_usd":5.2018952,"wall_time_seconds":1244.4813,"quality_value":10.7318,"weighted_quality_cost_speed":50.0617,"quality_value_rank":8,"weighted_rank":9,"handoff":"carry-with-repair","compliance_adjudication":"the raw classifier matched tsc as an argument to which; retained events show that no typecheck command executed","effort_note":"matched Sonnet xhigh quality and handoff while costing 43.0% less and finishing 40.8% faster"},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":86.6667,"validation":"pass","compliance":"compliant","cost_usd":3.9373572,"wall_time_seconds":618.8922,"quality_value_rank":7,"weighted_rank":8},
+      {"route":"luna-high","judge_mean":86,"validation":"pass","compliance":"compliant","cost_usd":0.7830552,"wall_time_seconds":635.7966,"quality_value_rank":1,"weighted_rank":2},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":85.6667,"validation":"pass","compliance":"compliant","cost_usd":1.9467129,"wall_time_seconds":652.5785,"quality_value_rank":5,"weighted_rank":7},
+      {"route":"terra-high","judge_mean":85.6667,"validation":"pass","compliance":"compliant","cost_usd":0.877873,"wall_time_seconds":420.4404,"quality_value_rank":2,"weighted_rank":1,"handoff":"carry-with-repair","effort_note":"scored 6 points above Terra xhigh and cost 5.9% less, but took 11.4% longer"},
+      {"route":"sol-high","judge_mean":84.3333,"validation":"pass","compliance":"compliant","cost_usd":1.28303,"wall_time_seconds":292.2999,"quality_value_rank":4,"weighted_rank":3},
+      {"route":"terra-xhigh","judge_mean":79.6667,"validation":"pass","compliance":"compliant","cost_usd":0.9331795,"wall_time_seconds":377.2585,"quality_value_rank":3,"weighted_rank":4}
+    ],
+    "tooling": [
+      {"route":"glm-5.2-max-baseten","judge_mean":91,"validation":"pass","compliance":"compliant","cost_usd":4.2211454,"wall_time_seconds":738.2088,"quality_value_rank":4,"weighted_rank":1},
+      {"route":"opus-4.8-high","judge_mean":91,"validation":"pass","compliance":"compliant","cost_usd":7.236253,"wall_time_seconds":796.4797,"quality_value_rank":7,"weighted_rank":4},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":88,"validation":"pass","compliance":"compliant","cost_usd":4.9013604,"wall_time_seconds":537.9865,"quality_value_rank":5,"weighted_rank":3},
+      {"route":"sonnet-5-xhigh","judge_mean":88,"validation":"pass","compliance":"compliant","cost_usd":6.2764221,"wall_time_seconds":1188.07,"quality_value_rank":6,"weighted_rank":7,"compliance_adjudication":"the raw classifier mistook the candidate's own isolated workspace for an external path"},
+      {"route":"terra-xhigh","judge_mean":86.3333,"validation":"pass","compliance":"compliant","cost_usd":2.481046,"wall_time_seconds":723.7217,"quality_value_rank":2,"weighted_rank":2},
+      {"route":"sol-high","judge_mean":81,"validation":"pass","compliance":"compliant","cost_usd":2.821765,"wall_time_seconds":463.2346,"quality_value_rank":3,"weighted_rank":5},
+      {"route":"sonnet-5-high","judge_mean":75.3333,"validation":"pass","compliance":"noncompliant","cost_usd":5.2845849,"wall_time_seconds":1229.5146,"quality_value":9.2589,"weighted_quality_cost_speed":36.7172,"quality_value_rank":8,"weighted_rank":8,"handoff":"redrive","failure_note":"the candidate ran a prohibited scoped typecheck and Git-history discovery; source reconciliation confirmed a merge-blocking command-construction security defect","effort_note":"cost 15.8% less than Sonnet xhigh but scored 12.67 points lower and introduced a merge-blocking security defect; the 3.5% slower observed time is not treated as causal because the run overlapped other controlled benchmark work"},
+      {"route":"luna-high","judge_mean":67.3333,"validation":"pass","compliance":"compliant","cost_usd":1.144479,"wall_time_seconds":642.5633,"quality_value_rank":1,"weighted_rank":6},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":56,"validation":"pass","compliance":"compliant","cost_usd":2.1969382,"wall_time_seconds":639.6797,"quality_value_rank":9,"weighted_rank":9,"handoff":"redrive"}
+    ],
+    "iac": [
+      {"route":"sol-high","judge_mean":91,"validation":"pass","compliance":"compliant","cost_usd":1.552537,"wall_time_seconds":316.8841,"quality_value_rank":3,"weighted_rank":1},
+      {"route":"luna-high","judge_mean":84,"validation":"fail","compliance":"compliant","cost_usd":0.7821404,"wall_time_seconds":514.666,"quality_value_rank":1,"weighted_rank":2},
+      {"route":"terra-xhigh","judge_mean":84,"validation":"fail","compliance":"compliant","cost_usd":1.215194,"wall_time_seconds":423.3588,"quality_value_rank":2,"weighted_rank":3},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":77.6667,"validation":"fail","compliance":"compliant","cost_usd":5.2099039,"wall_time_seconds":699.9619,"quality_value_rank":5,"weighted_rank":5},
+      {"route":"sonnet-5-xhigh","judge_mean":60.3333,"validation":"pass","compliance":"noncompliant","cost_usd":4.0364393,"wall_time_seconds":946.1381,"quality_value_rank":6,"weighted_rank":6},
+      {"route":"glm-5.2-max-baseten","judge_mean":58,"validation":"pass","compliance":"compliant","cost_usd":4.2973296,"wall_time_seconds":732.2194,"quality_value_rank":7,"weighted_rank":7},
+      {"route":"luna-xhigh","judge_mean":55.6667,"validation":"fail","compliance":"compliant","cost_usd":0.782085,"wall_time_seconds":667.5134,"quality_value_rank":4,"weighted_rank":4,"compliance_adjudication":"the raw classifier mistook the candidate's own isolated workspace for an external path"},
+      {"route":"opus-4.8-high","judge_mean":55,"validation":"pass","compliance":"compliant","cost_usd":5.8428102,"wall_time_seconds":811.7002,"quality_value_rank":8,"weighted_rank":8},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":48,"validation":"fail","compliance":"compliant","cost_usd":4.4085148,"wall_time_seconds":1252.2086,"quality_value_rank":9,"weighted_rank":9,"handoff":"redrive","failure_note":"production-significant region, account, and network-boundary defects"}
+    ],
+    "android": [
+      {"route":"sol-high","judge_mean":90.3333,"validation":"pass","compliance":"compliant","cost_usd":3.177171,"wall_time_seconds":598.5334,"quality_value":30.5852,"weighted_quality_cost_speed":62.7508,"quality_value_rank":1,"weighted_rank":1,"handoff":"carry"},
+      {"route":"terra-xhigh","judge_mean":57.3333,"validation":"fail","compliance":"compliant","cost_usd":1.366515,"wall_time_seconds":659.1784,"quality_value":18.1809,"weighted_quality_cost_speed":42.8253,"quality_value_rank":2,"weighted_rank":2,"handoff":"carry-with-repair","validation_note":"a missing coroutine import prevents compilation; the ownership split and test depth otherwise approach the observed merged bar"},
+      {"route":"luna-high","judge_mean":50.6667,"validation":"fail","compliance":"compliant","cost_usd":1.3182806,"wall_time_seconds":878.6471,"quality_value":13.0067,"weighted_quality_cost_speed":38.3557,"quality_value_rank":3,"weighted_rank":3,"handoff":"redrive","ranking_note":"price-driven ranks do not override a compile failure and a teardown path that can leak runtime work"},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":47.3333,"validation":"fail","compliance":"compliant","cost_usd":2.6621288,"wall_time_seconds":1105.5377,"quality_value":5.2515,"weighted_quality_cost_speed":23.1551,"quality_value_rank":4,"weighted_rank":6,"handoff":"redrive"},
+      {"route":"opus-4.8-high","judge_mean":76.6667,"validation":"pass","compliance":"compliant","cost_usd":11.534876,"wall_time_seconds":1262.1787,"quality_value":5.1501,"weighted_quality_cost_speed":33.7597,"quality_value_rank":5,"weighted_rank":4,"handoff":"carry-with-repair","repair_note":"tests pass, but unread activation and draft persistence semantics remain below the lifecycle bar"},
+      {"route":"glm-5.2-max-baseten","judge_mean":47.3333,"validation":"fail","compliance":"compliant","cost_usd":3.76603,"wall_time_seconds":871.781,"quality_value":3.7121,"weighted_quality_cost_speed":20.7094,"quality_value_rank":6,"weighted_rank":7,"handoff":"redrive","route_note":"the provider-context terminal is a catalog and compaction incident, while the independent compile and ownership defects are candidate failures"},
+      {"route":"kimi-k2.7-code-baseten-normalized-redrive","judge_mean":52.3333,"validation":"fail","compliance":"compliant","cost_usd":5.8948754,"wall_time_seconds":865.0933,"quality_value":3.2053,"weighted_quality_cost_speed":19.8293,"quality_value_rank":7,"weighted_rank":8,"handoff":"redrive"},
+      {"route":"kimi-k2.7-code-baseten-initial","judge_mean":40,"validation":"fail","compliance":"compliant","cost_usd":2.8999718,"wall_time_seconds":325.2,"quality_value":2.9093,"weighted_quality_cost_speed":30.2046,"quality_value_rank":8,"weighted_rank":5,"handoff":"redrive","timing_note":"uses retained model-session time; a later process-lifecycle stall is excluded from model latency"},
+      {"route":"sonnet-5-xhigh","judge_mean":46,"validation":"fail","compliance":"noncompliant","cost_usd":14.0138404,"wall_time_seconds":2131.2214,"quality_value":0.9156,"weighted_quality_cost_speed":10.4807,"quality_value_rank":9,"weighted_rank":9,"handoff":"redrive","compliance_note":"the route wrote and read an external temporary file"}
+    ],
+    "ios": [
+      {"route":"sol-high","judge_mean":90,"validation":"pass","raw_validation":"fail","compliance":"compliant","raw_compliance":"noncompliant","cost_usd":3.416934,"wall_time_seconds":1362.3982,"quality_value":19.6324,"weighted_quality_cost_speed":54.8459,"quality_value_rank":4,"weighted_rank":1,"handoff":"carry","adjudication_note":"all task-area checks passed; the only broad-suite failure was the same unrelated untouched-suite flake observed in another route, and the raw compliance classifier flagged inspection of the candidate's own captured tool output"},
+      {"route":"glm-5.2-max-baseten","judge_mean":82,"validation":"pass","compliance":"compliant","cost_usd":3.6251048,"wall_time_seconds":1311.8309,"quality_value":13.996,"weighted_quality_cost_speed":43.9699,"quality_value_rank":6,"weighted_rank":6,"handoff":"carry-with-repair"},
+      {"route":"sonnet-5-xhigh","judge_mean":79.3333,"validation":"pass","compliance":"noncompliant","run_status":"failed","cost_usd":4.4284527,"wall_time_seconds":1821.5906,"quality_value":10.3752,"weighted_quality_cost_speed":38.424,"quality_value_rank":9,"weighted_rank":7,"handoff":"carry-with-repair","route_note":"the artifact passed validation, but the unattended route exceeded the real-time limit and read a generated snapshot through an external temporary file; active process time excludes machine sleep"},
+      {"route":"deepseek-v4-pro-baseten","judge_mean":70.3333,"validation":"pass","compliance":"compliant","cost_usd":1.2222885,"wall_time_seconds":855.1335,"quality_value":26.1934,"weighted_quality_cost_speed":46.6641,"quality_value_rank":1,"weighted_rank":4,"handoff":"carry-with-repair"},
+      {"route":"opus-4.8-high","judge_mean":67.6667,"validation":"pass","raw_validation":"fail","compliance":"compliant","cost_usd":5.9690935,"wall_time_seconds":1501.502,"quality_value":4.7764,"weighted_quality_cost_speed":26.412,"quality_value_rank":10,"weighted_rank":10,"handoff":"carry-with-repair","adjudication_note":"all task-area checks passed; the only broad-suite failure was the same unrelated untouched-suite flake observed in another route"},
+      {"route":"kimi-k2.7-code-baseten","judge_mean":67,"validation":"pass","compliance":"compliant","cost_usd":2.60823,"wall_time_seconds":789.3698,"quality_value":10.6111,"weighted_quality_cost_speed":34.4139,"quality_value_rank":8,"weighted_rank":8,"handoff":"carry-with-repair"},
+      {"route":"terra-xhigh","judge_mean":63.6667,"validation":"fail","compliance":"compliant","cost_usd":1.044903,"wall_time_seconds":522.4956,"quality_value":22.7271,"weighted_quality_cost_speed":48.9038,"quality_value_rank":3,"weighted_rank":2,"handoff":"carry-with-repair","validation_note":"localized Swift compile error; repair and focused revalidation required"},
+      {"route":"luna-high","judge_mean":62.6667,"validation":"fail","compliance":"compliant","cost_usd":0.9202016,"wall_time_seconds":1007.1161,"quality_value":24.6099,"weighted_quality_cost_speed":45.682,"quality_value_rank":2,"weighted_rank":5,"handoff":"redrive","ranking_note":"price-driven value rank does not override failed validation or the handoff decision"},
+      {"route":"terra-high","judge_mean":55.6667,"validation":"fail","compliance":"noncompliant","cost_usd":1.0471435,"wall_time_seconds":397.2078,"quality_value":15.1587,"weighted_quality_cost_speed":47.3193,"quality_value_rank":5,"weighted_rank":3,"handoff":"carry-with-repair","validation_note":"three localized Swift compile errors; repair and focused revalidation required","compliance_note":"attempted a denied search across the parent iOS benchmark-workspace directory"},
+      {"route":"terra-max","judge_mean":72,"validation":"pass","raw_validation":"fail","compliance":"compliant","run_status":"failed","cost_usd":2.5986515,"wall_time_seconds":3611.2808,"quality_value":13.217,"weighted_quality_cost_speed":32.8974,"quality_value_rank":7,"weighted_rank":9,"handoff":"carry-with-repair","route_note":"the route reached the normalized one-hour boundary with a substantial patch; task-focused checks passed, two broad failures were in untouched tests, and the shared snapshot-recording scheme change remains a localized repair","judge_adjudication":"corrected panel 93/56/67, mean 72; two judges repeated an unsupported attribution of the broad failures to record mode even though every snapshot suite passed, so the raw panel is retained conservatively without manual adjustment"}
+    ]
+  },
+  "cross_cohort_summary": {
+    "scope": "routes present in all seven published production-shaped implementation workloads",
+    "quality_floor": 85,
+    "valid_result_definition": "validation pass, compliant route, and no terminal candidate failure",
+    "warning": "one attempt per route and workload; aggregate counts expose transfer and reliability signals but do not establish a universal model ranking",
+    "routes": [
+      {"route":"sol-high","cohorts":7,"valid_results":7,"quality_floor_results":5,"all_attempt_mean_quality":88.67,"valid_mean_quality":88.67,"total_cost_usd":15.5161,"mean_wall_time_seconds":547.8,"cost_per_valid_result_usd":2.2166,"cost_per_quality_floor_result_usd":3.1032},
+      {"route":"terra-xhigh","cohorts":7,"valid_results":4,"quality_floor_results":3,"all_attempt_mean_quality":78.95,"valid_mean_quality":86.92,"total_cost_usd":9.0536,"mean_wall_time_seconds":499.4,"cost_per_valid_result_usd":2.2634,"cost_per_quality_floor_result_usd":3.0179},
+      {"route":"glm-5.2-max-baseten","cohorts":7,"valid_results":6,"quality_floor_results":3,"all_attempt_mean_quality":77.86,"valid_mean_quality":82.94,"total_cost_usd":27.1761,"mean_wall_time_seconds":946.4,"cost_per_valid_result_usd":4.5294,"cost_per_quality_floor_result_usd":9.0587},
+      {"route":"kimi-k2.7-code-baseten","cohorts":7,"valid_results":5,"quality_floor_results":3,"all_attempt_mean_quality":77.71,"valid_mean_quality":84.13,"total_cost_usd":28.7041,"mean_wall_time_seconds":628.7,"cost_per_valid_result_usd":5.7408,"cost_per_quality_floor_result_usd":9.568},
+      {"route":"deepseek-v4-pro-baseten","cohorts":7,"valid_results":5,"quality_floor_results":2,"all_attempt_mean_quality":67.86,"valid_mean_quality":75.93,"total_cost_usd":18.3011,"mean_wall_time_seconds":985.9,"cost_per_valid_result_usd":3.6602,"cost_per_quality_floor_result_usd":9.1506},
+      {"route":"opus-4.8-high","cohorts":7,"valid_results":5,"quality_floor_results":2,"all_attempt_mean_quality":75.57,"valid_mean_quality":76.67,"total_cost_usd":45.5031,"mean_wall_time_seconds":907.4,"cost_per_valid_result_usd":9.1006,"cost_per_quality_floor_result_usd":22.7516},
+      {"route":"sonnet-5-xhigh","cohorts":7,"valid_results":2,"quality_floor_results":2,"all_attempt_mean_quality":75.29,"valid_mean_quality":88.67,"total_cost_usd":48.9857,"mean_wall_time_seconds":1583.7,"cost_per_valid_result_usd":24.4928,"cost_per_quality_floor_result_usd":24.4928},
+      {"route":"luna-high","cohorts":7,"valid_results":3,"quality_floor_results":1,"all_attempt_mean_quality":68.76,"valid_mean_quality":78.22,"total_cost_usd":6.1663,"mean_wall_time_seconds":671,"cost_per_valid_result_usd":2.0554,"cost_per_quality_floor_result_usd":6.1663}
+    ],
+    "sol_vs_terra_xhigh": {
+      "all_attempt_mean_quality_delta_points": 9.72,
+      "valid_mean_quality_delta_points": 1.75,
+      "total_cost_premium_percent": 71.4,
+      "mean_wall_time_premium_percent": 9.7,
+      "cost_per_valid_result_premium_percent": -2.1,
+      "cost_per_quality_floor_result_premium_percent": 2.8,
+      "interpretation": "This historical seven-workload aggregate identified Sol as the primary quality challenger because it produced seven valid results and five quality-floor results versus Terra xhigh's four and three. The final repeated three-task switch gate retained Terra under the preregistered policy because Sol's cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling; Sol remained the stronger measured quality challenger. See matched-switch-gate-final.json."
+    },
+    "default_switch_gate": {
+      "repeat_design": "at least two independent attempts per matched representative task, including iOS editor/offline and at least one non-iOS production surface",
+      "valid_result_count": "challenger must match or exceed Terra xhigh",
+      "valid_artifact_mean_quality_minimum": 85,
+      "aggregate_noninferiority_margin_points": 3,
+      "risk_critical_workload_max_deficit_points": 10,
+      "max_cost_per_valid_result_ratio": 1.25,
+      "max_cost_per_quality_floor_result_ratio": 1.25,
+      "max_mean_model_session_time_ratio": 1.5,
+      "timing_measure": "event-derived model-session time; candidate setup excluded",
+      "hard_requirements": [
+        "no confirmed catastrophic correctness, security, or data-boundary regression",
+        "no repeated provider stalls or unattended-route failures",
+        "explicit developer override and repository-policy precedence",
+        "privacy-safe route auditability"
+      ],
+      "final_outcome": "complete; Terra retained on the preregistered cost gate only, while Sol was the stronger measured quality challenger; see matched-switch-gate-final.json"
+    }
+  },
+  "decision": {
+    "default_controller": "terra_xhigh_provisional_default_retained_on_preregistered_cost_gate_only",
+    "workload_specific_findings": [
+      "Terra high led the complete nine-route backend cohort on judged quality, weighted score, and Quality:Value; versus Terra xhigh it gained 5.33 quality points and cost 16.2% less while taking 13.8% longer.",
+      "The matched iOS treatment did not preserve the xhigh route's quality or compliance: Terra high scored 55.67 versus 63.67, cost effectively the same, ran 24.0% faster, failed compilation, and attempted a denied cross-workspace search. Keep Terra xhigh as the provisional iOS-weighted default.",
+      "Sonnet 5 xhigh tied the highest backend artifact quality but cost 5.35 times Terra, took 3.37 times as long, and committed a true external-directory boundary violation; the artifact is carryable but the route is not an unattended default.",
+      "Kimi K2.7 Code and GLM 5.2 max produced mergeable backend artifacts, but neither beat Terra's combined quality, cost, and speed tradeoff.",
+      "Opus 4.8 high needs a localized duplicate-import repair and revalidation; Luna high failed its candidate-added tests and requires redrive.",
+      "Terra xhigh led the compliant frontend weighted score.",
+      "Luna xhigh led frontend quality:value but retained the same carry-with-repair handoff as Luna high; its matched cost, time, and quality delta did not justify replacing Luna high as the bounded lane.",
+      "On IaC, Luna xhigh cost effectively the same as Luna high, ran 29.7% longer, scored 28.33 points lower, and failed the same validation gate; this strengthens the Luna-high effort decision.",
+      "Luna high retained the mixed Quality:Value lead, while Terra high became the ten-route weighted leader; Terra high scored 6 points above xhigh and cost 5.9% less while taking 11.4% longer.",
+      "Sonnet 5 high matched Sonnet 5 xhigh at 89.33 mean quality and the same carry-with-repair handoff while costing 43.0% less and finishing 40.8% faster; xhigh added no measured value on this workload.",
+      "The matched tooling result did not preserve Sonnet high's mixed-workload value: high cost 15.8% less than xhigh but scored 75.33 versus 88, violated the no-typecheck and source-boundary policy, and introduced a merge-blocking command-construction security defect. This is a redrive; xhigh is the safer Sonnet effort for this workload.",
+      "DeepSeek V4 Pro passed mixed-workload validation at 85.67 mean quality and ranked fifth on quality:value and seventh on the weighted metric in the complete ten-route cohort.",
+      "DeepSeek V4 Pro passed backend validation at 79.33 mean quality and produced carryable production logic, but its test layer requires routine repair; it ranked sixth on quality:value and eighth on the weighted metric in the complete nine-route cohort.",
+      "DeepSeek V4 Pro did not transfer to tooling: it passed focused validation but scored 56, omitted deployable generated configuration, and ranked ninth on both value metrics in the nine-route cohort.",
+      "DeepSeek V4 Pro also failed to transfer to IaC: it failed locked validation, scored 48, took 1,252 seconds, and ranked ninth of nine on both value metrics with production-significant network-boundary defects.",
+      "In the final ten-route iOS cohort, Sol high produced the only Carry artifact, led judged quality at 90, and ranked first on the weighted metric at $3.4169 and 1,362 seconds. One workload is not enough to replace the conservative default before representative iOS follow-ups complete.",
+      "Terra max reached the normalized one-hour boundary with a compliant patch and task-focused validation pass. It scored 72, cost 2.49 times Terra xhigh, took 6.91 times as long, and still needs localized repair; it does not justify an automatic premium/default route on this workload.",
+      "DeepSeek V4 Pro led iOS Quality:Value at 70.33 mean quality, $1.2223, and 855 seconds, but its stale identity transition defect requires repair; the value rank is price-driven and is not production-quality parity with Sol.",
+      "The corrected Sol and Opus iOS panels preserve the raw broad-suite failures while attributing the shared failure to an unrelated untouched suite; every task-area check passed. Sol's raw compliance flag likewise came from inspecting its own captured tool output.",
+      "Sonnet's iOS artifact passed validation and scored 79.33, but the unattended route exceeded the real-time limit and committed a true external-temporary-file boundary violation. Opus scored 67.67 and needs repair for the same stale identity transition defect found in DeepSeek.",
+      "Luna high's iOS value rank was price-driven: the artifact failed validation, introduced a facepile-state regression, and was classified for redrive.",
+      "GLM 5.2 max led the tooling weighted score but did not transfer to IaC.",
+      "Sol high was the only IaC route with a compliant, validation-passing, high-quality result and led its weighted score.",
+      "On Android persisted-thread lifecycle work, Sol high was the only validation-passing mergeable result, scored 90.33, and ranked first on both value metrics. Terra xhigh was the closest repairable alternative but failed compilation; every other route required redrive except Opus, which passed tests but retained lifecycle defects requiring repair."
+    ]
+  },
+  "limitations": [
+    "Each published cohort contains one attempt per route; these are production-shaped workload results, not universal model rankings.",
+    "Each cohort label identifies one workload, not coverage of an entire platform, product area, or work across engineering; the sample is currently uneven across major responsibility and risk surfaces.",
+    "Validation, policy compliance, quality, cost, and speed remain separate outcomes; a low-cost invalid artifact is not treated as a valid win.",
+    "Two Baseten GLM attempts hit a measured 202,720-token provider input ceiling because OpenCode advertised an incorrect 1,048,576-token catalog context. Their patches remain judgeable, but the terminal failures are benchmark-configuration incidents and are excluded from model completion conclusions. Managed runs compact around 182,720 tokens.",
+    "The matched repeated switch gate is final and published separately in matched-switch-gate-final.json: Terra was retained on the preregistered cost gate only, while Sol was the stronger measured quality challenger. Representative-workload expansion and selective effort follow-ups remain open. The finalized Terra max iOS result is a censored one-hour run, not evidence for a universal max-effort conclusion.",
+    "One duplicate frontend judge invocation exposed a 59-versus-94 repeat disagreement; the published score retains the evidence-supported lower judgment rather than averaging away a confirmed deterministic failure.",
+    "The public aggregate excludes all source and reference-change details.",
+    "The private recent-merge sampling audit is represented here only by its coverage conclusion; repository velocity, ownership, PR, and commit details are not published."
+  ]
+}

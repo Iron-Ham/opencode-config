@@ -102,6 +102,13 @@ assert.equal(
 );
 assert.equal(
   recomputedRequestCost(
+    finish({ input: 100, output: 20, reasoning: 5, cacheRead: 50 }),
+    "baseten/deepseek-ai/DeepSeek-V4-Pro",
+  ),
+  0.00026825,
+);
+assert.equal(
+  recomputedRequestCost(
     finish({ input: 300000 }),
     "fireworks-ai/accounts/fireworks/models/glm-5p2",
   ),
