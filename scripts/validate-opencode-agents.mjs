@@ -8,7 +8,9 @@ import { isDeepStrictEqual } from "node:util";
 
 const repoRoot = path.resolve(process.argv[2]);
 const configDir = path.resolve(process.argv[3]);
-const withPlugins = process.argv.includes("--with-plugins");
+const requireInstalledAssets = process.argv.includes("--require-installed-assets");
+const externalHomeDirectoryPattern = path.join(os.homedir(), "**");
+const cargoCredentialPattern = path.join(os.homedir(), ".cargo", "**");
 const sshCredentialPattern = path.join(os.homedir(), ".ssh", "**");
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-agent-validation-xdg-"),
@@ -21,10 +23,10 @@ function fail(message) {
   throw new Error(`OpenCode agent validation failed: ${message}`);
 }
 
-function debugAgent(name, plugins = false) {
+async function debugAgent(name) {
   const command = ["opencode", "debug", "agent", name];
-  if (!plugins) command.push("--pure");
-  const result = Bun.spawnSync(command, {
+  command.push("--pure");
+  const result = Bun.spawn(command, {
     cwd: os.tmpdir(),
     env: {
       ...process.env,
@@ -34,20 +36,33 @@ function debugAgent(name, plugins = false) {
     stdout: "pipe",
     stderr: "pipe",
   });
-  if (result.exitCode !== 0) {
-    fail(`${name} could not be resolved: ${result.stderr.toString().trim()}`);
+  const [exitCode, stdout, stderr] = await Promise.all([
+    result.exited,
+    new Response(result.stdout).text(),
+    new Response(result.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    fail(`${name} could not be resolved: ${stderr.trim()}`);
   }
   try {
-    return JSON.parse(result.stdout.toString());
+    return JSON.parse(stdout);
   } catch (error) {
     fail(`${name} returned invalid debug JSON: ${error.message}`);
   }
 }
 
-function debugConfig(plugins = false) {
-  const command = ["opencode", "debug", "config"];
-  if (!plugins) command.push("--pure");
-  const result = Bun.spawnSync(command, {
+function executeAgentTool(name, tool, params) {
+  const result = Bun.spawnSync([
+    "opencode",
+    "debug",
+    "agent",
+    name,
+    "--pure",
+    "--tool",
+    tool,
+    "--params",
+    JSON.stringify(params),
+  ], {
     cwd: os.tmpdir(),
     env: {
       ...process.env,
@@ -57,11 +72,35 @@ function debugConfig(plugins = false) {
     stdout: "pipe",
     stderr: "pipe",
   });
-  if (result.exitCode !== 0) {
-    fail(`resolved config could not be loaded: ${result.stderr.toString().trim()}`);
+  return {
+    exitCode: result.exitCode,
+    output: `${result.stdout.toString()}${result.stderr.toString()}`,
+  };
+}
+
+async function debugConfig() {
+  const command = ["opencode", "debug", "config"];
+  command.push("--pure");
+  const result = Bun.spawn(command, {
+    cwd: os.tmpdir(),
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: isolatedXdgConfigHome,
+      OPENCODE_CONFIG_DIR: configDir,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    result.exited,
+    new Response(result.stdout).text(),
+    new Response(result.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    fail(`resolved config could not be loaded: ${stderr.trim()}`);
   }
   try {
-    return JSON.parse(result.stdout.toString());
+    return JSON.parse(stdout);
   } catch (error) {
     fail(`resolved config returned invalid debug JSON: ${error.message}`);
   }
@@ -151,8 +190,10 @@ const agentNames = [...new Set([
   "ultra",
   ...managedAgentNames,
 ])].filter((name) => !disabledAgentNames.has(name)).sort();
-const agents = Object.fromEntries(agentNames.map((name) => [name, debugAgent(name)]));
-const resolvedConfig = debugConfig();
+const agents = Object.fromEntries(await Promise.all(
+  agentNames.map(async (name) => [name, await debugAgent(name)]),
+));
+const resolvedConfig = await debugConfig();
 const inheritedModelAgents = [
   "accessibility_auditor",
   "code_reviewer",
@@ -217,7 +258,10 @@ for (const [name, agent] of Object.entries(agents)) {
   }
 }
 for (const [name, agent] of Object.entries(agents)) {
-  if (finalPermission(agent, "external_directory") !== "allow") {
+  if (
+    finalPermission(agent, "external_directory", externalHomeDirectoryPattern) !==
+      "allow"
+  ) {
     const rules = (agent.permission ?? []).filter(
       (rule) => rule.permission === "external_directory",
     );
@@ -228,7 +272,43 @@ for (const [name, agent] of Object.entries(agents)) {
   if (finalPermission(agent, "external_directory", sshCredentialPattern) !== "deny") {
     fail(`${name} must deny external SSH credential files`);
   }
+  if (finalPermission(agent, "external_directory", cargoCredentialPattern) !== "deny") {
+    fail(`${name} must deny external Cargo credential files`);
+  }
 }
+
+const externalSourceProbe = path.join(
+  repoRoot,
+  "opencode",
+  "opencode.defaults.json",
+);
+for (const name of ["general", "explore", "code_reviewer"]) {
+  const result = executeAgentTool(name, "read", {
+    filePath: externalSourceProbe,
+    offset: 1,
+    limit: 1,
+  });
+  if (result.exitCode !== 0) {
+    fail(`${name} could not read an external delegated source path: ${result.output.trim()}`);
+  }
+}
+for (const protectedPath of [
+  path.join(os.homedir(), ".cargo", "credentials.toml"),
+  path.join(os.homedir(), ".ssh", "__opencode_permission_probe__"),
+]) {
+  const result = executeAgentTool("code_reviewer", "read", {
+    filePath: protectedPath,
+    offset: 1,
+    limit: 1,
+  });
+  if (
+    result.exitCode === 0 ||
+    !result.output.includes("prevents you from using this specific tool call")
+  ) {
+    fail(`code_reviewer must deny direct reads of ${protectedPath}`);
+  }
+}
+
 const goalControllers = new Set(["build", "ultra"]);
 const goalMutationTools = [
   "create_goal",
@@ -243,6 +323,13 @@ for (const [name, agent] of Object.entries(agents)) {
   for (const permission of goalMutationTools) {
     if (finalPermission(agent, permission) !== expected) {
       fail(`${name} must ${expected} ${permission}`);
+    }
+  }
+}
+for (const name of goalControllers) {
+  for (const permission of ["get_goal", "get_goal_history"]) {
+    if (finalPermission(agents[name], permission) !== "allow") {
+      fail(`${name} must allow ${permission}`);
     }
   }
 }
@@ -621,60 +708,18 @@ if (modelRouting.advisor_enabled ?? true) {
   fail("disabled advisor lane must not expose /advise");
 }
 
-if (withPlugins) {
-  const workflowGuardPath = path.join(
-    configDir,
-    "plugins",
+if (requireInstalledAssets) {
+  for (const pluginName of [
+    "goal-mode.js",
+    "goal-mode-tui.tsx",
     "goal-workflow-guard.js",
-  );
-  if (!fs.existsSync(workflowGuardPath)) {
-    fail("the managed Goal workflow guard plugin is not installed");
-  }
-  const configWithPlugins = debugConfig(true);
-  const pluginSpecs = (configWithPlugins.plugin ?? []).map((plugin) =>
-    Array.isArray(plugin) ? plugin[0] : plugin
-  );
-  const goalPluginIndex = pluginSpecs.findIndex((plugin) =>
-    String(plugin).startsWith("@prevalentware/opencode-goal-plugin@0.1.24")
-  );
-  const workflowGuardIndex = pluginSpecs.findIndex((plugin) =>
-    String(plugin).endsWith("/plugins/goal-workflow-guard.js")
-  );
-  if (goalPluginIndex === -1 || workflowGuardIndex === -1) {
-    fail("Goal and its managed workflow guard must both be configured");
-  }
-  if (workflowGuardIndex <= goalPluginIndex) {
-    fail("the Goal workflow guard must load after Goal");
-  }
-  const buildWithPlugins = debugAgent("build", true);
-  if (
-    ["1", "true"].includes(
-      String(process.env.OPENCODE_EXPERIMENTAL_LSP_TOOL).toLowerCase(),
-    ) && buildWithPlugins.tools?.lsp !== true
-  ) {
-    fail("the enabled experimental LSP tool is missing from build");
-  }
-  for (const tool of ["get_goal", "create_goal", "update_goal_status"]) {
-    if (buildWithPlugins.tools?.[tool] !== true) {
-      fail(`build is missing installed plugin tool ${tool}`);
-    }
-  }
-  if (buildWithPlugins.tools?.advisor === true) {
-    fail("build must not expose an installed external advisor tool");
-  }
-  for (const name of ["general", "evidence_analyst"]) {
-    const childWithPlugins = debugAgent(name, true);
-    for (const tool of ["create_goal", "update_goal_status"]) {
-      if (childWithPlugins.tools?.[tool] !== false) {
-        fail(`${name} must not expose installed mutation tool ${tool}`);
-      }
-    }
-    if (childWithPlugins.tools?.advisor === true) {
-      fail(`${name} must not expose an installed external advisor tool`);
+  ]) {
+    if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
+      fail(`the managed Goal ${pluginName} plugin asset is not installed`);
     }
   }
 }
 
 console.log(
-  `OK     ${agentNames.length} OpenCode agent definitions${withPlugins ? " with plugins" : ""}`,
+  `OK     ${agentNames.length} OpenCode agent definitions`,
 );

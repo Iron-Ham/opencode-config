@@ -84,7 +84,9 @@ snapshot_tree() {
 
   if tree_exists "$tree"; then
     printf 'present\n' > "$transaction_snapshot_dir/$name.state"
-    cp -a "$tree" "$transaction_snapshot_dir/$name"
+    if ! cp -c -a "$tree" "$transaction_snapshot_dir/$name" 2>/dev/null; then
+      cp -a "$tree" "$transaction_snapshot_dir/$name"
+    fi
   else
     printf 'absent\n' > "$transaction_snapshot_dir/$name.state"
   fi
@@ -199,12 +201,27 @@ copy_item() {
   local dest="$2"
   local label="$3"
 
-  if [ ! -f "$src" ]; then
+  if [ ! -e "$src" ]; then
     echo "SKIP   $label (not in repo)"
     return
   fi
 
   mkdir -p "$(dirname "$dest")"
+
+  if [ -d "$src" ]; then
+    if [ -L "$dest" ] || { [ -e "$dest" ] && ! [ -d "$dest" ]; }; then
+      backup_item "$dest"
+    elif [ -d "$dest" ]; then
+      if diff -qr "$src" "$dest" >/dev/null; then
+        echo "OK     $label (already current)"
+        return
+      fi
+      backup_item "$dest"
+    fi
+    cp -R "$src" "$dest"
+    echo "COPY   $dest <- $src"
+    return
+  fi
 
   if [ -L "$dest" ] || { [ -e "$dest" ] && ! cmp -s "$src" "$dest"; }; then
     backup_item "$dest"
@@ -285,7 +302,7 @@ if [ "$advisor_enabled" != "true" ]; then
   rm "$preflight_dir/commands/advise.md"
 fi
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$preflight_dir" >/dev/null
-bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" "$REPO_DIR" "$preflight_dir"
+bun "$REPO_DIR/scripts/validate-opencode-install.mjs" "$REPO_DIR" "$preflight_dir"
 rm -R "$preflight_dir"
 preflight_dir=""
 
@@ -381,11 +398,7 @@ done
 for src in "$REPO_DIR"/opencode/plugins/*; do
   [ -e "$src" ] || continue
   name="$(basename "$src")"
-  if [[ "$name" == *.tsx ]]; then
-    copy_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode TUI plugin $name"
-  else
-    link_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
-  fi
+  copy_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
 done
 
 for src in "$REPO_DIR"/opencode/tui/*; do
@@ -418,8 +431,8 @@ bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate-model-routing
 
-bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
-  "$REPO_DIR" "$OPENCODE_DIR" --with-plugins
+bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
+  "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets
 
 if command -v notion >/dev/null 2>&1; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \

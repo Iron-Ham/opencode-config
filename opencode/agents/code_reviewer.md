@@ -12,6 +12,25 @@ permission:
     "*.env.*": deny
     .env.example: allow
     "*.env.example": allow
+  external_directory:
+    "~/**": allow
+    "~/.aws/**": deny
+    "~/.azure/**": deny
+    "~/.cargo/**": deny
+    "~/.config/**": deny
+    "~/.docker/**": deny
+    "~/.gem/**": deny
+    "~/.git-credentials": deny
+    "~/.gnupg/**": deny
+    "~/.kube/**": deny
+    "~/.local/share/**": deny
+    "~/.netrc": deny
+    "~/.npmrc": deny
+    "~/.oci/**": deny
+    "~/.pypirc": deny
+    "~/.ssh/**": deny
+    "~/.terraform.d/**": deny
+    "~/Library/**": deny
   glob: allow
   grep: deny
   skill: allow

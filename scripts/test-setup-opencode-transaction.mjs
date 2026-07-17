@@ -170,12 +170,12 @@ case "$script" in
         ;;
     esac
     ;;
-  */validate-opencode-agents.mjs)
+  */validate-opencode-install.mjs)
     case " $* " in
-      *" --with-plugins "*)
+      *" --require-installed-assets "*)
         if [ "$FAIL_LATE_VALIDATION" = "true" ]; then
-          echo 'forced late validation failure' >&2
-          exit 97
+      echo 'forced late validation failure' >&2
+      exit 97
         fi
         ;;
     esac
@@ -229,10 +229,35 @@ esac
     "plugins",
     "goal-workflow-guard.js",
   );
-  assert.equal(fs.lstatSync(workflowGuardPath).isSymbolicLink(), true);
+  const goalModePath = path.join(configDir, "plugins", "goal-mode.js");
+  for (const name of fs.readdirSync(path.join(repoRoot, "opencode", "plugins"))) {
+    assert.equal(
+      fs.lstatSync(path.join(configDir, "plugins", name)).isSymbolicLink(),
+      false,
+      `${name} must be copied into the active OpenCode plugin directory`,
+    );
+  }
   assert.equal(
-    fs.readlinkSync(workflowGuardPath),
-    path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"),
+    fs.lstatSync(workflowGuardPath).isSymbolicLink(),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(workflowGuardPath, "utf8"),
+    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"), "utf8"),
+  );
+  assert.equal(
+    fs.lstatSync(goalModePath).isSymbolicLink(),
+    false,
+  );
+  assert.equal(
+    fs.readFileSync(goalModePath, "utf8"),
+    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "goal-mode.js"), "utf8"),
+  );
+  const primitivesPath = path.join(configDir, "plugins", "kdco-primitives");
+  assert.equal(fs.lstatSync(primitivesPath).isSymbolicLink(), false);
+  assert.equal(
+    fs.readFileSync(path.join(primitivesPath, "index.ts"), "utf8"),
+    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "kdco-primitives", "index.ts"), "utf8"),
   );
   assert.equal(
     fs.readFileSync(path.join(configDir, "plugins", "user-local.js"), "utf8"),
@@ -253,7 +278,7 @@ esac
   }
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
-  console.log("OK     OpenCode setup links managed plugins and restores late failures");
+  console.log("OK     OpenCode setup copies managed plugins and restores late failures");
 } finally {
   fs.rmSync(testRoot, { recursive: true, force: true });
 }
