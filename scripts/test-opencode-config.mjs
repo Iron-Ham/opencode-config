@@ -25,6 +25,7 @@ try {
       },
       task: { "machine-local-agent": "allow" },
       skill: { "machine-local-skill": "deny" },
+      external_directory: { "*": "ask" },
     },
     agent: {
       backend_architect: { model: "anthropic/claude-sonnet-5" },
@@ -125,6 +126,7 @@ try {
   assert.equal(merged.permission.create_goal, "deny");
   assert.equal(merged.agent.build.permission.create_goal, "allow");
   assert.equal(merged.agent.build.permission.advisor, "deny");
+  assert.equal(merged.agent.build.permission.external_directory, undefined);
   assert.equal(merged.agent.build.permission.task["*"], "deny");
   assert.equal(merged.agent.build.permission.task.general, "allow");
   assert.equal(merged.agent.build.permission.task.evidence_analyst, "allow");
@@ -137,11 +139,15 @@ try {
   assert.equal(merged.agent.ultra.model, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
+  assert.equal(merged.agent.general.permission.external_directory, undefined);
   assert.equal(merged.agent.general.permission.bash["git push *"], "deny");
-  assert.equal(merged.agent.ultra.hidden, true);
+  assert.equal(merged.agent.ultra.hidden, false);
   assert.equal(merged.agent.ultra.steps, undefined);
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
   assert.equal(merged.agent.ultra.permission.question, "deny");
+  assert.equal(merged.agent.ultra.permission.external_directory, undefined);
+  assert.equal(merged.permission.external_directory["*"], "allow");
+  assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
   assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
   assert.equal(merged.agent.ultra.permission.task.general, "allow");
   assert.equal(merged.agent.luna, undefined);
@@ -263,6 +269,15 @@ try {
   assert.equal(goalOptions.max_no_progress_turns, 3);
   assert.ok(!("default_token_budget" in goalOptions));
   assert.ok(!("max_goal_duration_seconds" in goalOptions));
+  const mergedTui = JSON.parse(
+    fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
+  );
+  assert.ok(mergedTui.plugin.includes("./plugins/opencode-total-cost.tsx"));
+  const mergedPackage = JSON.parse(
+    fs.readFileSync(path.join(configDir, "package.json"), "utf8"),
+  );
+  assert.equal(mergedPackage.dependencies["@opentui/solid"], "0.4.3");
+  assert.equal(mergedPackage.dependencies["solid-js"], "1.9.12");
   assert.equal(fs.statSync(path.join(configDir, "opencode.json")).mode & 0o077, 0);
 
   const modelRoutingConfigPath = path.join(
@@ -350,7 +365,7 @@ try {
     for (const [agentName, model] of Object.entries(localRouting.agents)) {
       assert.equal(routed.agent[agentName].model, model);
     }
-    assert.equal(routed.agent.ultra.hidden, true);
+    assert.equal(routed.agent.ultra.hidden, false);
     assert.equal(
       routed.agent.ultra.model,
       localRouting.agents.ultra,

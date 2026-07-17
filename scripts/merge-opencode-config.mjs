@@ -260,9 +260,10 @@ function isPackage(specifier, packageName) {
 
 function mergePlugins(existing = [], managed = []) {
   const managedPackages = ["@prevalentware/opencode-goal-plugin"];
+  const managedSpecs = new Set(managed.map(pluginSpecifier));
   const retained = existing.filter((entry) => {
     const specifier = pluginSpecifier(entry);
-    return !managedPackages.some((packageName) =>
+    return !managedSpecs.has(specifier) && !managedPackages.some((packageName) =>
       isPackage(specifier, packageName)
     );
   });
