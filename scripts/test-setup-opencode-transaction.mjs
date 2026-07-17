@@ -120,7 +120,7 @@ printf 'generated plugin agent\n' > "$config/agents/periphery-fixer.md"
   writeExecutable("bun", String.raw`#!/bin/bash
 set -eu
 if [ "$1" = "-e" ]; then
-  printf true
+  printf false
   exit 0
 fi
 script="$1"
@@ -220,6 +220,10 @@ esac
     stderr: "pipe",
   });
   assert.equal(success.exitCode, 0, success.stderr.toString());
+  assert.equal(
+    fs.readlinkSync(path.join(configDir, "commands", "advise.md")),
+    externalTarget,
+  );
   for (const name of fs.readdirSync(path.join(repoRoot, "skills"))) {
     const source = path.join(repoRoot, "skills", name);
     if (!fs.statSync(source).isDirectory() || !fs.existsSync(path.join(source, "SKILL.md"))) {

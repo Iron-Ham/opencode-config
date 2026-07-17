@@ -176,7 +176,7 @@ try {
   assert.equal(merged.agent.sol, undefined);
   assert.equal(merged.agent.terra, undefined);
   assert.equal(merged.agent.advisor_reviewer.permission.advisor, "deny");
-  assert.equal(merged.agent.advisor_reviewer.disable, false);
+  assert.equal(merged.agent.advisor_reviewer.disable, true);
   assert.equal(merged.agent.advisor_reviewer.steps, 60);
   assert.equal(
     merged.agent.advisor_reviewer.model,
@@ -305,7 +305,7 @@ try {
     fs.readFileSync(modelRoutingConfigPath, "utf8"),
   );
   assert.deepEqual(defaultModelRouting, {
-    advisor_enabled: true,
+    advisor_enabled: false,
     agents: {},
     steps: {},
   });

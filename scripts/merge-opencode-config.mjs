@@ -581,7 +581,7 @@ function modelRoutingConfig() {
     );
   }
 
-  const advisorEnabled = existing.advisor_enabled ?? true;
+  const advisorEnabled = existing.advisor_enabled ?? false;
   if (typeof advisorEnabled !== "boolean") {
     throw new Error(`${modelRoutingConfigPath} advisor_enabled must be a boolean`);
   }

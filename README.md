@@ -70,13 +70,13 @@ The local routing file is private and has this shape:
 
 ```json
 {
-  "advisor_enabled": true,
+  "advisor_enabled": false,
   "agents": {},
   "steps": {}
 }
 ```
 
-The external advisor is disabled for all automatic work. `/advise` is an explicit, isolated read-only command that receives only developer-supplied context. Disable that command locally with `"advisor_enabled": false`.
+Advisor access is disabled by default, including `/advise`. Set `"advisor_enabled": true` locally to opt into the explicit, isolated `/advise` command, which receives only developer-supplied context.
 
 ## Verify Changes
 
