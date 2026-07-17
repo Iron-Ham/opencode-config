@@ -28,7 +28,7 @@ cd ~/Developer/claude-config
 ./setup-opencode.sh
 ```
 
-`setup.sh` symlinks Claude Code config into `~/.claude/`. `setup-codex.sh` symlinks `AGENTS.md`, generated Codex custom agents, and generated Codex-normalized skills into Codex-only locations while leaving `~/.codex/config.toml` untouched. `setup-opencode.sh` installs the shared global rules, reviewed OpenCode-specific agents, explicit model commands, managed model/plugin defaults, and supported workspace-managed OpenCode bundles. It requires Python 3, Bun, and the OpenCode CLI; a clean workspace-plugin installation also requires the workspace CLI. The installer preserves configuration outside its managed roles and security surfaces and backs up non-symlink files before replacing them.
+`setup.sh` symlinks Claude Code config into `~/.claude/`. `setup-codex.sh` symlinks `AGENTS.md`, generated Codex custom agents, and generated Codex-normalized skills into Codex-only locations while leaving `~/.codex/config.toml` untouched. `setup-opencode.sh` installs the shared global rules, reviewed OpenCode-specific agents, explicit model commands, managed model/plugin defaults, and supported workspace-managed OpenCode bundles. It requires Python 3, Bun, and the OpenCode CLI; a clean workspace-plugin installation also requires the workspace CLI. The installer preserves configuration outside its managed roles and security surfaces and backs up non-symlink files before replacing them. The native notification plugin uses `alerter` on macOS; install it with `brew install vjeantet/tap/alerter`.
 
 ## Recommended: Max Effort Alias
 
@@ -52,6 +52,7 @@ This ensures every invocation uses the highest effort level without needing to r
 | `opencode/agent-sources/` | Reviewed source prompts for the thin OpenCode-specific specialist wrappers |
 | `opencode/agents/` | Generated read-only review agents, an artifact-only evidence analyst, an isolated advisor, and explicit Kimi/GLM experiments |
 | `opencode/commands/` | Isolated `/advise`, provider-pinned Kimi/GLM experiments, and the Terra-backed `/ultra` lane |
+| `opencode/plugins/` | Managed OpenCode plugins, including native task notifications |
 | `opencode/*.defaults.json` | Managed OpenCode defaults merged with machine-local JSON configuration |
 | `skills/` | Source skills, including Claude Code-compatible metadata and resources |
 | `codex/skills/` | Codex-normalized skills generated from `skills/` |

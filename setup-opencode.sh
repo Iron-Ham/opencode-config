@@ -353,7 +353,7 @@ for src in "$REPO_DIR"/opencode/commands/*.md; do
   link_item "$src" "$OPENCODE_COMMANDS_DIR/$name" "OpenCode command $name"
 done
 
-for src in "$REPO_DIR"/opencode/plugins/*.js "$REPO_DIR"/opencode/plugins/*.ts; do
+for src in "$REPO_DIR"/opencode/plugins/*; do
   [ -e "$src" ] || continue
   name="$(basename "$src")"
   link_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
