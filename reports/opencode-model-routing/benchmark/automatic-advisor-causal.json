@@ -72,14 +72,14 @@
   "decision": {
     "automatic_transcript_fed_review": "off_by_default",
     "reason": "modest_directional_lift_without_an_outcome_change_at_42_percent_more_cost_than_direct",
-    "developer_invoked_advise": "available_and_locally_configurable",
-    "advise_outcome_benefit": "unmeasured",
+    "developer_invoked_independent_review": "separate_unmeasured_treatment",
     "advisor_model_winner": "not_determined_by_this_experiment"
   },
   "limitations": [
-    "The treatment was transcript-fed tool-less automatic review followed by Terra reconciliation, not the shipped isolated developer-invoked /advise command.",
+    "The treatment was transcript-fed tool-less automatic review followed by Terra reconciliation, not a developer-invoked isolated review.",
     "Both clusters were source-analysis workloads rather than edit-build-simulator-CI-shipping runs.",
     "The sample supports a modest directional Sol effect, not a claim that advisor review is ineffective or universally worthwhile.",
-    "The experiment did not compare Sol against Sonnet, Opus, or Fable as reviewers."
+    "The experiment did not compare Sol against Sonnet, Opus, or Fable as reviewers.",
+    "Raw prompts, outputs, and per-judge artifacts are not attached to this public aggregate."
   ]
 }

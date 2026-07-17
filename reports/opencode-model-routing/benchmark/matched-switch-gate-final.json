@@ -32,14 +32,15 @@
     "candidate_boundary_seconds": 3600,
     "blind_judges": 3,
     "source_adjudication": "complete",
-    "decision_rule_registered_before_outcomes": true,
+    "decision_rule_provenance": "The thresholds were prospectively specified in the working evaluation log before final adjudication; no immutable pre-outcome timestamp or content hash was retained.",
     "valid_result_definition": "candidate run completed, policy compliance passed, and effective deterministic validation passed; judged quality and handoff remain descriptive for invalid artifacts but cannot qualify them for promotion",
     "packet_schema_provenance": {
       "native editor": "v1",
       "native offline/data": "v2",
       "modern client": "v2"
     },
-    "judging_integrity": "Historical judge outputs are frozen and were not silently regenerated after the packet schema changed. Final source reconciliation and scoring use the retained outputs under a common decision process; future matched runs use v2."
+    "judging_integrity": "Historical judge outputs are frozen and were not silently regenerated after the packet schema changed. Final source reconciliation and scoring use the retained outputs under a common decision process; future matched runs use v2.",
+    "panel_dispersion": "Six of twelve matched artifacts had a maximum-minus-minimum judge spread of at least 20 points. Source-reconciled handoff and deterministic evidence outrank raw panel means."
   },
   "route_summaries": {
     "GPT-5.6 Terra xhigh": {
@@ -127,7 +128,7 @@
       }
     }
   },
-  "pre_registered_switch_gate": {
+  "prospective_switch_gate": {
     "completion_and_correctness": {
       "result": "pass",
       "evidence": "Sol produced four valid results versus Terra's three; source adjudication found no catastrophic regression."
@@ -159,15 +160,17 @@
       "provider_terminal_failures": 0
     },
     "developer_control_and_auditability": {
-      "result": "pass",
-      "evidence": "The comparison does not alter explicit overrides or route auditability."
+      "result": "policy invariant satisfied",
+      "evidence": "Explicit overrides, repository policy, and route auditability remain required regardless of model performance."
     }
   },
   "decision": {
     "route": "GPT-5.6 Terra xhigh",
-    "status": "retain provisional conservative default",
-    "reason": "GPT-5.6 Sol high passed every pre-registered gate except cost. Its cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling.",
+    "status": "interim baseline for a controlled shared-default pilot",
+    "reason": "GPT-5.6 Sol high met every measured threshold except cost. Its cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling.",
     "quality_interpretation": "GPT-5.6 Sol high is the stronger measured quality challenger. Retaining Terra is not evidence of quality parity.",
-    "production_interpretation": "Neither route produced a carry-as-is result across the matched cohort. Production verification and repair remain necessary."
+    "production_interpretation": "Neither route produced a carry-as-is result across the matched cohort. Production verification and repair remain necessary.",
+    "statistical_interpretation": "The 4/6 versus 3/6 valid-result difference is directional, not statistically conclusive; the Wilson 95% intervals overlap substantially.",
+    "boundary_sensitivity": "One Sol offline/data attempt used a denied glob under an external toolchain path. If that read were accepted, Sol would have five valid results and a cost-per-valid ratio of about 1.079 times Terra, clearing the cost threshold. The retained Noncompliant classification follows the frozen attempt-based workspace-boundary policy."
   }
 }
