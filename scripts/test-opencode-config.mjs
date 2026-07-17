@@ -11,6 +11,13 @@ const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-merge-test-xdg-"),
 );
 
+function assertUltraPermissionsMatchBuild(config) {
+  const { question, plan_enter: planEnter, ...shared } = config.agent.ultra.permission;
+  assert.equal(question, "deny");
+  assert.equal(planEnter, "deny");
+  assert.deepEqual(shared, config.agent.build.permission);
+}
+
 try {
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
     permission: {
@@ -124,6 +131,7 @@ try {
   assert.equal(merged.agent.compaction.model, undefined);
   assert.equal(merged.lsp, true);
   assert.equal(merged.permission.create_goal, "deny");
+  assert.equal(merged.agent.build.permission.get_goal, "allow");
   assert.equal(merged.agent.build.permission.create_goal, "allow");
   assert.equal(merged.agent.build.permission.advisor, "deny");
   assert.equal(merged.agent.build.permission.external_directory, undefined);
@@ -139,15 +147,28 @@ try {
   assert.equal(merged.agent.ultra.model, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
-  assert.equal(merged.agent.general.permission.external_directory, undefined);
+  assert.equal(
+    merged.agent.general.permission.external_directory["~/**"],
+    "allow",
+  );
+  assert.equal(
+    merged.agent.general.permission.external_directory["~/.ssh/**"],
+    "deny",
+  );
+  assert.equal(
+    merged.agent.general.permission.external_directory["~/.cargo/**"],
+    "deny",
+  );
   assert.equal(merged.agent.general.permission.bash["git push *"], "deny");
   assert.equal(merged.agent.ultra.hidden, false);
   assert.equal(merged.agent.ultra.steps, undefined);
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
   assert.equal(merged.agent.ultra.permission.question, "deny");
+  assert.equal(merged.agent.ultra.permission.get_goal, "allow");
   assert.equal(merged.agent.ultra.permission.external_directory, undefined);
-  assert.equal(merged.permission.external_directory["*"], "allow");
+  assert.equal(merged.permission.external_directory["~/**"], "allow");
   assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
+  assert.equal(merged.permission.external_directory["~/.cargo/**"], "deny");
   assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
   assert.equal(merged.agent.ultra.permission.task.general, "allow");
   assert.equal(merged.agent.luna, undefined);
@@ -251,33 +272,29 @@ try {
   assert.equal(272_000 - compactAt, 36_000);
   assert.ok(merged.plugin.includes("machine-local-plugin@9.9.9"));
   assert.ok(merged.plugin.includes("opencode-dynamic-workflows@1.2.3"));
-  assert.ok(!merged.plugin.includes("@prevalentware/opencode-goal-plugin@0.0.1"));
   assert.ok(
-    merged.plugin.some((plugin) =>
-      String(plugin).startsWith("@prevalentware/opencode-goal-plugin@0.1.24")
+    !merged.plugin.some((plugin) =>
+      String(Array.isArray(plugin) ? plugin[0] : plugin).startsWith(
+        "@prevalentware/opencode-goal-plugin",
+      )
     ),
   );
-  const goalPlugin = merged.plugin.find(
-    (plugin) =>
-      Array.isArray(plugin) &&
-      plugin[0] === "@prevalentware/opencode-goal-plugin@0.1.24",
+  assert.ok(
+    merged.plugin.some((plugin) =>
+      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-mode.js"
+    ),
   );
-  assert.ok(goalPlugin);
-  const goalOptions = goalPlugin[1];
-  assert.equal(goalOptions.max_auto_turns, Number.MAX_SAFE_INTEGER);
-  assert.equal(goalOptions.max_prompt_failures, 3);
-  assert.equal(goalOptions.max_no_progress_turns, 3);
-  assert.ok(!("default_token_budget" in goalOptions));
-  assert.ok(!("max_goal_duration_seconds" in goalOptions));
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );
+  assert.ok(mergedTui.plugin.includes("./plugins/goal-mode-tui.tsx"));
   assert.ok(mergedTui.plugin.includes("./plugins/opencode-total-cost.tsx"));
   const mergedPackage = JSON.parse(
     fs.readFileSync(path.join(configDir, "package.json"), "utf8"),
   );
   assert.equal(mergedPackage.dependencies["@opentui/solid"], "0.4.3");
   assert.equal(mergedPackage.dependencies["solid-js"], "1.9.12");
+  assert.equal(mergedPackage.dependencies.zod, undefined);
   assert.equal(fs.statSync(path.join(configDir, "opencode.json")).mode & 0o077, 0);
 
   const modelRoutingConfigPath = path.join(
@@ -400,17 +417,7 @@ try {
       fs.existsSync(path.join(routingConfigDir, "commands", "advise.md")),
       false,
     );
-    const disabledValidation = Bun.spawnSync([
-      "bun",
-      path.join(repoRoot, "scripts", "validate-opencode-agents.mjs"),
-      repoRoot,
-      routingConfigDir,
-    ], { stdout: "pipe", stderr: "pipe" });
-    assert.equal(
-      disabledValidation.exitCode,
-      0,
-      disabledValidation.stderr.toString(),
-    );
+    assertUltraPermissionsMatchBuild(routed);
     assert.deepEqual(
       JSON.parse(fs.readFileSync(routingConfigPath, "utf8")),
       localRouting,
@@ -461,33 +468,16 @@ try {
     );
     assert.equal(enabled.agent.advisor_reviewer.disable, false);
     assert.equal(enabled.agent.advisor_reviewer.permission.advisor, "deny");
-    const enabledValidation = Bun.spawnSync([
-      "bun",
-      path.join(repoRoot, "scripts", "validate-opencode-agents.mjs"),
-      repoRoot,
-      routingConfigDir,
-    ], { stdout: "pipe", stderr: "pipe" });
-    assert.equal(
-      enabledValidation.exitCode,
-      0,
-      enabledValidation.stderr.toString(),
-    );
+    assertUltraPermissionsMatchBuild(enabled);
 
     enabled.agent.ultra.permission.webfetch = "deny";
     fs.writeFileSync(
       path.join(routingConfigDir, "opencode.json"),
       JSON.stringify(enabled),
     );
-    const ultraDriftValidation = Bun.spawnSync([
-      "bun",
-      path.join(repoRoot, "scripts", "validate-opencode-agents.mjs"),
-      repoRoot,
-      routingConfigDir,
-    ], { stdout: "pipe", stderr: "pipe" });
-    assert.notEqual(ultraDriftValidation.exitCode, 0);
-    assert.match(
-      ultraDriftValidation.stderr.toString(),
-      /resolved Ultra permissions must match Build/,
+    assert.throws(
+      () => assertUltraPermissionsMatchBuild(enabled),
+      assert.AssertionError,
     );
   } finally {
     fs.rmSync(routingConfigDir, { recursive: true, force: true });

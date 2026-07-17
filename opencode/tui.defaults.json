@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/tui.json",
   "plugin": [
-    "@prevalentware/opencode-goal-plugin@0.1.24",
+    "./plugins/goal-mode-tui.tsx",
     "./plugins/opencode-total-cost.tsx"
   ]
 }
