@@ -248,7 +248,7 @@ advisor_enabled="$(
     const fs = require("node:fs")
     const file = process.env.OPENCODE_ROUTING_PATH
     const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {}
-    process.stdout.write(String(config.advisor_enabled ?? true))
+    process.stdout.write(String(config.advisor_enabled ?? false))
   '
 )"
 

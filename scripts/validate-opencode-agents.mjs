@@ -155,7 +155,7 @@ const managedDefaults = JSON.parse(
 const modelRoutingPath = path.join(configDir, "model-routing.config.local.json");
 const modelRouting = fs.existsSync(modelRoutingPath)
   ? JSON.parse(fs.readFileSync(modelRoutingPath, "utf8"))
-  : { advisor_enabled: true, agents: {}, steps: {} };
+  : { advisor_enabled: false, agents: {}, steps: {} };
 const retiredManagedAgentNames = new Set([
   "backend_architect",
   "evidence_collector",
@@ -693,7 +693,7 @@ if (!disabledAgentNames.has("advisor_reviewer")) {
 }
 
 const adviseCommandPath = path.join(configDir, "commands", "advise.md");
-if (modelRouting.advisor_enabled ?? true) {
+if (modelRouting.advisor_enabled) {
   if (!fs.existsSync(adviseCommandPath)) {
     fail("enabled advisor lane must install /advise");
   }
