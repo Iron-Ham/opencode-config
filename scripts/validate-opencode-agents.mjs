@@ -9,6 +9,7 @@ import { isDeepStrictEqual } from "node:util";
 const repoRoot = path.resolve(process.argv[2]);
 const configDir = path.resolve(process.argv[3]);
 const withPlugins = process.argv.includes("--with-plugins");
+const sshCredentialPattern = path.join(os.homedir(), ".ssh", "**");
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-agent-validation-xdg-"),
 );
@@ -67,14 +68,21 @@ function debugConfig(plugins = false) {
 }
 
 function finalPermission(agent, permission, pattern = "*") {
+  const matchingRules = (agent.permission ?? []).filter(
+    (rule) =>
+      (rule.pattern === "*" || rule.pattern === pattern) &&
+      rule.permission === permission,
+  );
+  const rules = matchingRules.length > 0
+    ? matchingRules
+    : (agent.permission ?? []).filter(
+      (rule) =>
+        (rule.pattern === "*" || rule.pattern === pattern) &&
+        rule.permission === "*",
+    );
   let action;
-  for (const rule of agent.permission ?? []) {
-    if (
-      (rule.permission === "*" || rule.permission === permission) &&
-      (rule.pattern === "*" || rule.pattern === pattern)
-    ) {
-      action = rule.action;
-    }
+  for (const rule of rules) {
+    action = rule.action;
   }
   return action;
 }
@@ -208,6 +216,19 @@ for (const [name, agent] of Object.entries(agents)) {
     fail(`${name} must deny the external advisor tool`);
   }
 }
+for (const [name, agent] of Object.entries(agents)) {
+  if (finalPermission(agent, "external_directory") !== "allow") {
+    const rules = (agent.permission ?? []).filter(
+      (rule) => rule.permission === "external_directory",
+    );
+    fail(
+      `${name} must inherit the shared external-directory permission: ${JSON.stringify(rules)}`,
+    );
+  }
+  if (finalPermission(agent, "external_directory", sshCredentialPattern) !== "deny") {
+    fail(`${name} must deny external SSH credential files`);
+  }
+}
 const goalControllers = new Set(["build", "ultra"]);
 const goalMutationTools = [
   "create_goal",
@@ -258,8 +279,8 @@ for (const name of goalControllers) {
 }
 
 const ultra = agents.ultra;
-if (ultra.mode !== "primary" || ultra.hidden !== true) {
-  fail("ultra must remain a hidden primary used by /ultra");
+if (ultra.mode !== "primary" || ultra.hidden !== false) {
+  fail("ultra must remain a visible primary used by /ultra");
 }
 for (const permission of ["question", "plan_enter"]) {
   if (finalPermission(ultra, permission) !== "deny") {
@@ -282,11 +303,11 @@ const ultraCommandSource = fs.readFileSync(
   "utf8",
 );
 if (!ultraCommandSource.startsWith("---\n") || !ultraCommandSource.includes("\nagent: ultra\n")) {
-  fail("/ultra must target the hidden Ultra execution profile");
+  fail("/ultra must target the visible Ultra execution profile");
 }
 const resolvedUltraCommand = resolvedConfig.command?.ultra;
 if (!resolvedUltraCommand || resolvedUltraCommand.agent !== "ultra") {
-  fail("/ultra must resolve to the hidden Ultra execution profile");
+  fail("/ultra must resolve to the visible Ultra execution profile");
 }
 if (resolvedUltraCommand.model !== undefined || resolvedUltraCommand.subtask === true) {
   fail("/ultra must run as a primary and inherit the Ultra profile model");

@@ -13,7 +13,7 @@ permission:
     "*.env": deny
     "*.env.*": deny
     .env.example: allow
-    "*.env.example": allow
+  "*.env.example": allow
   glob: allow
   grep: ask
   skill: allow

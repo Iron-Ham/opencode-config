@@ -70,6 +70,7 @@ fi
 OPENCODE_AGENTS_DIR="$OPENCODE_DIR/agents"
 OPENCODE_COMMANDS_DIR="$OPENCODE_DIR/commands"
 OPENCODE_PLUGINS_DIR="$OPENCODE_DIR/plugins"
+OPENCODE_TUI_DIR="$OPENCODE_DIR/tui"
 OPENCODE_SKILLS_DIR="$OPENCODE_DIR/skills"
 OPENCODE_BACKUP_DIR="$OPENCODE_DIR/backups/setup-opencode"
 
@@ -193,6 +194,29 @@ link_item() {
   echo "LINK   $dest -> $src"
 }
 
+copy_item() {
+  local src="$1"
+  local dest="$2"
+  local label="$3"
+
+  if [ ! -f "$src" ]; then
+    echo "SKIP   $label (not in repo)"
+    return
+  fi
+
+  mkdir -p "$(dirname "$dest")"
+
+  if [ -L "$dest" ] || { [ -e "$dest" ] && ! cmp -s "$src" "$dest"; }; then
+    backup_item "$dest"
+  elif [ -f "$dest" ]; then
+    echo "OK     $label (already current)"
+    return
+  fi
+
+  cp "$src" "$dest"
+  echo "COPY   $dest <- $src"
+}
+
 retire_repo_agent_link() {
   local name="$1"
   local dest="$OPENCODE_AGENTS_DIR/$name.md"
@@ -242,7 +266,7 @@ bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --check-refresh
 
 preflight_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-preflight.XXXXXX")"
-mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands"
+mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands" "$preflight_dir/tui"
 for relative_path in \
   opencode.json \
   opencode.jsonc \
@@ -256,6 +280,7 @@ done
 cp -R "$REPO_DIR/opencode/agents/." "$preflight_dir/agents/"
 cp -R "$REPO_DIR/opencode/commands/." "$preflight_dir/commands/"
 cp -R "$REPO_DIR/opencode/plugins/." "$preflight_dir/plugins/"
+cp -R "$REPO_DIR/opencode/tui/." "$preflight_dir/tui/"
 if [ "$advisor_enabled" != "true" ]; then
   rm "$preflight_dir/commands/advise.md"
 fi
@@ -269,7 +294,7 @@ begin_transaction
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --retire-obsolete
 
-mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
+mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR" "$LEGACY_SHARED_SKILLS_DIR"
 chmod 700 "$OPENCODE_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
@@ -356,7 +381,17 @@ done
 for src in "$REPO_DIR"/opencode/plugins/*; do
   [ -e "$src" ] || continue
   name="$(basename "$src")"
-  link_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
+  if [[ "$name" == *.tsx ]]; then
+    copy_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode TUI plugin $name"
+  else
+    link_item "$src" "$OPENCODE_PLUGINS_DIR/$name" "OpenCode plugin $name"
+  fi
+done
+
+for src in "$REPO_DIR"/opencode/tui/*; do
+  [ -e "$src" ] || continue
+  name="$(basename "$src")"
+  copy_item "$src" "$OPENCODE_TUI_DIR/$name" "OpenCode TUI support $name"
 done
 
 if command -v notion >/dev/null 2>&1; then

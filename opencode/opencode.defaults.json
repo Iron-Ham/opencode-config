@@ -517,8 +517,8 @@
       "steps": 60
     },
     "ultra": {
-      "description": "Hidden unattended execution policy for /ultra; direct use omits the command template.",
-      "hidden": true,
+      "description": "Unattended execution policy for /ultra; direct use omits the command template.",
+      "hidden": false,
       "mode": "primary",
       "permission": {
         "advisor": "deny",
@@ -562,6 +562,20 @@
     }
   },
   "permission": {
+    "external_directory": {
+      "*": "allow",
+      "~/.aws/**": "deny",
+      "~/.config/**": "deny",
+      "~/.docker/**": "deny",
+      "~/.git-credentials": "deny",
+      "~/.gnupg/**": "deny",
+      "~/.kube/**": "deny",
+      "~/.netrc": "deny",
+      "~/.npmrc": "deny",
+      "~/.pypirc": "deny",
+      "~/.ssh/**": "deny",
+      "~/Library/Keychains/**": "deny"
+    },
     "read": {
       "*": "allow",
       ".env": "deny",
