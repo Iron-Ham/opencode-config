@@ -62,16 +62,17 @@
     }
   ],
   "decision": {
-    "explicit_advisor_default": "Opus 4.8 xhigh",
-    "status": "provisional task-class transfer",
+    "explicit_advisor_default": null,
+    "status": "historical aggregate; no universal advisor selected",
     "automatic_review": "disabled",
     "reason": "Opus had the highest mean of cluster medians and the lowest total observed cost among reviewed advisor routes. It cost 18.79% more than leaving the draft untreated while improving the mean cluster median by 6.5 points.",
-    "configuration_policy": "The developer can disable the explicit advisor lane or replace its model locally. Sol, Sonnet, Fable, and self-review are not justified defaults by this small sample."
+    "policy": "Keep automatic advisor review off. Independent review may be developer-invoked, but this small proxy does not justify a universal advisor model."
   },
   "limitations": [
     "The model ranking is based on two workload clusters and one shared draft per cluster; three graders reduce grading noise but do not increase workload sample size.",
     "The strongest reviewer changed by workload: Sonnet led the first cluster and Opus led the second.",
-    "The benchmark passed a bounded transcript to the reviewer and asked Terra to reconcile the advice. The shipped /advise command receives only developer-supplied context in an isolated read-only session, so model ranking transfers only provisionally.",
-    "The study measures plan revision, not implementation correctness, shipping outcomes, or the causal value of invoking /advise on a production task."
+    "The benchmark passed a bounded transcript to the reviewer and asked Terra to reconcile the advice. A developer-invoked isolated review is a different treatment, so the model ranking does not transfer directly.",
+    "The study measures plan revision, not implementation correctness, shipping outcomes, or the causal value of invoking independent review on a production task.",
+    "Raw prompts, outputs, and per-judge artifacts are not attached to this public aggregate."
   ]
 }

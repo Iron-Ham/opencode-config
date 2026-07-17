@@ -52,9 +52,9 @@
       {"route":"sol-high","judge_mean":91.3333,"validation":"pass","compliance":"compliant","cost_usd":1.433317,"wall_time_seconds":318.7534,"quality_value_rank":4,"weighted_rank":4},
       {"route":"deepseek-v4-pro-baseten","judge_mean":88.3333,"validation":"pass","compliance":"compliant","cost_usd":2.6727999,"wall_time_seconds":852.2458,"quality_value_rank":6,"weighted_rank":7},
       {"route":"opus-4.8-high","judge_mean":87.3333,"validation":"pass","compliance":"noncompliant","cost_usd":3.1399335,"wall_time_seconds":391.9727,"quality_value_rank":7,"weighted_rank":5},
-      {"route":"luna-xhigh","judge_mean":83.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3650534,"wall_time_seconds":360.343,"quality_value_rank":1,"weighted_rank":2,"judge_adjudication":"one repeated-judge disagreement retained the lower score after its deterministic failure claim was confirmed"},
+      {"route":"luna-xhigh","judge_mean":83.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3650534,"wall_time_seconds":360.343,"quality_value_rank":1,"weighted_rank":2,"handoff":"carry-with-repair","judge_adjudication":"one repeated-judge disagreement retained the lower score after its deterministic failure claim was confirmed"},
       {"route":"glm-5.2-max-baseten","judge_mean":82.3333,"validation":"pass","compliance":"compliant","cost_usd":2.72315,"wall_time_seconds":638.8509,"quality_value_rank":8,"weighted_rank":8},
-      {"route":"luna-high","judge_mean":81.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3583894,"wall_time_seconds":349.7718,"quality_value_rank":2,"weighted_rank":3},
+      {"route":"luna-high","judge_mean":81.3333,"validation":"pass","compliance":"compliant","cost_usd":0.3583894,"wall_time_seconds":349.7718,"quality_value_rank":2,"weighted_rank":3,"handoff":"redrive"},
       {"route":"kimi-k2.7-code-baseten","judge_mean":80.3333,"validation":"pass","compliance":"compliant","cost_usd":1.7845014,"wall_time_seconds":320.7077,"quality_value_rank":5,"weighted_rank":6},
       {"route":"sonnet-5-xhigh","judge_mean":71.3333,"validation":"pass","compliance":"noncompliant","cost_usd":4.4357096,"wall_time_seconds":1379.8946,"quality_value_rank":9,"weighted_rank":9}
     ],
@@ -138,7 +138,7 @@
       "mean_wall_time_premium_percent": 9.7,
       "cost_per_valid_result_premium_percent": -2.1,
       "cost_per_quality_floor_result_premium_percent": 2.8,
-      "interpretation": "This historical seven-workload aggregate identified Sol as the primary quality challenger because it produced seven valid results and five quality-floor results versus Terra xhigh's four and three. The final repeated three-task switch gate retained Terra under the preregistered policy because Sol's cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling; Sol remained the stronger measured quality challenger. See matched-switch-gate-final.json."
+      "interpretation": "This historical seven-workload aggregate identified Sol as the primary quality challenger because it produced seven valid results and five quality-floor results versus Terra xhigh's four and three. The final repeated three-task switch gate selected Terra as an interim pilot baseline under the prospectively specified working rule because Sol's cost per valid result was 1.349 times Terra, above the locked 1.25 ceiling; Sol remained the stronger measured quality challenger. See matched-switch-gate-final.json."
     },
     "default_switch_gate": {
       "repeat_design": "at least two independent attempts per matched representative task, including iOS editor/offline and at least one non-iOS production surface",
@@ -156,11 +156,11 @@
         "explicit developer override and repository-policy precedence",
         "privacy-safe route auditability"
       ],
-      "final_outcome": "complete; Terra retained on the preregistered cost gate only, while Sol was the stronger measured quality challenger; see matched-switch-gate-final.json"
+      "final_outcome": "complete; Terra selected as the interim pilot baseline on the prospectively specified cost threshold only, while Sol was the stronger measured quality challenger; see matched-switch-gate-final.json"
     }
   },
   "decision": {
-    "default_controller": "terra_xhigh_provisional_default_retained_on_preregistered_cost_gate_only",
+    "default_controller": "terra_xhigh_interim_pilot_baseline_selected_on_prospectively_specified_cost_threshold_only",
     "workload_specific_findings": [
       "Terra high led the complete nine-route backend cohort on judged quality, weighted score, and Quality:Value; versus Terra xhigh it gained 5.33 quality points and cost 16.2% less while taking 13.8% longer.",
       "The matched iOS treatment did not preserve the xhigh route's quality or compliance: Terra high scored 55.67 versus 63.67, cost effectively the same, ran 24.0% faster, failed compilation, and attempted a denied cross-workspace search. Keep Terra xhigh as the provisional iOS-weighted default.",
@@ -168,7 +168,7 @@
       "Kimi K2.7 Code and GLM 5.2 max produced mergeable backend artifacts, but neither beat Terra's combined quality, cost, and speed tradeoff.",
       "Opus 4.8 high needs a localized duplicate-import repair and revalidation; Luna high failed its candidate-added tests and requires redrive.",
       "Terra xhigh led the compliant frontend weighted score.",
-      "Luna xhigh led frontend quality:value but retained the same carry-with-repair handoff as Luna high; its matched cost, time, and quality delta did not justify replacing Luna high as the bounded lane.",
+      "Luna xhigh led frontend quality:value and improved the source-reconciled handoff from Redrive to Carry with repair; it cost 1.9% more, took 3.0% longer, and gained two quality points. The benefit is real but did not transfer to IaC, so the effort choice remains workload-specific.",
       "On IaC, Luna xhigh cost effectively the same as Luna high, ran 29.7% longer, scored 28.33 points lower, and failed the same validation gate; this strengthens the Luna-high effort decision.",
       "Luna high retained the mixed Quality:Value lead, while Terra high became the ten-route weighted leader; Terra high scored 6 points above xhigh and cost 5.9% less while taking 11.4% longer.",
       "Sonnet 5 high matched Sonnet 5 xhigh at 89.33 mean quality and the same carry-with-repair handoff while costing 43.0% less and finishing 40.8% faster; xhigh added no measured value on this workload.",
@@ -193,7 +193,10 @@
     "Each cohort label identifies one workload, not coverage of an entire platform, product area, or work across engineering; the sample is currently uneven across major responsibility and risk surfaces.",
     "Validation, policy compliance, quality, cost, and speed remain separate outcomes; a low-cost invalid artifact is not treated as a valid win.",
     "Two Baseten GLM attempts hit a measured 202,720-token provider input ceiling because OpenCode advertised an incorrect 1,048,576-token catalog context. Their patches remain judgeable, but the terminal failures are benchmark-configuration incidents and are excluded from model completion conclusions. Managed runs compact around 182,720 tokens.",
-    "The matched repeated switch gate is final and published separately in matched-switch-gate-final.json: Terra was retained on the preregistered cost gate only, while Sol was the stronger measured quality challenger. Representative-workload expansion and selective effort follow-ups remain open. The finalized Terra max iOS result is a censored one-hour run, not evidence for a universal max-effort conclusion.",
+    "The matched repeated switch gate is final and published separately in matched-switch-gate-final.json: Terra was selected as the interim pilot baseline on the prospectively specified cost threshold only, while Sol was the stronger measured quality challenger. Representative-workload expansion and selective effort follow-ups remain open. The finalized Terra max iOS result is a censored one-hour run, not evidence for a universal max-effort conclusion.",
+    "The original seed screen excluded changes outside 30–800 edited lines and 1–20 files, and the later 500-merge audit covered roughly 24 hours. Only three of ten calibrated expansion workloads have candidate outcomes.",
+    "Six of twelve matched artifacts and 19 of 74 judged production artifacts had a panel spread of at least 20 points; source-reconciled handoff and deterministic evidence outrank raw panel means.",
+    "Quality:Value and weighted Q/C/speed scores are cohort-relative policy metrics, not empirically calibrated utility functions; ranks can change when candidates are added.",
     "One duplicate frontend judge invocation exposed a 59-versus-94 repeat disagreement; the published score retains the evidence-supported lower judgment rather than averaging away a confirmed deterministic failure.",
     "The public aggregate excludes all source and reference-change details.",
     "The private recent-merge sampling audit is represented here only by its coverage conclusion; repository velocity, ownership, PR, and commit details are not published."
