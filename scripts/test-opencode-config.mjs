@@ -47,7 +47,6 @@ try {
         permission: { bash: "allow", edit: "allow" },
       },
       compaction: { model: "anthropic/claude-sonnet-5" },
-      luna: { steps: 11, variant: "low", options: { reasoningEffort: "low" } },
       technical_writer: { model: "anthropic/claude-sonnet-5" },
     },
     provider: {
@@ -135,25 +134,20 @@ try {
   assert.equal(merged.agent.build.model, "openai/gpt-5.6-terra-xhigh-pinned");
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
+  assert.equal(merged.agent.ultra.model, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
   assert.equal(merged.agent.general.permission.bash["git push *"], "deny");
-  assert.equal(merged.agent.sonnet.model, "anthropic/claude-sonnet-5-default-pinned");
-  assert.equal(merged.agent.sonnet.permission.create_goal, "allow");
-  assert.equal(merged.agent.sonnet.permission.advisor, "deny");
-  assert.equal(merged.agent.terra.model, "openai/gpt-5.6-terra-xhigh-pinned");
-  assert.equal(merged.agent.terra.permission.create_goal, "allow");
-  assert.equal(merged.agent.terra.permission.advisor, "deny");
-  assert.equal(merged.agent.terra.permission.task.general, undefined);
-  assert.equal(merged.agent.terra.permission.task.code_reviewer, "allow");
-  assert.equal(merged.agent.terra.permission.task.evidence_analyst, "allow");
   assert.equal(merged.agent.ultra.hidden, true);
   assert.equal(merged.agent.ultra.steps, undefined);
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
   assert.equal(merged.agent.ultra.permission.question, "deny");
   assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
   assert.equal(merged.agent.ultra.permission.task.general, "allow");
-  assert.equal(merged.agent.sol.permission.advisor, "deny");
+  assert.equal(merged.agent.luna, undefined);
+  assert.equal(merged.agent.sonnet, undefined);
+  assert.equal(merged.agent.sol, undefined);
+  assert.equal(merged.agent.terra, undefined);
   assert.equal(merged.agent.advisor_reviewer.permission.advisor, "deny");
   assert.equal(merged.agent.advisor_reviewer.disable, false);
   assert.equal(merged.agent.advisor_reviewer.steps, 60);
@@ -165,15 +159,6 @@ try {
   assert.equal(merged.agent.backend_architect, undefined);
   assert.equal(merged.agent.git_workflow_master, undefined);
   assert.equal(merged.agent.technical_writer, undefined);
-  assert.equal(merged.agent.luna.variant, undefined);
-  assert.equal(merged.agent.luna.options, undefined);
-  assert.equal(merged.agent.luna.steps, undefined);
-  assert.equal(merged.agent.luna.model, "openai/gpt-5.6-luna-high-pinned");
-  assert.equal(merged.agent.luna.permission.task["*"], "deny");
-  assert.equal(merged.agent.luna.permission.task.general, undefined);
-  assert.equal(merged.agent.luna.permission.task.kimi_reader, undefined);
-  assert.equal(merged.agent.luna.permission.task.code_reviewer, "allow");
-  assert.equal(merged.agent.luna.permission.task.evidence_analyst, "allow");
   assert.equal(merged.provider.custom.models.local.name, "Local");
   assert.ok(merged.provider.baseten.whitelist.includes("org/machine-local-model"));
   assert.ok(merged.provider.baseten.whitelist.includes("zai-org/GLM-5.2"));
@@ -366,6 +351,10 @@ try {
       assert.equal(routed.agent[agentName].model, model);
     }
     assert.equal(routed.agent.ultra.hidden, true);
+    assert.equal(
+      routed.agent.ultra.model,
+      localRouting.agents.ultra,
+    );
     assert.equal(routed.agent.ultra.permission.question, "deny");
     assert.equal(routed.agent.ultra.permission.plan_enter, "deny");
     for (const [agentName, steps] of Object.entries(localRouting.steps)) {
@@ -382,9 +371,7 @@ try {
       "plan",
       "sol",
       "advisor_reviewer",
-      "sonnet",
       "software_architect",
-      "terra",
       "ultra",
     ]) {
       assert.equal(

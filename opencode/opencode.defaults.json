@@ -520,7 +520,6 @@
       "description": "Hidden unattended execution policy for /ultra; direct use omits the command template.",
       "hidden": true,
       "mode": "primary",
-      "model": "openai/gpt-5.6-terra-xhigh-pinned",
       "permission": {
         "advisor": "deny",
         "question": "deny",
@@ -539,102 +538,6 @@
           "evidence_analyst": "allow",
           "explore": "allow",
           "general": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
-        }
-      }
-    },
-    "luna": {
-      "description": "Explicit GPT-5.6 Luna controller at high effort for bounded cost-sensitive work.",
-      "mode": "primary",
-      "model": "openai/gpt-5.6-luna-high-pinned",
-      "permission": {
-        "advisor": "deny",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "task": {
-          "*": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
-        }
-      }
-    },
-    "sonnet": {
-      "description": "Provider-default Sonnet 5 controller for deep repository research.",
-      "mode": "primary",
-      "model": "anthropic/claude-sonnet-5-default-pinned",
-      "permission": {
-        "advisor": "deny",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "task": {
-          "*": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
-        }
-      }
-    },
-    "sol": {
-      "description": "Explicit GPT-5.6 Sol controller at high effort with redundant advisor review disabled.",
-      "mode": "primary",
-      "model": "openai/gpt-5.6-sol-high-pinned",
-      "permission": {
-        "advisor": "deny",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "task": {
-          "*": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
-        }
-      }
-    },
-    "terra": {
-      "description": "Explicit GPT-5.6 Terra controller at xhigh effort for correctness- or latency-sensitive implementation.",
-      "mode": "primary",
-      "model": "openai/gpt-5.6-terra-xhigh-pinned",
-      "permission": {
-        "advisor": "deny",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "task": {
-          "*": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
           "security_engineer": "allow",
           "software_architect": "allow"
         }

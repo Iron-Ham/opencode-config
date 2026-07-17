@@ -65,6 +65,7 @@ const inheritedModelAgentNames = new Set([
   "general",
   "security_engineer",
   "software_architect",
+  "ultra",
 ]);
 const retiredManagedAgentNames = new Set([
   "backend_architect",
