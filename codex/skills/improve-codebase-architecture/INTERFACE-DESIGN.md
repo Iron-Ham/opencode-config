@@ -1,1 +1,0 @@
-../../../skills/improve-codebase-architecture/INTERFACE-DESIGN.md

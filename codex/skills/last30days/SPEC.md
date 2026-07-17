@@ -1,1 +1,0 @@
-../../../skills/last30days/SPEC.md

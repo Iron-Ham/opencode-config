@@ -60,7 +60,7 @@ This text MUST appear before you call any tools. It confirms to the user that yo
 
 **Step 1: Run the research script**
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/skills/last30days}/scripts/last30days.py" "$ARGUMENTS" --emit=compact 2>&1
+python3 "${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}/skills/last30days/scripts/last30days.py" "$ARGUMENTS" --emit=compact 2>&1
 ```
 
 The script will automatically:

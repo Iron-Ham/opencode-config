@@ -1,1 +1,0 @@
-../../../skills/last30days/SKILL-original.md

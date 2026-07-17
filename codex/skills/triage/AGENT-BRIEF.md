@@ -1,1 +1,0 @@
-../../../skills/triage/AGENT-BRIEF.md

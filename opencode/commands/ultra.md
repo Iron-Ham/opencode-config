@@ -1,5 +1,5 @@
 ---
-description: Run a high-effort, proactively delegated Codex-like workflow.
+description: Run a high-effort, proactively delegated OpenCode workflow.
 agent: ultra
 ---
 

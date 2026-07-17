@@ -1,4 +1,0 @@
-interface:
-  display_name: "KISS Review"
-  short_description: "Adversarial evidence and architecture review"
-  default_prompt: "Use $kiss-review to critically review this pull request for correctness, evidence sufficiency, architecture, and KISS."
