@@ -229,6 +229,8 @@ try {
     JSON.stringify({ ...validEvidence, remaining_work: ["ship it"] }),
     JSON.stringify({ ...validEvidence, summary: "Cookie: session=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "session_cookie=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: "session_id=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: "client_secret=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "AWS_SECRET_ACCESS_KEY=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "ghp_abcdefghijklmnopqrstuvwxyz1234567890" }),
     JSON.stringify({ ...validEvidence, summary: "-----BEGIN PRIVATE KEY-----" }),
@@ -244,6 +246,7 @@ try {
   ]) {
     assert.throws(() => parseCompletionEvidence(invalid));
   }
+  assert.throws(() => parseCompletionEvidence(`${" ".repeat(20001)}`), /input must be at most/);
 
   const hookDirectory = path.join(testRoot, "hook-evidence");
   process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = hookDirectory;
