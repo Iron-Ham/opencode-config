@@ -58,6 +58,7 @@ const modelOverrideAgentNames = new Set([
 ]);
 const inheritedModelAgentNames = new Set([
   "accessibility_auditor",
+  "build",
   "code_reviewer",
   "database_optimizer",
   "evidence_analyst",

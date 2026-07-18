@@ -37,6 +37,7 @@ try {
     agent: {
       backend_architect: { model: "anthropic/claude-sonnet-5" },
       build: {
+        model: "openai/gpt-5.6-terra",
         steps: 7,
         permission: {
           advisor: "deny",
@@ -153,7 +154,7 @@ try {
   assert.equal(merged.agent.build.permission.task.glm_worker, undefined);
   assert.equal(merged.agent.build.permission.task["machine-local-agent"], undefined);
   assert.equal(merged.model, "openai/gpt-5.6-terra");
-  assert.equal(merged.agent.build.model, "openai/gpt-5.6-terra");
+  assert.equal(merged.agent.build.model, undefined);
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
   assert.equal(merged.agent.ultra.model, undefined);
