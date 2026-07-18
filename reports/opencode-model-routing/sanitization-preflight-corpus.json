@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic expected-result corpus for a future explicit sanitization preflight. No detector is implemented or executed by this artifact.",
+  "candidate_rules": [
+    {
+      "category": "jwt_like",
+      "status": "unapproved",
+      "basis": "Three dot-separated base64url-like segments in a credential context."
+    },
+    {
+      "category": "authorization_header",
+      "status": "unapproved",
+      "basis": "Authorization header containing a bearer credential."
+    },
+    {
+      "category": "private_key_marker",
+      "status": "unapproved",
+      "basis": "Private-key PEM boundary marker."
+    },
+    {
+      "category": "connection_string",
+      "status": "unapproved",
+      "basis": "Credential-bearing URI authority component."
+    },
+    {
+      "category": "cookie",
+      "status": "unapproved",
+      "basis": "Cookie header value with a session-like name."
+    },
+    {
+      "category": "signed_url",
+      "status": "unapproved",
+      "basis": "URL query parameter named as a signature."
+    }
+  ],
+  "cases": [
+    {
+      "id": "jwt-like-value",
+      "input": "synthetic.jwt.signature",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "jwt_like",
+            "line": 1,
+            "span": { "start": 0, "end": 23 },
+            "length": 23,
+            "confidence": "medium",
+            "replacement_marker": "[REDACTED:JWT_LIKE]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "authorization-header",
+      "input": "Authorization: Bearer synthetic-token",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "authorization_header",
+            "line": 1,
+            "span": { "start": 15, "end": 37 },
+            "length": 22,
+            "confidence": "high",
+            "replacement_marker": "[REDACTED:AUTHORIZATION]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "private-key-marker",
+      "input": "-----BEGIN PRIVATE KEY-----",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "private_key_marker",
+            "line": 1,
+            "span": { "start": 0, "end": 27 },
+            "length": 27,
+            "confidence": "high",
+            "replacement_marker": "[REDACTED:PRIVATE_KEY]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "connection-string",
+      "input": "postgres://synthetic-user:synthetic-password@synthetic-host/synthetic-db",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "connection_string",
+            "line": 1,
+            "span": { "start": 0, "end": 72 },
+            "length": 72,
+            "confidence": "high",
+            "replacement_marker": "[REDACTED:CONNECTION_STRING]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cookie-header",
+      "input": "Cookie: synthetic_session=synthetic-value",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "cookie",
+            "line": 1,
+            "span": { "start": 8, "end": 41 },
+            "length": 33,
+            "confidence": "high",
+            "replacement_marker": "[REDACTED:COOKIE]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "signed-url",
+      "input": "https://storage.example.invalid/object?X-Amz-Signature=synthetic-signature",
+      "expected": {
+        "action": "redact",
+        "review_required": true,
+        "results": [
+          {
+            "category": "signed_url",
+            "line": 1,
+            "span": { "start": 55, "end": 74 },
+            "length": 19,
+            "confidence": "high",
+            "replacement_marker": "[REDACTED:SIGNED_URL]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "long-base64-control",
+      "input": "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    },
+    {
+      "id": "typescript-literal-control",
+      "input": "const label = \"token budget\";",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    },
+    {
+      "id": "swift-literal-control",
+      "input": "let label = \"build status\"",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    },
+    {
+      "id": "kotlin-literal-control",
+      "input": "val note = \"route metadata\"",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    },
+    {
+      "id": "json-control",
+      "input": "{\"status\":\"ok\",\"count\":1}",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    },
+    {
+      "id": "stack-trace-control",
+      "input": "Error: synthetic failure at Example.swift:12",
+      "expected": {
+        "action": "preserve",
+        "review_required": false,
+        "results": []
+      }
+    }
+  ]
+}
