@@ -619,11 +619,11 @@ for (const name of ["general", "glm_worker", "database_optimizer", "evidence_ana
 }
 
 const expectedModels = {
-  build: ["openai", "gpt-5.6-terra-xhigh-pinned"],
+  build: ["openai", "gpt-5.6-terra"],
   glm_worker: ["baseten", "zai-org/GLM-5.2"],
   kimi_reader: ["baseten", "moonshotai/Kimi-K2.7-Code"],
-  plan: ["openai", "gpt-5.6-terra-xhigh-pinned"],
-  advisor_reviewer: ["anthropic", "claude-opus-4-8-xhigh-pinned"],
+  plan: ["openai", "gpt-5.6-terra"],
+  advisor_reviewer: ["anthropic", "claude-opus-4-8"],
 };
 if (modelRouting.agents?.compaction) {
   expectedModels.compaction = undefined;
