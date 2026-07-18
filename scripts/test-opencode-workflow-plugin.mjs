@@ -6,6 +6,10 @@ import os from "node:os";
 import path from "node:path";
 
 import plugin, {
+  testHelpers,
+} from "../opencode/plugins/goal-workflow-guard.js";
+
+const {
   completionEvidenceDirectory,
   createRedactedCompletionExport,
   createGoalWorkflowGuard,
@@ -14,7 +18,7 @@ import plugin, {
   parseCompletionEvidence,
   persistCompletionEvidence,
   stabilizeGoalSystemText,
-} from "../opencode/plugins/goal-workflow-guard.js";
+} = testHelpers;
 
 const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-workflow-plugin-test-"));
 const originalEvidenceDirectory = process.env.OPENCODE_COMPLETION_EVIDENCE_DIR;

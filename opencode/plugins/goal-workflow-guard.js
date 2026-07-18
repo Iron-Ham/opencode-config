@@ -112,7 +112,7 @@ function defaultHandoff(status, fallback) {
   };
 }
 
-export function parseGoalHandoff(value, { status, fallback } = {}) {
+function parseGoalHandoff(value, { status, fallback } = {}) {
   if (status !== "complete" && status !== "unmet") {
     throw new Error("handoff status must be complete or unmet");
   }
@@ -240,7 +240,7 @@ function opaqueHandoff(handoff) {
   };
 }
 
-export function createRedactedCompletionExport({ manifest, handoff }) {
+function createRedactedCompletionExport({ manifest, handoff }) {
   return {
     export_schema_version: 2,
     record_type: "opencode_goal_completion_export",
@@ -249,7 +249,7 @@ export function createRedactedCompletionExport({ manifest, handoff }) {
   };
 }
 
-export function parseCompletionRecord(source) {
+function parseCompletionRecord(source) {
   let value;
   try {
     value = typeof source === "string" ? JSON.parse(source) : source;
@@ -341,7 +341,7 @@ function stabilizeDelimitedSummary(source, header, suffix) {
   return `${source.slice(0, summaryStart)}${stable}${source.slice(suffixStart)}`;
 }
 
-export function stabilizeGoalSystemText(source) {
+function stabilizeGoalSystemText(source) {
   if (typeof source !== "string" || !source.includes(GOAL_MARKER)) return source;
 
   const variants = [
@@ -364,7 +364,7 @@ export function stabilizeGoalSystemText(source) {
   return variants[0]?.transform() ?? source;
 }
 
-export function parseCompletionEvidence(source) {
+function parseCompletionEvidence(source) {
   if (typeof source !== "string") {
     throw new Error("completion evidence must be a JSON string");
   }
@@ -459,7 +459,7 @@ function safeIdentifier(value) {
   return createHash("sha256").update(String(value)).digest("hex");
 }
 
-export function completionEvidenceDirectory(environment = process.env) {
+function completionEvidenceDirectory(environment = process.env) {
   const explicit = environment.OPENCODE_COMPLETION_EVIDENCE_DIR?.trim();
   if (explicit) return path.resolve(explicit);
 
@@ -486,7 +486,7 @@ async function writeImmutableRecord(directory, filename, record) {
   return destination;
 }
 
-export async function persistCompletionEvidence({
+async function persistCompletionEvidence({
   sessionID,
   callID,
   manifest,
@@ -561,7 +561,7 @@ function addCompletionEvidenceToOutput(
   };
 }
 
-export async function createGoalWorkflowGuard() {
+async function createGoalWorkflowGuard() {
   const pendingCompletions = new Map();
   const pendingKey = (input) => `${String(input.sessionID)}\0${String(input.callID)}`;
   return {
@@ -629,6 +629,17 @@ export async function createGoalWorkflowGuard() {
     },
   };
 }
+
+export const testHelpers = {
+  parseGoalHandoff,
+  createRedactedCompletionExport,
+  parseCompletionRecord,
+  stabilizeGoalSystemText,
+  parseCompletionEvidence,
+  completionEvidenceDirectory,
+  persistCompletionEvidence,
+  createGoalWorkflowGuard,
+};
 
 export default {
   id: "claude-config-goal-workflow-guard",
