@@ -38,6 +38,8 @@ if (
 for (const pluginName of [
   "goal-mode.js",
   "goal-mode-tui.tsx",
+  "compaction-observability.js",
+  "delegation-guard.js",
   "goal-workflow-guard.js",
 ]) {
   if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
@@ -54,6 +56,15 @@ for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
 }
 if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/goal-mode.js")) {
   fail("the vendored Goal server is not configured");
+}
+if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/goal-workflow-guard.js")) {
+  fail("the completion-evidence guard is not configured");
+}
+if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/compaction-observability.js")) {
+  fail("the compaction observability plugin is not configured");
+}
+if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/delegation-guard.js")) {
+  fail("the delegation guard is not configured");
 }
 if (!(tui.plugin ?? []).includes("./plugins/goal-mode-tui.tsx")) {
   fail("the vendored Goal TUI is not configured");

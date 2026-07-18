@@ -126,6 +126,8 @@ try {
   assert.equal(merged.agent.plan.options, undefined);
   assert.equal(merged.agent.plan.model, "openai/gpt-5.6-terra");
   assert.equal(merged.agent.plan.permission.create_goal, "deny");
+  assert.equal(merged.agent.plan.permission.record_goal_progress, "deny");
+  assert.equal(merged.agent.plan.permission.record_goal_failure, "deny");
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.create_goal, "deny");
   assert.equal(merged.agent.general.steps, undefined);
@@ -137,8 +139,12 @@ try {
   assert.equal(merged.agent.compaction.model, undefined);
   assert.equal(merged.lsp, true);
   assert.equal(merged.permission.create_goal, "deny");
+  assert.equal(merged.permission.record_goal_progress, "deny");
+  assert.equal(merged.permission.record_goal_failure, "deny");
   assert.equal(merged.agent.build.permission.get_goal, "allow");
   assert.equal(merged.agent.build.permission.create_goal, "allow");
+  assert.equal(merged.agent.build.permission.record_goal_progress, "allow");
+  assert.equal(merged.agent.build.permission.record_goal_failure, "allow");
   assert.equal(merged.agent.build.permission.advisor, "deny");
   assert.equal(merged.agent.build.permission.external_directory, undefined);
   assert.equal(merged.agent.build.permission.task["*"], "deny");
@@ -171,6 +177,8 @@ try {
   assert.equal(merged.agent.ultra.permission.advisor, "deny");
   assert.equal(merged.agent.ultra.permission.question, "deny");
   assert.equal(merged.agent.ultra.permission.get_goal, "allow");
+  assert.equal(merged.agent.ultra.permission.record_goal_progress, "allow");
+  assert.equal(merged.agent.ultra.permission.record_goal_failure, "allow");
   assert.equal(merged.agent.ultra.permission.external_directory, undefined);
   assert.equal(merged.permission.external_directory["~/**"], "allow");
   assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
@@ -262,6 +270,14 @@ try {
   }
   assert.equal(merged.compaction.reserved, 20_000);
   assert.equal(merged.compaction.auto, true);
+  assert.equal(merged.compaction.model, undefined);
+  const goalPlugin = merged.plugin.find((plugin) =>
+    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-mode.js"
+  );
+  assert.equal(goalPlugin[1].max_repeated_failures, 3);
+  assert.equal(goalPlugin[1].max_repeated_tool_calls, 3);
+  assert.equal(goalPlugin[1].retry_base_seconds, 1);
+  assert.equal(goalPlugin[1].retry_max_seconds, 60);
   assert.equal(
     merged.provider.baseten.models["zai-org/GLM-5.2"].limit.input -
       merged.compaction.reserved,
@@ -284,6 +300,20 @@ try {
       (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-mode.js"
     ),
   );
+  assert.ok(
+    merged.plugin.some((plugin) =>
+      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-workflow-guard.js"
+    ),
+  );
+  const compactionObserver = merged.plugin.find((plugin) =>
+    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/compaction-observability.js"
+  );
+  assert.equal(compactionObserver[1].model_strategy, "active-session");
+  const delegationGuard = merged.plugin.find((plugin) =>
+    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/delegation-guard.js"
+  );
+  assert.equal(delegationGuard[1].max_concurrent, 4);
+  assert.equal(delegationGuard[1].max_total, 8);
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );

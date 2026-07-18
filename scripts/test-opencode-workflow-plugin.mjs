@@ -7,7 +7,10 @@ import path from "node:path";
 
 import plugin, {
   completionEvidenceDirectory,
+  createRedactedCompletionExport,
   createGoalWorkflowGuard,
+  parseCompletionRecord,
+  parseGoalHandoff,
   parseCompletionEvidence,
   persistCompletionEvidence,
   stabilizeGoalSystemText,
@@ -111,6 +114,21 @@ const validEvidence = {
   remaining_work: [],
 };
 
+const validHandoff = {
+  classification: "carryable",
+  summary: "The change is ready for normal engineering handoff.",
+  next_action: "Review the diff and merge through the normal process.",
+  source_boundary: "opencode/plugins/** and scripts/test-opencode-workflow-plugin.mjs",
+  expected_changed_files: [
+    "opencode/plugins/goal-workflow-guard.js",
+    "scripts/test-opencode-workflow-plugin.mjs",
+  ],
+  actual_changed_files: [
+    "opencode/plugins/goal-workflow-guard.js",
+    "scripts/test-opencode-workflow-plugin.mjs",
+  ],
+};
+
 try {
   assert.equal(plugin.id, "claude-config-goal-workflow-guard");
   assert.equal(typeof plugin.server, "function");
@@ -170,6 +188,33 @@ try {
   const parsed = parseCompletionEvidence(prettyEvidence);
   assert.deepEqual(parsed.manifest, validEvidence);
   assert.equal(parsed.canonical, JSON.stringify(validEvidence));
+  assert.deepEqual(
+    parseGoalHandoff(validHandoff, { status: "complete", fallback: validEvidence.summary }),
+    validHandoff,
+  );
+  assert.equal(
+    parseGoalHandoff(undefined, { status: "complete", fallback: validEvidence.summary }).classification,
+    "carryable",
+  );
+  for (const classification of ["repairable", "blocked"]) {
+    assert.equal(
+      parseGoalHandoff(
+        {
+          classification,
+          summary: "The result needs an explicit follow-up.",
+          next_action: "Complete the identified follow-up.",
+        },
+        { status: "unmet", fallback: "external state" },
+      ).classification,
+      classification,
+    );
+  }
+  assert.throws(() =>
+    parseGoalHandoff({ ...validHandoff, classification: "repairable" }, { status: "complete" })
+  );
+  assert.throws(() =>
+    parseGoalHandoff({ ...validHandoff, classification: "unknown" }, { status: "unmet" })
+  );
 
   for (const invalid of [
     "not JSON",
@@ -182,6 +227,11 @@ try {
       checks: [{ ...validEvidence.checks[0], status: "failed" }],
     }),
     JSON.stringify({ ...validEvidence, remaining_work: ["ship it"] }),
+    JSON.stringify({ ...validEvidence, summary: "Cookie: session=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: "session_cookie=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: "AWS_SECRET_ACCESS_KEY=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: "ghp_abcdefghijklmnopqrstuvwxyz1234567890" }),
+    JSON.stringify({ ...validEvidence, summary: "-----BEGIN PRIVATE KEY-----" }),
     JSON.stringify({
       ...validEvidence,
       checks: [
@@ -195,6 +245,9 @@ try {
     assert.throws(() => parseCompletionEvidence(invalid));
   }
 
+  const hookDirectory = path.join(testRoot, "hook-evidence");
+  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = hookDirectory;
+  assert.equal(completionEvidenceDirectory(), hookDirectory);
   const hooks = await createGoalWorkflowGuard();
   const definition = { description: "Close the goal.", parameters: {} };
   await hooks["tool.definition"]({ toolID: "update_goal" }, definition);
@@ -207,6 +260,19 @@ try {
     { args: completionArgs },
   );
   assert.equal(completionArgs.evidence, JSON.stringify(validEvidence));
+  assert.equal(completionArgs.handoff.classification, "carryable");
+  assert.match(completionArgs.completion_authorization, /^[0-9a-f-]{36}$/);
+  const nestedCompletionArgs = {
+    status: "complete",
+    options: { evidence: prettyEvidence, handoff: validHandoff },
+  };
+  await hooks["tool.execute.before"](
+    { tool: "update_goal", sessionID: "session-test", callID: "call-nested" },
+    { args: nestedCompletionArgs },
+  );
+  assert.equal(nestedCompletionArgs.options.evidence, JSON.stringify(validEvidence));
+  assert.deepEqual(nestedCompletionArgs.options.handoff, validHandoff);
+  assert.match(nestedCompletionArgs.options.completion_authorization, /^[0-9a-f-]{36}$/);
   await assert.rejects(() =>
     hooks["tool.execute.before"](
       { tool: "update_goal", sessionID: "session-test", callID: "call-invalid" },
@@ -220,11 +286,45 @@ try {
   );
   assert.deepEqual(unmetArgs, { status: "unmet", blocker: "external state" });
 
+  const failedPersistencePath = path.join(testRoot, "evidence-file-not-directory");
+  fs.writeFileSync(failedPersistencePath, "not a directory\n");
+  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = failedPersistencePath;
+  const failingHooks = await createGoalWorkflowGuard();
+  await assert.rejects(() =>
+    failingHooks["tool.execute.before"](
+      { tool: "update_goal", sessionID: "session-failed", callID: "call-failed" },
+      { args: { status: "complete", evidence: prettyEvidence } },
+    )
+  );
+  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = hookDirectory;
+
+  const pendingOnlyDirectory = path.join(testRoot, "pending-only-evidence");
+  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = pendingOnlyDirectory;
+  const pendingOnlyHooks = await createGoalWorkflowGuard();
+  const pendingOnlyArgs = { status: "complete", evidence: prettyEvidence };
+  await pendingOnlyHooks["tool.execute.before"](
+    { tool: "update_goal", sessionID: "session-pending", callID: "call-pending" },
+    { args: pendingOnlyArgs },
+  );
+  const pendingOnlyRecord = JSON.parse(
+    fs.readFileSync(
+      path.join(pendingOnlyDirectory, fs.readdirSync(pendingOnlyDirectory)[0]),
+      "utf8",
+    ),
+  );
+  assert.equal(pendingOnlyRecord.record_type, "opencode_goal_completion_pending");
+  assert.equal(
+    fs.readdirSync(pendingOnlyDirectory).some((name) => name.endsWith(".commit.json")),
+    false,
+  );
+  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = hookDirectory;
+
   const directDirectory = path.join(testRoot, "direct-evidence");
   const directPath = await persistCompletionEvidence({
     sessionID: "session/direct",
     callID: "call:direct",
     manifest: validEvidence,
+    handoff: validHandoff,
     directory: directDirectory,
     recordedAt: new Date("2026-01-01T00:00:00.000Z"),
   });
@@ -232,10 +332,20 @@ try {
     sessionID: "session:direct",
     callID: "call:direct",
     manifest: validEvidence,
+    handoff: validHandoff,
     directory: directDirectory,
     recordedAt: new Date("2026-01-01T00:00:00.000Z"),
   });
   assert.notEqual(collisionPath, directPath);
+  await assert.rejects(() =>
+    persistCompletionEvidence({
+      sessionID: "session/direct",
+      callID: "call:direct",
+      manifest: validEvidence,
+      handoff: validHandoff,
+      directory: directDirectory,
+    })
+  );
   assert.equal(fs.statSync(directDirectory).mode & 0o777, 0o700);
   assert.equal(fs.statSync(directPath).mode & 0o777, 0o600);
   assert.deepEqual(
@@ -243,10 +353,58 @@ try {
     [],
   );
   assert.equal(JSON.parse(fs.readFileSync(directPath, "utf8")).recorded_at, "2026-01-01T00:00:00.000Z");
+  const directRecord = JSON.parse(fs.readFileSync(directPath, "utf8"));
+  assert.equal(directRecord.record_schema_version, 3);
+  assert.equal(directRecord.record_type, "opencode_goal_completion_pending");
+  assert.equal(Object.hasOwn(directRecord, "session_id"), false);
+  assert.equal(Object.hasOwn(directRecord, "call_id"), false);
+  assert.match(directRecord.session_sha256, /^sha256:/);
+  assert.match(directRecord.call_sha256, /^sha256:/);
+  assert.equal(Object.hasOwn(directRecord, "authorization_id"), false);
+  assert.match(directRecord.authorization_sha256, /^sha256:/);
+  assert.match(directRecord.completion_evidence_sha256, /^sha256:/);
+  assert.equal(directRecord.handoff.classification, "carryable");
+  assert.equal(directRecord.completion_evidence.checks[0].evidence[0].kind, "test");
+  assert.equal(directRecord.completion_evidence.checks[0].evidence[0].reference_sha256.startsWith("sha256:"), true);
+  assert.doesNotMatch(JSON.stringify(directRecord), /test-opencode-workflow-plugin\.mjs/);
+  assert.equal(directRecord.handoff.changed_files.expected_count, 2);
+  assert.equal(directRecord.handoff.changed_files.actual_count, 2);
+  assert.equal(Object.hasOwn(directRecord, "redacted_export"), false);
+  const migratedRecord = parseCompletionRecord({
+    record_schema_version: 1,
+    record_type: "opencode_goal_completion",
+    session_id: "legacy-session",
+    call_id: "legacy-call",
+    recorded_at: "2026-01-01T00:00:00.000Z",
+    completion_evidence: validEvidence,
+  });
+  assert.equal(migratedRecord.record_schema_version, 3);
+  assert.equal(migratedRecord.migrated_from_record_schema_version, 1);
+  assert.equal(migratedRecord.handoff.classification, "carryable");
 
-  const hookDirectory = path.join(testRoot, "hook-evidence");
-  process.env.OPENCODE_COMPLETION_EVIDENCE_DIR = hookDirectory;
-  assert.equal(completionEvidenceDirectory(), hookDirectory);
+  const secretManifest = {
+    ...validEvidence,
+    summary: "Completed with token=super-secret-value.",
+  };
+  const secretHandoff = {
+    ...validHandoff,
+    summary: "Authorization: Bearer super-secret-value",
+  };
+  const redactedExport = createRedactedCompletionExport({
+    manifest: secretManifest,
+    handoff: secretHandoff,
+  });
+  assert.doesNotMatch(JSON.stringify(redactedExport), /super-secret-value/);
+  await assert.rejects(() =>
+    persistCompletionEvidence({
+      sessionID: "session-secret",
+      callID: "call-secret",
+      manifest: secretManifest,
+      handoff: validHandoff,
+      directory: directDirectory,
+    })
+  );
+
   const toolOutput = {
     title: "Goal achieved",
     output: JSON.stringify({ completion_report: "super-secret-tool-output" }),
@@ -262,13 +420,14 @@ try {
     toolOutput,
   );
   const outputPayload = JSON.parse(toolOutput.output);
-  assert.deepEqual(outputPayload.completion_evidence, validEvidence);
+  assert.doesNotMatch(toolOutput.output, /super-secret-tool-output/);
+  assert.equal(outputPayload.completion_evidence.checks[0].requirement_sha256.startsWith("sha256:"), true);
+  assert.equal(outputPayload.completion_handoff.classification, "carryable");
+  assert.equal(outputPayload.completion_evidence_export.export_schema_version, 2);
   assert.equal(toolOutput.metadata.completionEvidence.persisted, true);
-  const artifactPath = toolOutput.metadata.completionEvidence.artifactPath;
-  assert.equal(fs.statSync(artifactPath).mode & 0o777, 0o600);
-  const artifact = fs.readFileSync(artifactPath, "utf8");
-  assert.doesNotMatch(artifact, /super-secret-tool-output/);
-  assert.deepEqual(JSON.parse(artifact).completion_evidence, validEvidence);
+  assert.match(outputPayload.completion_evidence_artifact_id, /^sha256:/);
+  assert.match(toolOutput.metadata.completionEvidence.artifactID, /^sha256:/);
+  assert.doesNotMatch(toolOutput.output, /test-opencode-workflow-plugin\.mjs/);
 
   console.log("OK     OpenCode Goal workflow guard");
 } finally {

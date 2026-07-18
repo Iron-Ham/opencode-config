@@ -26,6 +26,7 @@ brew install vjeantet/tap/alerter
 |---|---|
 | `AGENTS.md` | Global OpenCode operating instructions |
 | `opencode/opencode.defaults.json` | Managed OpenCode defaults, model routes, permissions, and Goal settings |
+| `opencode/control-plane-policy.md` | Observe-only route-policy contract and implementation boundary |
 | `opencode/agents/` | Reviewed specialist, evidence, and experiment subagents |
 | `opencode/agent-sources/` | Source prompts for generated specialist agents |
 | `opencode/commands/` | `/ultra`, `/advise`, and explicit model-provider experiment commands |
@@ -89,6 +90,8 @@ The local routing file is private and has this shape:
 
 Advisor access is disabled by default, including `/advise`. Set `"advisor_enabled": true` locally to opt into the explicit, isolated `/advise` command, which receives only developer-supplied context.
 
+Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed plugin installation, compaction inheritance, private routing configuration, and redacted compaction observation records. Use `--json` for automation or `--config-dir <path>` to inspect a non-default installation.
+
 ## Verify Changes
 
 Regenerate and validate generated agents after changing an agent source:
@@ -104,6 +107,9 @@ Run the focused regression suite before committing configuration changes:
 bun scripts/test-opencode-config.mjs
 bun scripts/test-opencode-goal-mode.mjs
 bun scripts/test-opencode-workflow-plugin.mjs
+bun scripts/test-opencode-compaction-observability.mjs
+bun scripts/test-opencode-doctor.mjs
+bun scripts/test-opencode-delegation-guard.mjs
 bun scripts/test-opencode-total-cost.mjs
 bun scripts/test-opencode-notion-assets.mjs
 bun scripts/test-setup-opencode-transaction.mjs
