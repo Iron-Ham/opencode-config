@@ -1,13 +1,17 @@
-# On-Demand Session Provenance Decision
+# ADR 002: On-Demand Session Provenance
 
-## Verdict
+## Status
+
+Accepted on 2026-07-18.
+
+## Decision
 
 **Design-only follow-on is justified.** Existing managed state establishes
 limited provenance but cannot attribute an individual historical turn to its
 agent, model identity, and policy route. No plugin, transcript mutation, prompt
 injection, or live provenance surface is included in this change.
 
-## Observed Gap
+## Context
 
 Current managed interfaces provide separate, incomplete views:
 
@@ -29,7 +33,7 @@ delegated child. It also cannot establish the effective route at that earlier
 turn. This ambiguity is material for on-demand review but does not justify
 changing model-visible history.
 
-## Current Scope
+### Existing Surfaces
 
 - Normal Build: the declared default is `openai/gpt-5.6-terra`; no fixed
   reasoning variant is declared.
@@ -47,14 +51,14 @@ The installed OpenCode CLI is `1.18.3`. This decision does not claim that
 OpenCode exposes internal per-message attribution fields beyond the managed
 source evidence above.
 
-## External Comparison
+### External Comparison
 
 The relevant concept in `gotgenes/opencode-agent-identity` is an on-demand
 per-message attribution tool. Its rationale for avoiding inline tags matches
 this design: attribution must not alter the model-visible transcript. Its
 system-prompt identity injection is explicitly out of scope here.
 
-## Proposed Read-Only Contract
+### Future Read-Only Contract
 
 A later, opt-in tool may return an array of records with exactly these fields:
 
@@ -92,7 +96,7 @@ Child sessions are deliberately excluded: a root session cannot query child
 turns, and a child may query only its own turns. This preserves session
 isolation and avoids implying a cross-session transcript ledger.
 
-## Synthetic Responses
+## Evidence
 
 Normal Build with unavailable effort metadata:
 
@@ -173,7 +177,7 @@ Compacted or otherwise missing metadata:
 ]
 ```
 
-## Required Future Seam And Tests
+## Consequences
 
 The minimum implementation prerequisite is a documented OpenCode read API that
 returns, for each turn, an immutable turn ID, role, agent, provider, model,
