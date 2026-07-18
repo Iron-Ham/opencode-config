@@ -56,6 +56,7 @@ try {
       },
       compaction: { model: "anthropic/claude-sonnet-5" },
       technical_writer: { model: "anthropic/claude-sonnet-5" },
+      custom_controller: { model: "openai/gpt-5.6-luna-xhigh-pinned" },
     },
     provider: {
       custom: { models: { local: { name: "Local" } } },
@@ -83,6 +84,11 @@ try {
             options: { reasoningEffort: "low" },
             limit: { context: 1, input: 1, output: 1 },
           },
+        },
+      },
+      anthropic: {
+        models: {
+          "claude-opus-4-8-xhigh-pinned": { name: "unsafe override" },
         },
       },
     },
@@ -118,7 +124,7 @@ try {
   assert.equal(merged.agent.plan.permission.advisor, "deny");
   assert.equal(merged.agent.plan.variant, undefined);
   assert.equal(merged.agent.plan.options, undefined);
-  assert.equal(merged.agent.plan.model, "openai/gpt-5.6-terra-xhigh-pinned");
+  assert.equal(merged.agent.plan.model, "openai/gpt-5.6-terra");
   assert.equal(merged.agent.plan.permission.create_goal, "deny");
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.create_goal, "deny");
@@ -140,8 +146,8 @@ try {
   assert.equal(merged.agent.build.permission.task.evidence_analyst, "allow");
   assert.equal(merged.agent.build.permission.task.glm_worker, undefined);
   assert.equal(merged.agent.build.permission.task["machine-local-agent"], undefined);
-  assert.equal(merged.model, "openai/gpt-5.6-terra-xhigh-pinned");
-  assert.equal(merged.agent.build.model, "openai/gpt-5.6-terra-xhigh-pinned");
+  assert.equal(merged.model, "openai/gpt-5.6-terra");
+  assert.equal(merged.agent.build.model, "openai/gpt-5.6-terra");
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
   assert.equal(merged.agent.ultra.model, undefined);
@@ -180,7 +186,7 @@ try {
   assert.equal(merged.agent.advisor_reviewer.steps, 60);
   assert.equal(
     merged.agent.advisor_reviewer.model,
-    "anthropic/claude-opus-4-8-xhigh-pinned",
+    "anthropic/claude-opus-4-8",
   );
   assert.equal(merged.agent.frontend_developer, undefined);
   assert.equal(merged.agent.backend_architect, undefined);
@@ -232,30 +238,24 @@ try {
   assert.equal(merged.mcp.local.command[0], "true");
   assert.equal(merged.small_model, undefined);
 
-  const lunaAlias = merged.provider.openai.models["gpt-5.6-luna-xhigh-pinned"];
-  assert.notEqual(lunaAlias.name, "unsafe override");
-  assert.equal(lunaAlias.options.reasoningEffort, "xhigh");
-  assert.ok(Object.values(lunaAlias.variants).every((variant) => variant.disabled));
-  const lunaHighAlias = merged.provider.openai.models["gpt-5.6-luna-high-pinned"];
-  assert.equal(lunaHighAlias.options.reasoningEffort, "high");
-  assert.ok(Object.values(lunaHighAlias.variants).every((variant) => variant.disabled));
-  const sonnetAlias = merged.provider.anthropic.models["claude-sonnet-5-default-pinned"];
-  assert.ok(Object.values(sonnetAlias.variants).every((variant) => variant.disabled));
-  const opusAlias = merged.provider.anthropic.models["claude-opus-4-8-xhigh-pinned"];
-  assert.equal(opusAlias.options.effort, "xhigh");
-  assert.ok(Object.values(opusAlias.variants).every((variant) => variant.disabled));
-  const terraAlias = merged.provider.openai.models["gpt-5.6-terra-xhigh-pinned"];
-  assert.equal(terraAlias.options.reasoningEffort, "xhigh");
-  assert.ok(Object.values(terraAlias.variants).every((variant) => variant.disabled));
-  const solAlias = merged.provider.openai.models["gpt-5.6-sol-xhigh-pinned"];
-  assert.equal(solAlias.options.reasoningEffort, "xhigh");
-  assert.ok(Object.values(solAlias.variants).every((variant) => variant.disabled));
-  const solHighAlias = merged.provider.openai.models["gpt-5.6-sol-high-pinned"];
-  assert.equal(solHighAlias.options.reasoningEffort, "high");
-  assert.ok(Object.values(solHighAlias.variants).every((variant) => variant.disabled));
-  const pinnedGptLimit = { context: 1_050_000, input: 256_000, output: 128_000 };
-  for (const alias of [lunaAlias, lunaHighAlias, terraAlias, solAlias, solHighAlias]) {
-    assert.deepEqual(alias.limit, pinnedGptLimit);
+  assert.equal(merged.agent.custom_controller.model, "openai/gpt-5.6-luna");
+  for (const [providerID, modelIDs] of Object.entries({
+    openai: [
+      "gpt-5.6-luna-high-pinned",
+      "gpt-5.6-luna-xhigh-pinned",
+      "gpt-5.6-sol-high-pinned",
+      "gpt-5.6-sol-xhigh-pinned",
+      "gpt-5.6-terra-xhigh-pinned",
+    ],
+    anthropic: [
+      "claude-opus-4-8-xhigh-pinned",
+      "claude-sonnet-5-default-pinned",
+      "claude-sonnet-5-max-pinned",
+    ],
+  })) {
+    for (const modelID of modelIDs) {
+      assert.equal(merged.provider?.[providerID]?.models?.[modelID], undefined);
+    }
   }
   for (const modelID of ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]) {
     assert.equal(merged.provider.openai.models[modelID].limit.input, 922_000);
@@ -267,9 +267,9 @@ try {
       merged.compaction.reserved,
     182_720,
   );
-  const compactAt = pinnedGptLimit.input - merged.compaction.reserved;
-  assert.equal(compactAt, 236_000);
-  assert.equal(272_000 - compactAt, 36_000);
+  const compactAt = merged.provider.openai.models["gpt-5.6-terra"].limit.input -
+    merged.compaction.reserved;
+  assert.equal(compactAt, 902_000);
   assert.ok(merged.plugin.includes("machine-local-plugin@9.9.9"));
   assert.ok(merged.plugin.includes("opencode-dynamic-workflows@1.2.3"));
   assert.ok(
@@ -319,7 +319,7 @@ try {
       routingConfigDir,
       "model-routing.config.local.json",
     );
-    const localRouting = {
+    const legacyLocalRouting = {
       advisor_enabled: false,
       agents: {
         build: "anthropic/claude-sonnet-5-default-pinned",
@@ -329,6 +329,24 @@ try {
         advisor_reviewer: "anthropic/claude-fable-5",
         software_architect: "openai/gpt-5.6-luna-xhigh-pinned",
         ultra: "openai/gpt-5.6-sol-xhigh-pinned",
+      },
+      steps: {
+        build: 600,
+        general: 300,
+        luna: 800,
+        software_architect: 150,
+      },
+    };
+    const normalizedLocalRouting = {
+      advisor_enabled: false,
+      agents: {
+        build: "anthropic/claude-sonnet-5",
+        compaction: "openai/gpt-5.6-luna",
+        general: "anthropic/claude-fable-5",
+        plan: "openai/gpt-5.6-terra",
+        advisor_reviewer: "anthropic/claude-fable-5",
+        software_architect: "openai/gpt-5.6-luna",
+        ultra: "openai/gpt-5.6-sol",
       },
       steps: {
         build: 600,
@@ -362,7 +380,7 @@ try {
         },
       }),
     );
-    fs.writeFileSync(routingConfigPath, JSON.stringify(localRouting), {
+    fs.writeFileSync(routingConfigPath, JSON.stringify(legacyLocalRouting), {
       mode: 0o644,
     });
 
@@ -379,17 +397,17 @@ try {
     const routed = JSON.parse(
       fs.readFileSync(path.join(routingConfigDir, "opencode.json"), "utf8"),
     );
-    for (const [agentName, model] of Object.entries(localRouting.agents)) {
+    for (const [agentName, model] of Object.entries(normalizedLocalRouting.agents)) {
       assert.equal(routed.agent[agentName].model, model);
     }
     assert.equal(routed.agent.ultra.hidden, false);
     assert.equal(
       routed.agent.ultra.model,
-      localRouting.agents.ultra,
+      normalizedLocalRouting.agents.ultra,
     );
     assert.equal(routed.agent.ultra.permission.question, "deny");
     assert.equal(routed.agent.ultra.permission.plan_enter, "deny");
-    for (const [agentName, steps] of Object.entries(localRouting.steps)) {
+    for (const [agentName, steps] of Object.entries(normalizedLocalRouting.steps)) {
       assert.equal(routed.agent[agentName].steps, steps ?? undefined);
     }
     assert.equal(routed.permission.advisor, "deny");
@@ -420,7 +438,7 @@ try {
     assertUltraPermissionsMatchBuild(routed);
     assert.deepEqual(
       JSON.parse(fs.readFileSync(routingConfigPath, "utf8")),
-      localRouting,
+      normalizedLocalRouting,
     );
     assert.equal(fs.statSync(routingConfigPath).mode & 0o077, 0);
 
@@ -447,11 +465,11 @@ try {
     );
     const softwareArchitect = JSON.parse(softwareArchitectDebug.stdout.toString());
     assert.equal(softwareArchitect.model.providerID, "openai");
-    assert.equal(softwareArchitect.model.modelID, "gpt-5.6-luna-xhigh-pinned");
+    assert.equal(softwareArchitect.model.modelID, "gpt-5.6-luna");
     assert.equal(softwareArchitect.steps, 150);
 
-    localRouting.advisor_enabled = true;
-    fs.writeFileSync(routingConfigPath, JSON.stringify(localRouting));
+    normalizedLocalRouting.advisor_enabled = true;
+    fs.writeFileSync(routingConfigPath, JSON.stringify(normalizedLocalRouting));
     fs.copyFileSync(
       path.join(repoRoot, "opencode", "commands", "advise.md"),
       path.join(routingConfigDir, "commands", "advise.md"),
@@ -581,7 +599,7 @@ try {
     ],
     [
       "fixed-model-lane",
-      { agents: { terra: "openai/gpt-5.6-sol-xhigh-pinned" } },
+      { agents: { terra: "openai/gpt-5.6-sol" } },
       /cannot override fixed or unsupported agent terra/,
     ],
     [

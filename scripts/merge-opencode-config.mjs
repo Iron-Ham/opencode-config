@@ -92,6 +92,16 @@ const unsupportedOpenCodeMcps = new Set([
   "aws-network-eu-central-1",
   "aws-spacelift-us-west-2",
 ]);
+const pinnedModelReplacements = new Map([
+  ["openai/gpt-5.6-luna-high-pinned", "openai/gpt-5.6-luna"],
+  ["openai/gpt-5.6-luna-xhigh-pinned", "openai/gpt-5.6-luna"],
+  ["openai/gpt-5.6-sol-high-pinned", "openai/gpt-5.6-sol"],
+  ["openai/gpt-5.6-sol-xhigh-pinned", "openai/gpt-5.6-sol"],
+  ["openai/gpt-5.6-terra-xhigh-pinned", "openai/gpt-5.6-terra"],
+  ["anthropic/claude-opus-4-8-xhigh-pinned", "anthropic/claude-opus-4-8"],
+  ["anthropic/claude-sonnet-5-default-pinned", "anthropic/claude-sonnet-5"],
+  ["anthropic/claude-sonnet-5-max-pinned", "anthropic/claude-sonnet-5"],
+]);
 
 function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) {
@@ -130,6 +140,27 @@ function assertAgentSteps(value, label) {
   if (value === null) return;
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new Error(`${label} must be null or a positive integer`);
+  }
+}
+
+function unpinModel(model) {
+  return pinnedModelReplacements.get(model) ?? model;
+}
+
+function removePinnedModels(config) {
+  if (typeof config.model === "string") {
+    config.model = unpinModel(config.model);
+  }
+  for (const agent of Object.values(config.agent ?? {})) {
+    if (isPlainObject(agent) && typeof agent.model === "string") {
+      agent.model = unpinModel(agent.model);
+    }
+  }
+  for (const pinnedModel of pinnedModelReplacements.keys()) {
+    const separator = pinnedModel.indexOf("/");
+    const providerID = pinnedModel.slice(0, separator);
+    const modelID = pinnedModel.slice(separator + 1);
+    delete config.provider?.[providerID]?.models?.[modelID];
   }
 }
 
@@ -431,6 +462,7 @@ function mergeOpenCodeConfig(modelRouting) {
     ? existingJson
     : mergeManaged(existingJson, existingJsonc);
   const merged = mergeManaged(existing, managed);
+  removePinnedModels(merged);
   if (existing.lsp !== undefined) {
     merged.lsp = structuredClone(existing.lsp);
   }
@@ -468,23 +500,6 @@ function mergeOpenCodeConfig(modelRouting) {
       existing.provider?.[providerID]?.whitelist,
       managed.provider[providerID].whitelist,
     );
-  }
-  for (const [providerID, modelID] of [
-    ["openai", "gpt-5.6-luna-high-pinned"],
-    ["openai", "gpt-5.6-luna-xhigh-pinned"],
-    ["openai", "gpt-5.6-sol-high-pinned"],
-    ["openai", "gpt-5.6-sol-xhigh-pinned"],
-    ["openai", "gpt-5.6-terra-xhigh-pinned"],
-    ["anthropic", "claude-opus-4-8-xhigh-pinned"],
-    ["anthropic", "claude-sonnet-5-default-pinned"],
-    ["anthropic", "claude-sonnet-5-max-pinned"],
-  ]) {
-    const managedModel = managed.provider?.[providerID]?.models?.[modelID];
-    if (!managedModel) continue;
-    merged.provider ??= {};
-    merged.provider[providerID] ??= {};
-    merged.provider[providerID].models ??= {};
-    merged.provider[providerID].models[modelID] = structuredClone(managedModel);
   }
   const retainedInstructions = uniqueStrings(
     existing.instructions,
@@ -590,6 +605,7 @@ function modelRoutingConfig() {
   if (!isPlainObject(agents)) {
     throw new Error(`${modelRoutingConfigPath} agents must contain a JSON object`);
   }
+  const normalizedAgents = {};
   for (const [agentName, model] of Object.entries(agents)) {
     if (!modelOverrideAgentNames.has(agentName)) {
       throw new Error(
@@ -597,6 +613,7 @@ function modelRoutingConfig() {
       );
     }
     assertProviderModel(model, `${modelRoutingConfigPath} agents.${agentName}`);
+    normalizedAgents[agentName] = unpinModel(model);
   }
 
   const steps = existing.steps ?? {};
@@ -614,7 +631,7 @@ function modelRoutingConfig() {
 
   return {
     advisor_enabled: advisorEnabled,
-    agents: structuredClone(agents),
+    agents: normalizedAgents,
     steps: structuredClone(steps),
   };
 }
