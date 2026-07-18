@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, link, mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -15,7 +15,7 @@ const RUNTIME_STATE = `Goal runtime state:
 - Call get_goal for current counters, configured limits, checkpoints, or status.
 - The Goal runtime enforces configured limits independently of this reminder.`;
 const COMPLETION_SCHEMA_MARKER = "goal-completion-evidence-v1";
-const COMPLETION_GUIDANCE = `Completion evidence contract (${COMPLETION_SCHEMA_MARKER}): when status is "complete", evidence must be a JSON string with exactly this shape: {"schema_version":1,"summary":"what is complete","checks":[{"requirement":"one explicit requirement","status":"passed","evidence":[{"kind":"test","reference":"exact command, file, diagnostic, runtime check, review, or external check","result":"what passed or was observed"}]}],"remaining_work":[]}. Include every requested outcome as a check. Allowed evidence kinds are command, test, diagnostic, runtime, file, diff, review, and external. Keep results concise; never embed secrets or raw logs. Every check must pass and remaining_work must be empty.`;
+const COMPLETION_GUIDANCE = `Completion evidence contract (${COMPLETION_SCHEMA_MARKER}): when status is "complete", evidence must be a JSON string with exactly this shape: {"schema_version":1,"summary":"what is complete","checks":[{"requirement":"one explicit requirement","status":"passed","evidence":[{"kind":"test","reference":"exact command, file, diagnostic, runtime check, review, or external check","result":"what passed or was observed"}]}],"remaining_work":[]}. Include every requested outcome as a check. Allowed evidence kinds are command, test, diagnostic, runtime, file, diff, review, and external. Keep results concise; never embed secrets or raw logs. Every check must pass and remaining_work must be empty. The optional handoff object classifies the result as carryable, repairable, or blocked and may include redacted source-boundary and expected/actual changed-file summaries.`;
 const COMPLETION_EVIDENCE_KINDS = new Set([
   "command",
   "test",
@@ -26,6 +26,7 @@ const COMPLETION_EVIDENCE_KINDS = new Set([
   "review",
   "external",
 ]);
+const HANDOFF_CLASSIFICATIONS = new Set(["carryable", "repairable", "blocked"]);
 const MAX_COMPLETION_EVIDENCE_LENGTH = 4000;
 
 function isRecord(value) {
@@ -57,6 +58,244 @@ function nonEmptyString(value, label, maximumLength) {
   return result;
 }
 
+function safeEvidenceText(value, label, maximumLength) {
+  const result = nonEmptyString(value, label, maximumLength);
+  if (/\r|\n|```/.test(result)) {
+    throw new Error(`${label} must be a concise single-line summary, not raw output or source content`);
+  }
+  if (/(?:\b(?:cookie|set-cookie|session_cookie|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(result)) {
+    throw new Error(`${label} must not contain credentials or secret material`);
+  }
+  if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(result)) {
+    throw new Error(`${label} must not contain source code`);
+  }
+  return result;
+}
+
+function assertAllowedKeys(value, keys, label) {
+  const allowed = new Set(keys);
+  const unexpected = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unexpected.length) {
+    throw new Error(`${label} has invalid fields (unexpected: ${unexpected.join(", ")})`);
+  }
+}
+
+function normalizeFileSummaries(value, label) {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 100) {
+    throw new Error(`${label} must contain at most 100 file summaries`);
+  }
+  return value.map((item, index) =>
+    safeEvidenceText(item, `${label}[${index}]`, 300)
+  );
+}
+
+function defaultHandoff(status, fallback) {
+  if (status === "complete") {
+    return {
+      classification: "carryable",
+      summary: "All requested outcomes have passing evidence.",
+      next_action: "Continue with normal engineering handoff.",
+      source_boundary: null,
+      expected_changed_files: [],
+      actual_changed_files: [],
+    };
+  }
+  return {
+    classification: "blocked",
+    summary: fallback || "The goal cannot continue without external action.",
+    next_action: "Resolve the recorded blocker before resuming or creating follow-up work.",
+    source_boundary: null,
+    expected_changed_files: [],
+    actual_changed_files: [],
+  };
+}
+
+export function parseGoalHandoff(value, { status, fallback } = {}) {
+  if (status !== "complete" && status !== "unmet") {
+    throw new Error("handoff status must be complete or unmet");
+  }
+  if (value == null) return defaultHandoff(status, fallback);
+  if (!isRecord(value)) throw new Error("handoff must be an object");
+  assertAllowedKeys(
+    value,
+    [
+      "classification",
+      "summary",
+      "next_action",
+      "source_boundary",
+      "expected_changed_files",
+      "actual_changed_files",
+    ],
+    "handoff",
+  );
+  if (!HANDOFF_CLASSIFICATIONS.has(value.classification)) {
+    throw new Error("handoff classification must be carryable, repairable, or blocked");
+  }
+  if (status === "complete" && value.classification !== "carryable") {
+    throw new Error("completed goals require a carryable handoff");
+  }
+  if (status === "unmet" && value.classification === "carryable") {
+    throw new Error("unmet goals require a repairable or blocked handoff");
+  }
+  return {
+    classification: value.classification,
+    summary: safeEvidenceText(value.summary, "handoff summary", 1000),
+    next_action: safeEvidenceText(value.next_action, "handoff next_action", 1000),
+    source_boundary: value.source_boundary == null
+      ? null
+      : safeEvidenceText(value.source_boundary, "handoff source_boundary", 1000),
+    expected_changed_files: normalizeFileSummaries(
+      value.expected_changed_files,
+      "handoff expected_changed_files",
+    ),
+    actual_changed_files: normalizeFileSummaries(
+      value.actual_changed_files,
+      "handoff actual_changed_files",
+    ),
+  };
+}
+
+function redactText(value) {
+  return value
+    .replace(/\b(Bearer)\s+\S+/gi, "$1 [redacted]")
+    .replace(
+      /("(?:api[_ -]?key|token|secret|password|authorization)"\s*:\s*")[^"]*(")/gi,
+      "$1[redacted]$2",
+    )
+    .replace(
+      /((?:api[_ -]?key|token|secret|password|authorization)\s*[:=]\s*)[^\s,;]+/gi,
+      "$1[redacted]",
+    )
+    .replace(
+      /\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=\s*[^\s,;]+/g,
+      "[redacted-env-assignment]",
+    );
+}
+
+function redactManifest(manifest) {
+  return {
+    schema_version: manifest.schema_version,
+    summary: redactText(manifest.summary),
+    checks: manifest.checks.map((check) => ({
+      requirement: redactText(check.requirement),
+      status: check.status,
+      evidence: check.evidence.map((item) => ({
+        kind: item.kind,
+        reference: redactText(item.reference),
+        result: redactText(item.result),
+      })),
+    })),
+    remaining_work: [],
+  };
+}
+
+function redactHandoff(handoff) {
+  return {
+    classification: handoff.classification,
+    summary: redactText(handoff.summary),
+    next_action: redactText(handoff.next_action),
+    source_boundary: handoff.source_boundary == null ? null : redactText(handoff.source_boundary),
+    expected_changed_files: handoff.expected_changed_files.map(redactText),
+    actual_changed_files: handoff.actual_changed_files.map(redactText),
+  };
+}
+
+function opaqueDigest(value) {
+  return `sha256:${createHash("sha256").update(String(value)).digest("hex")}`;
+}
+
+function opaqueCompletionEvidence(manifest) {
+  return {
+    schema_version: manifest.schema_version,
+    summary_sha256: opaqueDigest(manifest.summary),
+    checks: manifest.checks.map((check) => ({
+      requirement_sha256: opaqueDigest(check.requirement),
+      status: check.status,
+      evidence: check.evidence.map((item) => ({
+        kind: item.kind,
+        reference_sha256: opaqueDigest(item.reference),
+        result_sha256: opaqueDigest(item.result),
+      })),
+    })),
+    remaining_work_count: manifest.remaining_work.length,
+  };
+}
+
+function opaqueHandoff(handoff) {
+  const expected = new Set(handoff.expected_changed_files);
+  return {
+    classification: handoff.classification,
+    summary_sha256: opaqueDigest(handoff.summary),
+    next_action_sha256: opaqueDigest(handoff.next_action),
+    source_boundary_sha256: handoff.source_boundary == null
+      ? null
+      : opaqueDigest(handoff.source_boundary),
+    changed_files: {
+      expected_count: handoff.expected_changed_files.length,
+      actual_count: handoff.actual_changed_files.length,
+      unexpected_count: handoff.actual_changed_files.filter((file) => !expected.has(file)).length,
+    },
+  };
+}
+
+export function createRedactedCompletionExport({ manifest, handoff }) {
+  return {
+    export_schema_version: 2,
+    record_type: "opencode_goal_completion_export",
+    completion_evidence: opaqueCompletionEvidence(manifest),
+    handoff: opaqueHandoff(handoff),
+  };
+}
+
+export function parseCompletionRecord(source) {
+  let value;
+  try {
+    value = typeof source === "string" ? JSON.parse(source) : source;
+  } catch {
+    throw new Error("completion record must be valid JSON");
+  }
+  if (!isRecord(value)) {
+    throw new Error("completion record has an unsupported type");
+  }
+  if (value.record_schema_version === 3) {
+    if (value.record_type !== "opencode_goal_completion_pending") {
+      throw new Error("completion record has an unsupported type");
+    }
+    return value;
+  }
+  if (value.record_type !== "opencode_goal_completion") {
+    throw new Error("completion record has an unsupported type");
+  }
+  const { manifest } = parseCompletionEvidence(
+    JSON.stringify(value.completion_evidence),
+  );
+  const handoff = parseGoalHandoff(value.handoff, {
+    status: "complete",
+    fallback: manifest.summary,
+  });
+  const redactedManifest = redactManifest(manifest);
+  const redactedHandoff = redactHandoff(handoff);
+  const normalized = {
+    record_schema_version: 3,
+    record_type: "opencode_goal_completion_pending",
+    session_sha256: opaqueDigest(nonEmptyString(value.session_id, "completion record session_id", 1000)),
+    call_sha256: opaqueDigest(nonEmptyString(value.call_id, "completion record call_id", 1000)),
+    recorded_at: nonEmptyString(value.recorded_at, "completion record recorded_at", 1000),
+    completion_evidence: opaqueCompletionEvidence(redactedManifest),
+    handoff: opaqueHandoff(redactedHandoff),
+  };
+  if (value.record_schema_version === 1 || value.record_schema_version === 2) {
+    return { ...normalized, migrated_from_record_schema_version: value.record_schema_version };
+  }
+  throw new Error("completion record schema_version must be 1, 2, or 3");
+}
+
+function goalUpdateOptions(args) {
+  if (!isRecord(args)) throw new Error("goal update arguments must be an object");
+  return isRecord(args.options) ? args.options : args;
+}
+
 function stabilizeActiveReminder(source) {
   const header = source.indexOf(ACTIVE_HEADER);
   if (header === -1) return source;
@@ -74,7 +313,7 @@ function stabilizeActiveReminder(source) {
 }
 
 function stabilizeGoalSummary(summary) {
-  const statusPattern = /\nStatus: (?:active|paused|budgetLimited|usageLimited|complete|unmet)\nTime used: [^\n]*\nTokens used: [^\n]*/g;
+  const statusPattern = /\nStatus: (?:active|paused|blocked|stopped|budgetLimited|usageLimited|complete|unmet)\nTime used: [^\n]*\nTokens used: [^\n]*/g;
   let match;
   let lastMatch;
   while ((match = statusPattern.exec(summary)) !== null) {
@@ -147,7 +386,7 @@ export function parseCompletionEvidence(source) {
     throw new Error("completion evidence schema_version must be 1");
   }
 
-  const summary = nonEmptyString(value.summary, "completion evidence summary", 1000);
+  const summary = safeEvidenceText(value.summary, "completion evidence summary", 1000);
   if (!Array.isArray(value.checks) || value.checks.length === 0) {
     throw new Error("completion evidence checks must contain at least one check");
   }
@@ -161,7 +400,7 @@ export function parseCompletionEvidence(source) {
     if (!isRecord(check)) throw new Error(`${label} must be an object`);
     assertExactKeys(check, ["requirement", "status", "evidence"], label);
 
-    const requirement = nonEmptyString(check.requirement, `${label}.requirement`, 500);
+    const requirement = safeEvidenceText(check.requirement, `${label}.requirement`, 4000);
     if (seenRequirements.has(requirement)) {
       throw new Error(`${label}.requirement duplicates another check`);
     }
@@ -185,8 +424,8 @@ export function parseCompletionEvidence(source) {
       }
       return {
         kind: item.kind,
-        reference: nonEmptyString(item.reference, `${itemLabel}.reference`, 1000),
-        result: nonEmptyString(item.result, `${itemLabel}.result`, 1000),
+        reference: safeEvidenceText(item.reference, `${itemLabel}.reference`, 1000),
+        result: safeEvidenceText(item.result, `${itemLabel}.result`, 1000),
       };
     });
 
@@ -213,10 +452,7 @@ export function parseCompletionEvidence(source) {
 }
 
 function safeIdentifier(value) {
-  const source = String(value);
-  const readable = source.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80) || "unknown";
-  const digest = createHash("sha256").update(source).digest("hex").slice(0, 12);
-  return `${readable}-${digest}`;
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 
 export function completionEvidenceDirectory(environment = process.env) {
@@ -227,36 +463,18 @@ export function completionEvidenceDirectory(environment = process.env) {
   return path.join(dataHome, "opencode", "completion-evidence");
 }
 
-export async function persistCompletionEvidence({
-  sessionID,
-  callID,
-  manifest,
-  directory = completionEvidenceDirectory(),
-  recordedAt = new Date(),
-}) {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await chmod(directory, 0o700);
-
-  const filename = `${safeIdentifier(sessionID)}--${safeIdentifier(callID)}.json`;
+async function writeImmutableRecord(directory, filename, record) {
   const destination = path.join(directory, filename);
   const temporary = path.join(directory, `.${filename}.${process.pid}.${randomUUID()}.tmp`);
-  const record = {
-    record_schema_version: 1,
-    record_type: "opencode_goal_completion",
-    session_id: String(sessionID),
-    call_id: String(callID),
-    recorded_at: recordedAt.toISOString(),
-    completion_evidence: manifest,
-  };
-
   try {
     await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, {
       encoding: "utf8",
       flag: "wx",
       mode: 0o600,
     });
-    await rename(temporary, destination);
+    await link(temporary, destination);
     await chmod(destination, 0o600);
+    await rm(temporary, { force: true });
   } catch (error) {
     await rm(temporary, { force: true }).catch(() => {});
     throw error;
@@ -264,7 +482,51 @@ export async function persistCompletionEvidence({
   return destination;
 }
 
-function addCompletionEvidenceToOutput(output, manifest, artifactPath, persistenceError) {
+export async function persistCompletionEvidence({
+  sessionID,
+  callID,
+  manifest,
+  handoff,
+  authorizationID = randomUUID(),
+  directory = completionEvidenceDirectory(),
+  recordedAt = new Date(),
+}) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
+
+  const filename = `${safeIdentifier(sessionID)}--${safeIdentifier(callID)}.json`;
+  const { manifest: validatedManifest } = parseCompletionEvidence(
+    JSON.stringify(manifest),
+  );
+  const normalizedHandoff = parseGoalHandoff(handoff, {
+    status: "complete",
+    fallback: validatedManifest.summary,
+  });
+  const redactedManifest = redactManifest(validatedManifest);
+  const redactedHandoff = redactHandoff(normalizedHandoff);
+  const record = {
+    record_schema_version: 3,
+    record_type: "opencode_goal_completion_pending",
+    session_sha256: opaqueDigest(sessionID),
+    call_sha256: opaqueDigest(callID),
+    recorded_at: recordedAt.toISOString(),
+    authorization_sha256: opaqueDigest(authorizationID),
+    completion_evidence_sha256: opaqueDigest(JSON.stringify(redactedManifest)),
+    completion_requirement_hashes: redactedManifest.checks.map((check) =>
+      opaqueDigest(check.requirement)
+    ),
+    completion_evidence: opaqueCompletionEvidence(redactedManifest),
+    handoff: opaqueHandoff(redactedHandoff),
+  };
+
+  return writeImmutableRecord(directory, filename, record);
+}
+
+function addCompletionEvidenceToOutput(
+  output,
+  redactedExport,
+  artifactID,
+) {
   let payload;
   try {
     payload = JSON.parse(output.output);
@@ -273,22 +535,31 @@ function addCompletionEvidenceToOutput(output, manifest, artifactPath, persisten
   }
   if (!isRecord(payload)) payload = { result: payload };
 
-  payload.completion_evidence = manifest;
-  if (artifactPath) payload.completion_evidence_artifact = artifactPath;
-  if (persistenceError) payload.completion_evidence_persistence_error = persistenceError;
+  if (typeof payload.completion_report === "string") {
+    payload.completion_report = "Goal completion recorded with structured evidence.";
+  }
+  if (typeof payload.result === "string") {
+    payload.result = "Goal completion recorded with structured evidence.";
+  }
+
+  payload.completion_evidence = redactedExport.completion_evidence;
+  payload.completion_handoff = redactedExport.handoff;
+  payload.completion_evidence_export = redactedExport;
+  payload.completion_evidence_artifact_id = artifactID;
   output.output = JSON.stringify(payload, null, 2);
   output.metadata = {
     ...output.metadata,
     completionEvidence: {
-      schemaVersion: 1,
-      persisted: Boolean(artifactPath),
-      ...(artifactPath ? { artifactPath } : {}),
-      ...(persistenceError ? { persistenceError } : {}),
+      schemaVersion: 2,
+      persisted: true,
+      artifactID,
     },
   };
 }
 
 export async function createGoalWorkflowGuard() {
+  const pendingCompletions = new Map();
+  const pendingKey = (input) => `${String(input.sessionID)}\0${String(input.callID)}`;
   return {
     async "experimental.chat.system.transform"(_input, output) {
       for (let index = 0; index < output.system.length; index += 1) {
@@ -301,25 +572,56 @@ export async function createGoalWorkflowGuard() {
       output.description = `${output.description}\n\n${COMPLETION_GUIDANCE}`;
     },
     async "tool.execute.before"(input, output) {
-      if (input.tool !== "update_goal" || output.args?.status !== "complete") return;
-      const { canonical } = parseCompletionEvidence(output.args.evidence);
-      output.args.evidence = canonical;
+      if (input.tool !== "update_goal") return;
+      const options = goalUpdateOptions(output.args);
+      if (output.args?.status === "complete") {
+        const { manifest } = parseCompletionEvidence(options.evidence);
+        const handoff = parseGoalHandoff(options.handoff, {
+          status: "complete",
+          fallback: manifest.summary,
+        });
+        const redactedManifest = redactManifest(manifest);
+        const redactedHandoff = redactHandoff(handoff);
+        const redactedExport = createRedactedCompletionExport({
+          manifest: redactedManifest,
+          handoff: redactedHandoff,
+        });
+        const authorizationID = randomUUID();
+        await persistCompletionEvidence({
+          sessionID: input.sessionID,
+          callID: input.callID,
+          manifest: redactedManifest,
+          handoff: redactedHandoff,
+          authorizationID,
+        });
+        pendingCompletions.set(pendingKey(input), {
+          redactedExport,
+          artifactID: opaqueDigest(`${input.sessionID}\0${input.callID}`),
+        });
+        options.evidence = JSON.stringify(redactedManifest);
+        options.handoff = redactedHandoff;
+        options.completion_authorization = authorizationID;
+        return;
+      }
+      if (output.args?.status === "unmet" && options.handoff != null) {
+        options.handoff = redactHandoff(parseGoalHandoff(options.handoff, {
+          status: "unmet",
+          fallback: options.blocker,
+        }));
+      }
     },
     async "tool.execute.after"(input, output) {
       if (input.tool !== "update_goal" || input.args?.status !== "complete") return;
-      const { manifest } = parseCompletionEvidence(input.args.evidence);
-      let artifactPath;
-      let persistenceError;
-      try {
-        artifactPath = await persistCompletionEvidence({
-          sessionID: input.sessionID,
-          callID: input.callID,
-          manifest,
-        });
-      } catch (error) {
-        persistenceError = error instanceof Error ? error.message : String(error);
+      const completion = pendingCompletions.get(pendingKey(input));
+      if (!completion) {
+        throw new Error("completion evidence persistence did not finish before goal closure");
       }
-      addCompletionEvidenceToOutput(output, manifest, artifactPath, persistenceError);
+      pendingCompletions.delete(pendingKey(input));
+      addCompletionEvidenceToOutput(
+        output,
+        completion.redactedExport,
+        completion.artifactID,
+      );
     },
   };
 }

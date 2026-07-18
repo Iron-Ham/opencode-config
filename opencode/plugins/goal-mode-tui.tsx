@@ -13,16 +13,54 @@ type GoalHistoryEntry = {
   timestamp: number
 }
 
+type GoalProgressEvent = {
+  kind: string
+  timestamp: number
+  source: string
+  fingerprint: string
+  summary: string
+  validationStatus?: "passed" | "failed"
+}
+
+type GoalFailureEvent = {
+  failureClass: string
+  timestamp: number
+  source: string
+  fingerprint: string
+  summary: string
+  nextAction: string
+  reason?: string
+}
+
+type GoalHandoff = {
+  classification: "carryable" | "repairable" | "blocked"
+  summaryDigest: string
+  nextActionDigest: string
+  sourceBoundaryDigest: string | null
+  expectedChangedFileCount: number
+  actualChangedFileCount: number
+  unexpectedChangedFileCount: number
+}
+
+type CompletionEvidenceReference = {
+  artifactID: string
+  authorizationID: string
+  requirementHashes: string[]
+}
+
 type GoalSnapshot = {
   sessionID: string
   objective: string
-  status: "active" | "paused" | "budgetLimited" | "usageLimited" | "complete" | "unmet"
+  status: "active" | "paused" | "blocked" | "stopped" | "budgetLimited" | "usageLimited" | "complete" | "unmet"
   tokenBudget: number | null
   tokensUsed: number
   timeUsedSeconds: number
   createdAt: number
   updatedAt: number
-  completionEvidence?: string | null
+  completionEvidence?: CompletionEvidenceReference | null
+  handoff?: GoalHandoff | null
+  requiredOutcomes?: string[]
+  completionBaselineOutcomes?: string[]
   blocker?: string | null
   closedAt?: number | null
   continuationFailures: number
@@ -39,6 +77,21 @@ type GoalSnapshot = {
   lastCheckpoint: GoalCheckpoint | null
   lastAssistantText: string
   lastAssistantMessageID: string
+  continuationBaselineProgressEpoch?: number
+  progressEvents?: GoalProgressEvent[]
+  lastProgressSignature?: string
+  progressEpoch?: number
+  validationResults?: Array<GoalProgressEvent & { status: "passed" | "failed" }>
+  failureEvents?: GoalFailureEvent[]
+  lastFailure?: GoalFailureEvent | null
+  consecutiveFailureCount?: number
+  retryAttempts?: number
+  nextRetryAt?: number | null
+  validationFailureCount?: number
+  repeatedToolCalls?: number
+  terminalFailure?: GoalFailureEvent | null
+  modelTimeSeconds?: number | null
+  wrapperTimeSeconds?: number | null
   autoTurns: number
   lastContinuationAt: number | null
   remainingTokens: number | null
@@ -164,7 +217,7 @@ function showSummary(api: TuiPluginApi, sessionID: string, goal: GoalSnapshot | 
           ...(goal.status === "active"
             ? [actionOption(api, sessionID, "Pause", "pause", "Pause auto-continuation without clearing", pauseGoalPrompt())]
             : []),
-          ...(goal.status === "paused" || goal.status === "budgetLimited" || goal.status === "usageLimited"
+           ...(goal.status === "paused" || goal.status === "blocked" || goal.status === "stopped" || goal.status === "budgetLimited" || goal.status === "usageLimited"
             ? [actionOption(api, sessionID, "Resume", "resume", "Resume the goal and continue", resumeGoalPrompt())]
             : []),
           actionOption(api, sessionID, "Clear", "clear", "Ask the agent to clear this session goal", clearGoalPrompt()),
@@ -228,17 +281,36 @@ function isHistoryEntry(value: unknown): value is GoalHistoryEntry {
   return isRecord(value) && typeof value.type === "string" && typeof value.detail === "string" && typeof value.timestamp === "number"
 }
 
+function isProgressEvent(value: unknown): value is GoalProgressEvent {
+  return isRecord(value) && typeof value.kind === "string" && typeof value.timestamp === "number" && typeof value.source === "string" && typeof value.fingerprint === "string" && typeof value.summary === "string" && (value.validationStatus == null || value.validationStatus === "passed" || value.validationStatus === "failed")
+}
+
+function isValidationResult(value: unknown): value is GoalProgressEvent & { status: "passed" | "failed" } {
+  return isRecord(value) && isProgressEvent(value) && (value.status === "passed" || value.status === "failed")
+}
+
+function isFailureEvent(value: unknown): value is GoalFailureEvent {
+  return isRecord(value) && typeof value.failureClass === "string" && typeof value.timestamp === "number" && typeof value.source === "string" && typeof value.fingerprint === "string" && typeof value.summary === "string" && typeof value.nextAction === "string" && (value.reason == null || typeof value.reason === "string")
+}
+
+function isHandoff(value: unknown): value is GoalHandoff {
+  return isRecord(value) && ["carryable", "repairable", "blocked"].includes(String(value.classification)) && typeof value.summaryDigest === "string" && typeof value.nextActionDigest === "string" && (value.sourceBoundaryDigest === null || typeof value.sourceBoundaryDigest === "string") && typeof value.expectedChangedFileCount === "number" && typeof value.actualChangedFileCount === "number" && typeof value.unexpectedChangedFileCount === "number"
+}
+
 function isGoalSnapshot(value: unknown): value is GoalSnapshot {
   if (!isRecord(value)) return false
   if (typeof value.sessionID !== "string") return false
   if (typeof value.objective !== "string") return false
-  if (!["active", "paused", "budgetLimited", "usageLimited", "complete", "unmet"].includes(String(value.status))) return false
+  if (!["active", "paused", "blocked", "stopped", "budgetLimited", "usageLimited", "complete", "unmet"].includes(String(value.status))) return false
   if (value.tokenBudget !== null && typeof value.tokenBudget !== "number") return false
   if (typeof value.tokensUsed !== "number") return false
   if (typeof value.timeUsedSeconds !== "number") return false
   if (typeof value.createdAt !== "number") return false
   if (typeof value.updatedAt !== "number") return false
-  if (value.completionEvidence != null && typeof value.completionEvidence !== "string") return false
+  if (value.completionEvidence != null && (typeof value.completionEvidence !== "object" || Array.isArray(value.completionEvidence))) return false
+  if (value.handoff != null && !isHandoff(value.handoff)) return false
+  if (value.requiredOutcomes != null && (!Array.isArray(value.requiredOutcomes) || !value.requiredOutcomes.every((outcome) => typeof outcome === "string"))) return false
+  if (value.completionBaselineOutcomes != null && (!Array.isArray(value.completionBaselineOutcomes) || !value.completionBaselineOutcomes.every((outcome) => typeof outcome === "string"))) return false
   if (value.blocker != null && typeof value.blocker !== "string") return false
   if (value.closedAt != null && typeof value.closedAt !== "number") return false
   if (typeof value.continuationFailures !== "number") return false
@@ -257,6 +329,21 @@ function isGoalSnapshot(value: unknown): value is GoalSnapshot {
   if (typeof value.lastAssistantMessageID !== "string") return false
   if (typeof value.autoTurns !== "number") return false
   if (value.lastContinuationAt != null && typeof value.lastContinuationAt !== "number") return false
+  if (value.continuationBaselineProgressEpoch != null && typeof value.continuationBaselineProgressEpoch !== "number") return false
+  if (value.progressEvents != null && (!Array.isArray(value.progressEvents) || !value.progressEvents.every(isProgressEvent))) return false
+  if (value.lastProgressSignature != null && typeof value.lastProgressSignature !== "string") return false
+  if (value.progressEpoch != null && typeof value.progressEpoch !== "number") return false
+  if (value.validationResults != null && (!Array.isArray(value.validationResults) || !value.validationResults.every(isValidationResult))) return false
+  if (value.failureEvents != null && (!Array.isArray(value.failureEvents) || !value.failureEvents.every(isFailureEvent))) return false
+  if (value.lastFailure != null && !isFailureEvent(value.lastFailure)) return false
+  if (value.consecutiveFailureCount != null && typeof value.consecutiveFailureCount !== "number") return false
+  if (value.retryAttempts != null && typeof value.retryAttempts !== "number") return false
+  if (value.nextRetryAt != null && typeof value.nextRetryAt !== "number") return false
+  if (value.validationFailureCount != null && typeof value.validationFailureCount !== "number") return false
+  if (value.repeatedToolCalls != null && typeof value.repeatedToolCalls !== "number") return false
+  if (value.terminalFailure != null && !isFailureEvent(value.terminalFailure)) return false
+  if (value.modelTimeSeconds != null && typeof value.modelTimeSeconds !== "number") return false
+  if (value.wrapperTimeSeconds != null && typeof value.wrapperTimeSeconds !== "number") return false
   if (value.remainingTokens !== null && typeof value.remainingTokens !== "number") return false
   if (value.sampledAt != null && typeof value.sampledAt !== "number") return false
   return true
@@ -270,10 +357,12 @@ function parseGoalToolOutput(part: GoalToolPart): GoalSnapshot | null | undefine
       "get_goal_history",
       "create_goal",
       "set_goal",
-      "update_goal",
-      "update_goal_objective",
-      "update_goal_status",
-      "clear_goal",
+        "update_goal",
+        "update_goal_objective",
+        "update_goal_status",
+        "record_goal_progress",
+        "record_goal_failure",
+        "clear_goal",
     ].includes(part.tool ?? "")
   )
     return undefined
@@ -324,10 +413,21 @@ function formatGoal(goal: GoalSnapshot | null) {
   if (goal.remainingTokens != null) lines.push(`Tokens remaining: ${goal.remainingTokens}`)
   if (goal.maxDurationSeconds != null) lines.push(`Duration limit: ${formatDuration(goal.maxDurationSeconds)}`)
   if (goal.noProgressTurns > 0) lines.push(`No-progress turns: ${goal.noProgressTurns}`)
+  if (goal.requiredOutcomes?.length) lines.push(`Required outcomes: ${goal.requiredOutcomes.join(" | ")}`)
+  if (goal.completionBaselineOutcomes?.length) lines.push(`Completion baseline: ${goal.completionBaselineOutcomes.join(" | ")}`)
+  const latestProgress = goal.progressEvents?.at(-1)
+  if (latestProgress) lines.push(`Progress: ${latestProgress.kind} from ${latestProgress.source}`)
+  const latestValidation = goal.validationResults?.at(-1)
+  if (latestValidation) lines.push(`Validation: ${latestValidation.status} from ${latestValidation.source}`)
+  if (goal.nextRetryAt != null) lines.push(`Retry after: ${new Date(goal.nextRetryAt * 1000).toLocaleTimeString()}`)
+  if (goal.terminalFailure) lines.push(`Failure: ${goal.terminalFailure.failureClass}; action: ${goal.terminalFailure.nextAction}`)
+  if (goal.handoff) lines.push(`Handoff: ${goal.handoff.classification}`)
+  lines.push(`Model time: ${goal.modelTimeSeconds == null ? "unavailable" : formatDuration(goal.modelTimeSeconds)}`)
+  lines.push(`Wrapper time: ${goal.wrapperTimeSeconds == null ? "unavailable" : formatDuration(goal.wrapperTimeSeconds)}`)
   if (goal.lastCheckpoint) lines.push(`Latest checkpoint: ${goal.lastCheckpoint.summary}`)
   if (goal.stopReason) lines.push(`Stop reason: ${goal.stopReason}`)
   if (goal.lastStatus) lines.push(`Last status: ${goal.lastStatus}`)
-  if (goal.completionEvidence) lines.push(`Completion evidence: ${goal.completionEvidence}`)
+  if (goal.completionEvidence) lines.push(`Completion evidence artifact: ${goal.completionEvidence.artifactID}`)
   if (goal.blocker) lines.push(`Blocker: ${goal.blocker}`)
   return lines.join("\n")
 }
@@ -376,6 +476,9 @@ function GoalSidebar(props: { api: TuiPluginApi; sessionID: string }) {
               </Show>
               <Show when={value().lastStatus}>
                 {(status: () => string) => <text fg={theme().textMuted}>{status()}</text>}
+              </Show>
+              <Show when={value().handoff}>
+                {(handoff: () => GoalHandoff) => <text fg={theme().textMuted}>Handoff: {handoff().classification}</text>}
               </Show>
               <text fg={theme().textMuted}>{objective()}</text>
             </box>
