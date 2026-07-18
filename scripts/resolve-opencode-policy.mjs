@@ -27,6 +27,17 @@ const FALLBACK_DISPOSITION = "developer_action_required";
 const DEFAULT_FALLBACK_MESSAGE =
   "Choose an allowed exact route; the policy adapter will not substitute one.";
 const OBSERVATION_SCHEMA_VERSION = 1;
+const DECISION_RECEIPT_SCHEMA_VERSION = 1;
+const RECEIPT_DECISIONS = new Set([
+  "allow",
+  "warn",
+  "block",
+  "overridden",
+  "unavailable",
+  "unverified",
+  "no_managed_route",
+  "adapter_disabled",
+]);
 const REASONING_EFFORT_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 const ROUTE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PROVIDER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
@@ -1251,6 +1262,78 @@ export function redactPolicyResolution(resolution) {
   if (redacted.fallback?.message) redacted.fallback.message = redactText(redacted.fallback.message);
   if (redacted.next_action) redacted.next_action = redactText(redacted.next_action);
   return redacted;
+}
+
+function receiptDecision(resolution) {
+  if (resolution.adapter_enabled === false) return "adapter_disabled";
+  if (resolution.state === "blocked") return "block";
+  if (resolution.state === "unavailable" || resolution.state === "unverified" || resolution.state === "no_managed_route") {
+    return resolution.state;
+  }
+  if (resolution.precedence_source === "developer") return "overridden";
+  return "allow";
+}
+
+function receiptPayload(receipt) {
+  const { receipt_id, ...payload } = receipt;
+  return payload;
+}
+
+function receiptIdentifier(receipt) {
+  return `sha256:${crypto.createHash("sha256").update(canonicalJson(receiptPayload(receipt)), "utf8").digest("hex")}`;
+}
+
+export function parsePolicyDecisionReceipt(value) {
+  assertExactKeys(
+    value,
+    [
+      "receipt_schema_version",
+      "receipt_id",
+      "observed_at",
+      "policy_version",
+      "route_id",
+      "rule_id",
+      "decision",
+      "reason_code",
+      "declared_inputs",
+      "configuration_hash",
+    ],
+    "policy decision receipt",
+    "receipt",
+  );
+  if (value.receipt_schema_version !== DECISION_RECEIPT_SCHEMA_VERSION) fail("policy decision receipt schema version is unsupported", "receipt");
+  assertNonEmptyString(value.receipt_id, "policy decision receipt receipt_id", { pattern: /^sha256:[a-f0-9]{64}$/u }, "receipt");
+  assertNonEmptyString(value.observed_at, "policy decision receipt observed_at", {}, "receipt");
+  if (!Number.isFinite(Date.parse(value.observed_at))) fail("policy decision receipt observed_at is invalid", "receipt");
+  if (value.policy_version !== null) assertPositiveInteger(value.policy_version, "policy decision receipt policy_version", "receipt");
+  if (value.route_id !== null) assertNonEmptyString(value.route_id, "policy decision receipt route_id", { pattern: ROUTE_ID_PATTERN }, "receipt");
+  assertNonEmptyString(value.rule_id, "policy decision receipt rule_id", { pattern: ROUTE_ID_PATTERN }, "receipt");
+  if (typeof value.decision !== "string" || !RECEIPT_DECISIONS.has(value.decision)) fail("policy decision receipt decision is unsupported", "receipt");
+  assertNonEmptyString(value.reason_code, "policy decision receipt reason_code", {}, "receipt");
+  assertExactKeys(value.declared_inputs, ["developer_selection"], "policy decision receipt declared_inputs", "receipt");
+  if (typeof value.declared_inputs.developer_selection !== "boolean") fail("policy decision receipt developer_selection must be a boolean", "receipt");
+  if (value.configuration_hash !== null) assertNonEmptyString(value.configuration_hash, "policy decision receipt configuration_hash", { pattern: /^sha256:[a-f0-9]{64}$/u }, "receipt");
+  if (value.receipt_id !== receiptIdentifier(value)) fail("policy decision receipt integrity check failed", "receipt");
+  return structuredClone(value);
+}
+
+export function createPolicyDecisionReceipt(resolution, { observedAt = new Date() } = {}) {
+  const redacted = redactPolicyResolution(resolution);
+  const decision = receiptDecision(redacted);
+  const receipt = {
+    receipt_schema_version: DECISION_RECEIPT_SCHEMA_VERSION,
+    receipt_id: "",
+    observed_at: observedAt.toISOString(),
+    policy_version: redacted.policy_version ?? null,
+    route_id: redacted.policy_route?.id ?? redacted.developer_selection?.manifest_route_id ?? null,
+    rule_id: decision === "adapter_disabled" ? "adapter-disabled" : (redacted.reason ?? "managed-route-available").replace(/_/gu, "-"),
+    decision,
+    reason_code: redacted.reason ?? "adapter_disabled",
+    declared_inputs: { developer_selection: Boolean(redacted.developer_selection) },
+    configuration_hash: redacted.configuration_hash ?? null,
+  };
+  receipt.receipt_id = receiptIdentifier(receipt);
+  return parsePolicyDecisionReceipt(receipt);
 }
 
 function validatePersistedRoute(route, label, { id = false, developer = false } = {}) {

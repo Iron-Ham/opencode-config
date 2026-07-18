@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
   canonicalJson,
+  createPolicyDecisionReceipt,
   inspectPolicyInstallation,
   parsePolicyManifest,
+  parsePolicyDecisionReceipt,
   policyConfigurationHash,
   redactPolicyResolution,
   readPolicyObservation,
@@ -306,6 +309,55 @@ caseOf("policy_adapter_enabled false", () => {
   });
   assert.equal(manifestCalls, 0);
   assert.equal(catalogCalls, 0);
+});
+
+caseOf("redacted decision receipts", () => {
+  const observedAt = new Date("2026-07-18T12:00:00.000Z");
+  const allow = createPolicyDecisionReceipt(resolve("build"), { observedAt });
+  assert.equal(allow.decision, "allow");
+  assert.equal(allow.route_id, "build-terra");
+  assert.equal(allow.declared_inputs.developer_selection, false);
+  assert.equal(allow.configuration_hash.startsWith("sha256:"), true);
+
+  const overridden = createPolicyDecisionReceipt(resolve("build", {
+    input: { developer_selection: { provider: "openai", model: "gpt-5.6-sol", serving_path: "openai" } },
+    effectiveConfig: effectiveConfig({ build: { provider: "openai", model: "gpt-5.6-sol", serving_path: "openai" } }),
+    effectiveRoute: { provider: "openai", model: "gpt-5.6-sol", serving_path: "openai" },
+    liveCatalog: catalogFor({ provider: "openai", model: "gpt-5.6-sol", serving_path: "openai" }),
+  }), { observedAt });
+  assert.equal(overridden.decision, "overridden");
+  assert.equal(overridden.declared_inputs.developer_selection, true);
+  assert.doesNotMatch(JSON.stringify(overridden), /private-account|Bearer|secret/iu);
+
+  const blocked = createPolicyDecisionReceipt(resolve("build", {
+    input: { repository_restrictions: { prohibited_providers: ["openai"] } },
+  }), { observedAt });
+  assert.equal(blocked.decision, "block");
+
+  const unavailable = createPolicyDecisionReceipt(resolve("build", {
+    liveCatalog: { providers: { openai: { status: "available", models: {} } } },
+  }), { observedAt });
+  assert.equal(unavailable.decision, "unavailable");
+
+  const disabled = createPolicyDecisionReceipt(resolvePolicy(policyInput("build"), {
+    manifest,
+    local: { policy_adapter_enabled: false, advisor_enabled: false },
+  }), { observedAt });
+  assert.equal(disabled.decision, "adapter_disabled");
+  assert.equal(disabled.policy_version, null);
+  assert.equal(disabled.configuration_hash, null);
+
+  const warn = structuredClone(allow);
+  warn.decision = "warn";
+  warn.rule_id = "catalog-unverified";
+  warn.reason_code = "catalog_unverified";
+  warn.receipt_id = `sha256:${createHash("sha256").update(canonicalJson(((receipt) => { const { receipt_id, ...payload } = receipt; return payload; })(warn)), "utf8").digest("hex")}`;
+  assert.equal(parsePolicyDecisionReceipt(warn).decision, "warn");
+
+  const malformed = structuredClone(allow);
+  malformed.declared_inputs = { developer_selection: false, raw_path: "/private" };
+  assert.throws(() => parsePolicyDecisionReceipt(malformed), /unsupported or missing fields/);
+  assert.equal(resolve("build").execution_altered, false);
 });
 
 caseOf("invalid schema or unsupported version", () => {

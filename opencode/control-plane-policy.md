@@ -423,6 +423,22 @@ The task must not change `opencode/opencode.defaults.json` model defaults,
 create `/luna`, `/sol`, `/sonnet`, or `/terra` commands, add telemetry, or
 enable provider fallback.
 
+## Decision Receipts
+
+The resolver can normalize an existing observe-only result into a version-1,
+redacted decision receipt. Receipts are pure serialization: they do not change
+route selection, execution, prompts, observations, kill-switch behavior, or
+CLI flags. A receipt contains only a schema version, opaque receipt ID,
+timestamp, policy version, route ID, rule ID, descriptive decision, reason
+code, boolean developer-selection indicator, and configuration hash.
+
+Current resolver outcomes map to `allow`, `block`, `overridden`,
+`unavailable`, `unverified`, `no_managed_route`, or `adapter_disabled`.
+`warn` is schema-valid for a future already-implied resolver outcome but is not
+emitted by the current resolver. The adapter-disabled receipt contains no
+policy version or configuration hash. Receipt validation rejects extra fields
+and recomputes the receipt ID over its redacted payload.
+
 ## Test Matrix
 
 | Case | Expected observe-only result |
