@@ -78,6 +78,7 @@ function CostView(props: CostViewProps) {
 		props.revision()
 		const currentRequest = ++request
 		setError()
+		setSummary()
 		void loadSessionTree(props.api, props.sessionID)
 			.then(sessions => {
 				if (currentRequest !== request) return
