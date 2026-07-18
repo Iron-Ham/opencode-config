@@ -196,6 +196,7 @@ const agents = Object.fromEntries(await Promise.all(
 const resolvedConfig = await debugConfig();
 const inheritedModelAgents = [
   "accessibility_auditor",
+  "build",
   "code_reviewer",
   "database_optimizer",
   "evidence_analyst",
@@ -619,7 +620,6 @@ for (const name of ["general", "glm_worker", "database_optimizer", "evidence_ana
 }
 
 const expectedModels = {
-  build: ["openai", "gpt-5.6-terra"],
   glm_worker: ["baseten", "zai-org/GLM-5.2"],
   kimi_reader: ["baseten", "moonshotai/Kimi-K2.7-Code"],
   plan: ["openai", "gpt-5.6-terra"],

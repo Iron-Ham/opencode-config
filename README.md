@@ -76,7 +76,7 @@ Use `opencode --no-auto` or `opencode run --no-auto ...` when a session must req
 
 ## Model And Delegation Policy
 
-`build` and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`. `/ultra` exposes an unattended durable-goal workflow and inherits its invoking primary model. The Kimi and GLM commands are explicit provider experiments and are never automatic controller targets.
+The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`. `/ultra` exposes an unattended durable-goal workflow and inherits its invoking primary model. The Kimi and GLM commands are explicit provider experiments and are never automatic controller targets.
 
 The local routing file is private and has this shape:
 
