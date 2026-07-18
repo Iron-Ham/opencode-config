@@ -38,25 +38,36 @@ brew install vjeantet/tap/alerter
 
 ## Launch Behavior
 
-Enable Code Mode, native Auto mode, and local LSP navigation through a shell dispatcher. Do not alias `opencode` directly with `--auto`; the flag must follow `run` when that subcommand is used.
+Enable Code Mode, native Auto mode, and local LSP navigation through a shell dispatcher. The local Notion CLI runs under `mise`'s installed `node@22.13.1`, so its shim does not require a global Node default. Do not alias `opencode` directly with `--auto`; the flag must follow `run` when that subcommand is used.
 
 ```zsh
 export OPENCODE_EXPERIMENTAL_CODE_MODE=true
 export OPENCODE_EXPERIMENTAL_LSP_TOOL=true
 export OPENCODE_DISABLE_LSP_DOWNLOAD=true
+_run_notion_local_or_command() {
+	local tool="$1"
+	shift
+
+	if command -v mise >/dev/null 2>&1; then
+		command mise exec node@22.13.1 -- notion local "$tool" "$@"
+	else
+		command "$tool" "$@"
+	fi
+}
+
 opencode() {
 	local first="${1:-}"
 	if [[ "$first" == "run" ]]; then
-		command opencode run --auto "${@:2}"
+		_run_notion_local_or_command opencode run --auto "${@:2}"
 		return
 	fi
 
 	if [[ -z "$first" || "$first" == -* || "$first" == */* || -d "$first" ]]; then
-		command opencode --auto "$@"
+		_run_notion_local_or_command opencode --auto "$@"
 		return
 	fi
 
-	command opencode "$@"
+	_run_notion_local_or_command opencode "$@"
 }
 ```
 
