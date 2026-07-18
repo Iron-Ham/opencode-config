@@ -19,23 +19,24 @@ verification strength, production risk, unattended authorization, and the
 live provider catalog. It does not infer intent from prompts, role names, or
 keywords.
 
-The initial managed route set is deliberately small:
+The initial managed route set is deliberately small and follows the current
+managed configuration:
 
 | Invocation | Policy route | Execution route | Notes |
 | --- | --- | --- | --- |
-| Build | `build-terra-xhigh` | OpenAI GPT-5.6 Terra xhigh pinned | Current managed Build baseline. |
-| Ultra | `ultra-inherit-build` | The current Build route | Explicit durable workflow; no premium model claim. |
-| Advise | `advise-opus-isolated` | Anthropic Claude Opus 4.8 xhigh pinned when locally enabled | Explicit, isolated, read-only review only. |
+| Build | `build-terra` | `openai/gpt-5.6-terra` | Current managed Build baseline; no fixed reasoning variant. |
+| Ultra | `ultra-inherit-build` | The invoking primary model | Explicit durable workflow; it inherits the active primary route. |
+| Advise | `advise-opus-isolated` | `anthropic/claude-opus-4-8` when locally enabled | Explicit, isolated, read-only review only. |
 
 Open-weight routes, generic task tiers, personas, automatic advisor review,
 provider/model fallback, and model-branded convenience commands are outside
 this contract. In particular, a route is always a complete provider, model,
-serving-path, and reasoning-effort identity; a role name is never evidence of
-model quality.
+and serving-path identity; reasoning effort is optional runtime metadata and a
+role name is never evidence of model quality.
 
 ## Files And Ownership
 
-The future managed manifest lives at
+The managed manifest lives at
 `opencode/control-plane-policy.json`. It is JSON rather than JSONC so a
 canonical byte-independent hash can be computed without stripping comments.
 `opencode/control-plane-policy.md` is the human-readable contract and
@@ -45,7 +46,7 @@ The resolver reads these existing integration points:
 
 | File | Responsibility |
 | --- | --- |
-| `opencode/opencode.defaults.json` | Current default routes, pinned aliases, compaction configuration, agent permissions, and Goal configuration. |
+| `opencode/opencode.defaults.json` | Current default routes, provider definitions, compaction configuration, agent permissions, and Goal configuration. |
 | `scripts/merge-opencode-config.mjs` | Strict local configuration parsing, managed merge, and live catalog validation. |
 | `opencode/commands/ultra.md` | Explicit durable-goal entry point. |
 | `opencode/commands/advise.md` | Explicit isolated-review entry point. |
@@ -86,7 +87,7 @@ an unstated task class.
 | `changelog` | non-empty array | Each entry names its policy version, date, summary, and retained evidence reference. |
 | `routes` | non-empty array | Route IDs are unique and stable within a policy version. |
 | `routes[].match` | object | Contains only declared mode and declared characteristics; the initial policy matches mode only. |
-| `routes[].execution` | object | Carries exact provider, model alias, serving path, and reasoning effort, or an explicit `inherits_route_id`, but never both. |
+| `routes[].execution` | object | Carries exact provider, model, and serving path, with optional effective reasoning effort, or an explicit `inherits_route_id`, but never both. |
 | `routes[].controls` | object | Declares continuation, compaction, delegation, and review disposition without changing them. |
 | `routes[].fallback` | object | Begins as `developer_action_required`; no hidden substitution is permitted. |
 | `deprecation` | array | Contains zero or more closed records with `route_id`, `replacement_route_id` or `null`, `effective_policy_version`, and `reason`. |
@@ -121,10 +122,16 @@ PolicyInput {
 }
 ```
 
-`ExactRoute` contains `provider`, `model`, `serving_path`, and
-`reasoning_effort`. A selected alias is expanded from the effective managed
-configuration before it is displayed or validated. The resolver uses this
+`ExactRoute` contains `provider`, `model`, and `serving_path`, with optional
+`reasoning_effort` metadata. A selected model is expanded from the effective
+managed configuration before it is displayed or validated. The resolver uses this
 mode-to-agent mapping to derive that effective route:
+
+For the current OpenCode provider configuration, `serving_path` is the
+provider namespace (`openai` or `anthropic`) unless the effective runtime
+exposes a distinct serving-path value. The resolver may use that exact
+provider namespace; it must not derive a model alias or reasoning effort from
+the route name.
 
 | Invocation mode | Effective OpenCode agent |
 | --- | --- |
@@ -132,15 +139,18 @@ mode-to-agent mapping to derive that effective route:
 | `ultra` | `ultra` |
 | `advise` | `advisor_reviewer` |
 
-The resolver expands an alias from the mapped agent's resolved
-`provider/model` value and its effective provider definition. If the alias,
-reasoning effort, serving path, enabled-provider status, or exact developer
-selection cannot be resolved from that effective configuration, the result is
-`unverified` or `unavailable`; it must never fill missing values from a
-managed pinned route. A provider listed in `disabled_providers` is unavailable
-even if its model appears in the catalog. The initial route set does not use
-`characteristics` to choose a model; it records them only to make a future
-policy change auditable.
+The resolver expands a model from the mapped agent's resolved
+`provider/model` value and its effective provider definition. If the model,
+serving path, enabled-provider status, or exact developer selection cannot be
+resolved from that effective configuration, the result is `unverified` or
+`unavailable`; it must never synthesize an alias or fill values from a policy
+route. Reasoning effort is optional effective metadata: report it only when
+the effective configuration or runtime exposes it, otherwise report the
+effort metadata as `unavailable` while retaining the route observation. A
+provider listed in `disabled_providers` is unavailable even if its model
+appears in the catalog. The initial route set does not use `characteristics`
+to choose a model; it records them only to make a future policy change
+auditable.
 
 ### Ordinary Build Example
 
@@ -158,19 +168,18 @@ policy change auditable.
   ],
   "routes": [
     {
-      "id": "build-terra-xhigh",
+      "id": "build-terra",
       "match": {
         "modes": ["build"]
       },
       "execution": {
         "provider": "openai",
-        "model": "gpt-5.6-terra-xhigh-pinned",
-        "serving_path": "openai",
-        "reasoning_effort": "xhigh"
+        "model": "gpt-5.6-terra",
+        "serving_path": "openai"
       },
       "controls": {
         "continuation": "ordinary_open_code",
-        "compaction": "pinned_gpt_256k_with_20k_reserve",
+        "compaction": "gpt_256k_with_20k_reserve",
         "delegation": "bounded_by_agent_policy",
         "independent_review": "developer_explicit_only"
       },
@@ -205,11 +214,11 @@ policy change auditable.
         "modes": ["ultra"]
       },
       "execution": {
-        "inherits_route_id": "build-terra-xhigh"
+        "inherits_route_id": "build-terra"
       },
       "controls": {
         "continuation": "durable_goal_only",
-        "compaction": "pinned_gpt_256k_with_20k_reserve",
+        "compaction": "gpt_256k_with_20k_reserve",
         "delegation": "bounded_by_ultra_policy",
         "independent_review": "developer_explicit_only"
       },
@@ -224,16 +233,19 @@ policy change auditable.
 ```
 
 The complete first manifest additionally includes `advise-opus-isolated` with
-`mode: advise`, the current pinned Opus route, `continuation: none`,
+`mode: advise`, the current unpinned Opus route, `continuation: none`,
 `delegation: none`, and `independent_review: isolated_read_only`. It resolves
 only when `advisor_enabled` is true. No initial route permits a fallback to
-another provider, model, or reasoning effort.
+another provider, model, or reasoning effort. Its route does not declare a
+fixed reasoning effort.
 
-`inherits_route_id` resolves only the static manifest route named by that ID.
-For version 1, `ultra-inherit-build` therefore means the policy recommendation
-inherits `build-terra-xhigh`; it does not follow a local `agents.build` or
-`agents.ultra` override. Those overrides remain explicit developer selection
-and are surfaced separately from the manifest recommendation.
+`inherits_route_id` resolves the static manifest route named by that ID for
+its controls and route scope. For version 1, `ultra-inherit-build` therefore
+uses `build-terra` as its policy base while its exact observed execution route
+is the invoking primary route. It never replaces that primary with a local
+policy route. Local `agents.build` or `agents.ultra` overrides remain explicit
+developer selection and are surfaced separately from the manifest
+recommendation.
 
 ## Precedence And Resolution
 
@@ -257,7 +269,8 @@ Restriction compatibility is closed and deterministic:
    conjunctive: a candidate must satisfy each one.
 3. `allowed_providers` and `prohibited_providers` compare the exact provider
    field. `allowed_routes` and `prohibited_routes` compare a manifest route ID
-   only after an exact provider/model/serving-path/effort identity match.
+   only after an exact provider/model/serving-path identity match, including
+   effort when both sides declare it.
    A developer route with no matching manifest identity is `unverified` when
    a route-ID restriction is present.
 4. `data_egress.disposition: "deny"` rejects every external provider route.
@@ -270,10 +283,12 @@ Restriction compatibility is closed and deterministic:
 Before a route is reported as available, the resolver validates the effective
 provider/model alias against `opencode models <provider> --verbose --pure` in
 the installed configuration. It also validates that the expanded route obeys
-repository restrictions and that its pinned alias has the declared effort and
-serving path. Missing credentials, an unavailable provider, or an unknown
-catalog entry yields an observable unavailable result with a developer action;
-it does not alter the active OpenCode route.
+repository restrictions and that its model has the declared serving path.
+When the effective configuration or catalog does not expose reasoning effort,
+the observation reports effort metadata as `unavailable` without failing the
+route solely for that omission. Missing credentials, an unavailable provider,
+or an unknown catalog entry yields an observable unavailable result with a
+developer action; it does not alter the active OpenCode route.
 
 The observe-only resolver returns both the policy recommendation and the
 actual effective execution route. These fields are intentionally separate:
@@ -294,6 +309,7 @@ PolicyResolution {
   policy_route?: ExactRoute & { id: string }
   developer_selection?: ExactRoute & { manifest_route_id?: string }
   effective_execution_route?: ExactRoute
+  route_metadata?: { reasoning_effort: "available" | "unavailable" }
   reason: string
   controls?: { continuation, compaction, delegation, independent_review }
   fallback: { disposition, message }
@@ -340,8 +356,11 @@ resolve(input, manifest, effectiveConfig):
 The resolver writes only a redacted local observation containing this result,
 the configuration hash, and timestamps. It must not retain prompts, source
 contents, credentials, raw provider output, or account identifiers. Session
-start output and a later query expose the same object. The future doctor
-command reads this object rather than independently reimplementing routing.
+start output and a later query expose the same object. The persisted envelope
+has an exact schema and an unkeyed SHA-256 integrity checksum so unknown or
+semantically tampered fields are rejected without loading a provider catalog.
+The future doctor command reads this object rather than independently
+reimplementing routing.
 
 ## Hash, Changelog, And Review Rules
 
@@ -351,7 +370,7 @@ in order, and JSON serialization without insignificant whitespace. The hash
 covers the entire manifest, including the changelog, and is recomputed by the
 resolver rather than committed as a self-referential field.
 
-Every route semantic, guard, provider, model, effort, fallback, or deprecation
+Every route semantic, guard, provider, model, effort metadata, fallback, or deprecation
 change must:
 
 1. Increment `policy_version`.
@@ -368,14 +387,17 @@ the resolver must reject an unknown schema rather than guessing.
 
 ## Migration And Rollback
 
-1. Land this contract and the initial JSON manifest without modifying defaults
-   or execution.
+1. Land this reconciled contract and the initial JSON manifest without
+   modifying defaults or execution. The manifest uses the current unpinned
+   provider/model identities; it does not recreate retired aliases.
 2. Add a strict parser and an observe-only resolver command. Extend
    `model-routing.config.local.json` with `policy_adapter_enabled`; migrate a
    missing value to `true` only in the managed generated local file, while
    preserving existing user-owned config.
 3. Validate the selected route against the installed effective configuration
    and live catalog, then persist a redacted observation for shadow evaluation.
+   Missing reasoning-effort metadata is recorded as unavailable and is not a
+   route failure.
 4. Run representative shadow evaluation. Compare repair, retry, validation,
    failure class, and time-to-merge outcomes by policy hash.
 5. Treat `policy_adapter_enabled: false` as the immediate rollback. It stops
@@ -389,7 +411,7 @@ The next focused implementation task may change only these policy surfaces:
 
 | File | Planned change |
 | --- | --- |
-| `opencode/control-plane-policy.json` | Add the version-1 manifest described above. |
+| `opencode/control-plane-policy.json` | Add the reconciled version-1 manifest described above. |
 | `scripts/resolve-opencode-policy.mjs` | Add strict parsing, canonical hashing, effective-config/catalog validation, and observe-only resolution. |
 | `scripts/merge-opencode-config.mjs` | Add the `policy_adapter_enabled` local switch and private migration. |
 | `scripts/test-opencode-policy-resolver.mjs` | Add resolver contract coverage. |
@@ -405,18 +427,18 @@ enable provider fallback.
 
 | Case | Expected observe-only result |
 | --- | --- |
-| Compatible ordinary Build | `build-terra-xhigh`, exact pinned route, `execution_altered: false`. |
-| Compatible explicit Ultra | `ultra-inherit-build`, expanded exact Build route, durable controls, `execution_altered: false`. |
+| Compatible ordinary Build | `build-terra`, exact `openai/gpt-5.6-terra` route, optional effort metadata, `execution_altered: false`. |
+| Compatible explicit Ultra | `ultra-inherit-build`, expanded invoking-primary route, durable controls, `execution_altered: false`. |
 | Explicit compatible developer route | Developer selection wins and is reported separately from a manifest route ID without changing execution. |
 | Repository restriction conflicts with developer route | `blocked`, restriction named, no replacement route. |
 | Advise while locally disabled | `unavailable`, explicit enablement action, no catalog access or selected route. |
 | Provider/model missing from live catalog | `unavailable`, catalog reason and developer action, no fallback. |
 | Missing provider credentials | `unavailable`, redacted authentication action, no credential value. |
-| Disabled provider or unexpandable effective alias | `unavailable` or `unverified`, unchanged effective route, no inferred pinned values. |
+| Disabled provider or unexpandable effective alias | `unavailable` or `unverified`, unchanged effective route, no inferred model or effort values. |
 | `policy_adapter_enabled: false` | No manifest read, no observation, no execution change. |
 | Invalid schema or unsupported version | Resolver fails before reporting a route. |
 | Manifest semantic change | Different policy version and canonical hash; changelog required. |
-| Legacy local routing configuration | Loads safely with the documented default switch behavior and preserves `advisor_enabled`, agent overrides, and step overrides. |
+| Legacy local routing configuration | Loads safely with the documented default switch behavior, normalizes retired pinned values to current unpinned identifiers, and preserves `advisor_enabled`, agent overrides, and step overrides. |
 
 The resolver's deterministic test suite must run before `setup-opencode.sh`
 integrates it. Its catalog tests use a controlled command fixture; a real

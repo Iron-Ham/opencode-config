@@ -82,6 +82,7 @@ The local routing file is private and has this shape:
 
 ```json
 {
+  "policy_adapter_enabled": true,
   "advisor_enabled": false,
   "agents": {},
   "steps": {}
@@ -89,6 +90,7 @@ The local routing file is private and has this shape:
 ```
 
 Advisor access is disabled by default, including `/advise`. Set `"advisor_enabled": true` locally to opt into the explicit, isolated `/advise` command, which receives only developer-supplied context.
+The observe-only policy adapter uses the separate `policy_adapter_enabled` kill switch; disabling it leaves ordinary OpenCode model selection unchanged and does not alter advisor access.
 
 Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed plugin installation, compaction inheritance, private routing configuration, and redacted compaction observation records. Use `--json` for automation or `--config-dir <path>` to inspect a non-default installation.
 
@@ -104,6 +106,7 @@ python3 scripts/generate-opencode-agents.py --check
 Run the focused regression suite before committing configuration changes:
 
 ```bash
+bun scripts/test-opencode-policy-resolver.mjs
 bun scripts/test-opencode-config.mjs
 bun scripts/test-opencode-goal-mode.mjs
 bun scripts/test-opencode-workflow-plugin.mjs

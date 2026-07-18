@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { isDeepStrictEqual } from "node:util";
+import { inspectPolicyInstallation } from "./resolve-opencode-policy.mjs";
 
 const repoRoot = path.resolve(process.argv[2]);
 const configDir = path.resolve(process.argv[3]);
@@ -155,7 +156,13 @@ const managedDefaults = JSON.parse(
 const modelRoutingPath = path.join(configDir, "model-routing.config.local.json");
 const modelRouting = fs.existsSync(modelRoutingPath)
   ? JSON.parse(fs.readFileSync(modelRoutingPath, "utf8"))
-  : { advisor_enabled: false, agents: {}, steps: {} };
+  : { policy_adapter_enabled: true, advisor_enabled: false, agents: {}, steps: {} };
+let policyValidation;
+try {
+  policyValidation = inspectPolicyInstallation({ repoRoot, configDir });
+} catch (error) {
+  fail(error instanceof Error ? error.message : "policy manifest validation failed");
+}
 const retiredManagedAgentNames = new Set([
   "backend_architect",
   "evidence_collector",
@@ -720,6 +727,11 @@ if (requireInstalledAssets) {
   }
 }
 
-console.log(
-  `OK     ${agentNames.length} OpenCode agent definitions`,
-);
+console.log(`OK     ${agentNames.length} OpenCode agent definitions`);
+if (policyValidation.state === "disabled") {
+  console.log("OK     OpenCode policy adapter disabled without manifest loading");
+} else {
+  console.log(
+    `OK     OpenCode policy manifest v${policyValidation.policy_version} ${policyValidation.configuration_hash}`,
+  );
+}

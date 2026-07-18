@@ -140,6 +140,21 @@ case "$script" in
   */test-opencode-workflow-plugin.mjs)
     exit 0
     ;;
+  */test-opencode-policy-resolver.mjs)
+    exit 0
+    ;;
+  */resolve-opencode-policy.mjs)
+    case " $* " in
+      *" --validate "*) exit 0 ;;
+      *)
+        echo "unexpected policy resolver invocation: $script $*" >&2
+        exit 98
+        ;;
+    esac
+    ;;
+  */validate-opencode-agents.mjs)
+    exit 0
+    ;;
   */normalize-opencode-notion-assets.mjs)
     config="$1"
     shift
@@ -194,12 +209,12 @@ esac
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
       FAIL_LATE_VALIDATION: "true",
+      MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
       PATH: `${stubBin}:${process.env.PATH}`,
     },
     stdout: "pipe",
     stderr: "pipe",
   });
-
   assert.equal(result.exitCode, 97, result.stderr.toString());
   assert.match(result.stderr.toString(), /forced late validation failure/);
   assert.match(result.stderr.toString(), /ROLLBACK OpenCode setup failed/);
@@ -214,6 +229,7 @@ esac
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
       FAIL_LATE_VALIDATION: "false",
+      MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
       PATH: `${stubBin}:${process.env.PATH}`,
     },
     stdout: "pipe",

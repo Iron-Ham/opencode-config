@@ -589,12 +589,22 @@ function modelRoutingConfig() {
     throw new Error(`${modelRoutingConfigPath} must contain a JSON object`);
   }
 
-  const allowedKeys = new Set(["advisor_enabled", "agents", "steps"]);
+  const allowedKeys = new Set([
+    "policy_adapter_enabled",
+    "advisor_enabled",
+    "agents",
+    "steps",
+  ]);
   const unknownKeys = Object.keys(existing).filter((key) => !allowedKeys.has(key));
   if (unknownKeys.length > 0) {
     throw new Error(
       `${modelRoutingConfigPath} contains unsupported keys: ${unknownKeys.join(", ")}`,
     );
+  }
+
+  const policyAdapterEnabled = existing.policy_adapter_enabled ?? true;
+  if (typeof policyAdapterEnabled !== "boolean") {
+    throw new Error(`${modelRoutingConfigPath} policy_adapter_enabled must be a boolean`);
   }
 
   const advisorEnabled = existing.advisor_enabled ?? false;
@@ -631,6 +641,7 @@ function modelRoutingConfig() {
   }
 
   return {
+    policy_adapter_enabled: policyAdapterEnabled,
     advisor_enabled: advisorEnabled,
     agents: normalizedAgents,
     steps: structuredClone(steps),
@@ -693,9 +704,7 @@ function availableModelMetadata(model, label) {
       stderr: "pipe",
     });
     if (result.exitCode !== 0) {
-      throw new Error(
-        `Cannot validate ${provider} model catalog: ${result.stderr.toString().trim()}`,
-      );
+      throw new Error("Cannot validate the configured provider model catalog");
     }
     output = result.stdout.toString();
     modelCatalogByProvider.set(provider, output);
@@ -703,9 +712,7 @@ function availableModelMetadata(model, label) {
 
   const metadata = modelMetadata(output, model);
   if (!metadata) {
-    throw new Error(
-      `${label} ${model} is not available from the ${provider} provider`,
-    );
+    throw new Error(`${label} is not available from its configured provider catalog`);
   }
   return metadata;
 }
@@ -735,7 +742,7 @@ function validateInputs() {
     readJson(filePath, {});
   }
   const modelRouting = modelRoutingConfig();
-  if (validateModelRouting) {
+  if (validateModelRouting && modelRouting.policy_adapter_enabled) {
     validateModelRoutingAgainstModelCatalog(modelRouting);
   }
   return { modelRouting };
