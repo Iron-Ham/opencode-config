@@ -30,6 +30,11 @@ const OBSERVATION_SCHEMA_VERSION = 1;
 const REASONING_EFFORT_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/u;
 const ROUTE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const PROVIDER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+const OBSERVABLE_ROUTE_IDENTITIES = new Set([
+  "openai\u0000gpt-5.6-terra\u0000openai",
+  "openai\u0000gpt-5.6-sol\u0000openai",
+  "anthropic\u0000claude-opus-4-8\u0000anthropic",
+]);
 const SAFE_STRING_MAX = 512;
 const POLICY_REASON_CODES = new Set([
   "managed_route_available",
@@ -1118,7 +1123,7 @@ export function localRoutingPath(configDir) {
 export function readPolicyLocalState(configDir) {
   const filePath = localRoutingPath(configDir);
   if (!fs.existsSync(filePath)) {
-    return { policy_adapter_enabled: true, advisor_enabled: false };
+    return { policy_adapter_enabled: true, advisor_enabled: false, agent_overrides: {} };
   }
   let value;
   try {
@@ -1131,7 +1136,26 @@ export function readPolicyLocalState(configDir) {
   const advisorEnabled = value.advisor_enabled ?? false;
   if (typeof policyAdapterEnabled !== "boolean") fail("policy_adapter_enabled must be a boolean", "input");
   if (typeof advisorEnabled !== "boolean") fail("advisor_enabled must be a boolean", "input");
-  return { policy_adapter_enabled: policyAdapterEnabled, advisor_enabled: advisorEnabled };
+  return {
+    policy_adapter_enabled: policyAdapterEnabled,
+    advisor_enabled: advisorEnabled,
+    agent_overrides: isPlainObject(value.agents) ? { ...value.agents } : {},
+  };
+}
+
+function localDeveloperSelection(local, mode, effectiveConfig) {
+  if (mode !== "build" && mode !== "ultra") return undefined;
+  const effectiveRoute = normalizeEffectiveConfig(effectiveConfig, mode).route;
+  const overrideName = mode === "ultra" && typeof local.agent_overrides.ultra === "string"
+    ? "ultra"
+    : "build";
+  const override = local.agent_overrides[overrideName];
+  if (typeof override !== "string" || effectiveRoute.status !== "resolved") return undefined;
+  const expected = parseProviderModel(override, `local ${overrideName} override`, "input");
+  if (effectiveRoute.route.provider !== expected.provider || effectiveRoute.route.model !== expected.model) {
+    return undefined;
+  }
+  return copyRoute(effectiveRoute.route);
 }
 
 function readJsonFile(filePath, label) {
@@ -1188,12 +1212,10 @@ function redactText(value) {
 function redactRoute(route) {
   if (!route) return route;
   const redacted = copyRoute(route);
-  if (/(^|\/)(accounts?|projects?|orgs?)\//iu.test(redacted.model) ||
-    /bearer|api[_-]?key|secret|token/iu.test(redacted.model)) {
+  const identity = [redacted.provider, redacted.model, redacted.serving_path].join("\u0000");
+  if (!OBSERVABLE_ROUTE_IDENTITIES.has(identity)) {
+    redacted.provider = "redacted";
     redacted.model = "redacted";
-  }
-  if (/(^|\/)(accounts?|projects?|orgs?)\//iu.test(redacted.serving_path) ||
-    /https?:\/\//iu.test(redacted.serving_path)) {
     redacted.serving_path = "redacted";
   }
   if (redacted.reasoning_effort && /bearer|api[_-]?key|secret|token|https?:\/\//iu.test(redacted.reasoning_effort)) {
@@ -1573,10 +1595,14 @@ async function main(argv) {
       })();
   const effectiveConfig = isPlainObject(envelope) ? envelope.effective_config : undefined;
   const liveCatalog = isPlainObject(envelope) ? envelope.live_catalog : undefined;
-  const resolution = resolvePolicy(policyInput, {
+  const resolvedEffectiveConfig = effectiveConfig ?? effectiveRouteFromConfigFile(options.configDir, policyInput.mode);
+  const selection = isPlainObject(policyInput) && policyInput.developer_selection === undefined
+    ? localDeveloperSelection(local, policyInput.mode, resolvedEffectiveConfig)
+    : undefined;
+  const resolution = resolvePolicy(selection ? { ...policyInput, developer_selection: selection } : policyInput, {
     local,
     manifest: readJsonFile(manifestPath, "policy manifest"),
-    effectiveConfig: effectiveConfig ?? effectiveRouteFromConfigFile(options.configDir, policyInput.mode),
+    effectiveConfig: resolvedEffectiveConfig,
     liveCatalog,
     loadCatalog: (provider) => catalogFromCommand(provider, options.configDir),
   });

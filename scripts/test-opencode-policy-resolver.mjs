@@ -434,6 +434,32 @@ try {
   assert.equal(redacted.fallback.message, "[redacted]");
   assert.equal(redacted.catalog.reason, "[redacted]");
   assert.doesNotMatch(JSON.stringify(record), /private-account|secret/iu);
+  const emailRoute = {
+    provider: "openai",
+    model: "alice@example.com",
+    serving_path: "openai",
+  };
+  const emailRedacted = redactPolicyResolution({ ...result, developer_selection: emailRoute });
+  assert.equal(emailRedacted.developer_selection.model, "redacted");
+  const accountRoute = {
+    provider: "tenant-492",
+    model: "tenant-acme-492",
+    serving_path: "tenant-492",
+  };
+  const accountRedacted = redactPolicyResolution({
+    ...result,
+    developer_selection: accountRoute,
+    effective_execution_route: accountRoute,
+  });
+  assert.equal(accountRedacted.developer_selection.model, "redacted");
+  assert.equal(accountRedacted.developer_selection.serving_path, "redacted");
+  assert.equal(accountRedacted.effective_execution_route.model, "redacted");
+  const accountRecord = recordPolicyObservation({
+    resolution: { ...result, developer_selection: accountRoute, effective_execution_route: accountRoute },
+    directory: observationRoot,
+    observedAt,
+  });
+  assert.doesNotMatch(JSON.stringify(accountRecord), /tenant-492|tenant-acme-492/iu);
   const observationPath = path.join(observationRoot, "latest.json");
   const originalRecord = JSON.parse(fs.readFileSync(observationPath, "utf8"));
   for (const [name, mutate, expectedError] of [
@@ -535,6 +561,68 @@ try {
   assert.equal(inheritedResult.state, "resolved");
   assert.equal(inheritedResult.policy_route.model, "gpt-5.6-terra");
   assert.equal(inheritedResult.effective_execution_route.model, "gpt-5.6-terra");
+
+  const overriddenConfigDir = path.join(cliRoot, "overridden-config");
+  fs.mkdirSync(overriddenConfigDir);
+  fs.writeFileSync(
+    path.join(overriddenConfigDir, "opencode.json"),
+    JSON.stringify({ agent: { build: { model: "openai/gpt-5.6-sol" } } }),
+  );
+  fs.writeFileSync(
+    path.join(overriddenConfigDir, "model-routing.config.local.json"),
+    JSON.stringify({ agents: { build: "openai/gpt-5.6-sol" } }),
+  );
+  const overriddenRoute = {
+    provider: "openai",
+    model: "gpt-5.6-sol",
+    serving_path: "openai",
+  };
+  for (const mode of ["build", "ultra"]) {
+    const overrideInputPath = path.join(cliRoot, `overridden-${mode}-input.json`);
+    fs.writeFileSync(
+      overrideInputPath,
+      JSON.stringify({ ...policyInput(mode), live_catalog: catalogFor(overriddenRoute) }),
+    );
+    const overrideCli = Bun.spawnSync([
+      "bun",
+      path.join(repoRoot, "scripts", "resolve-opencode-policy.mjs"),
+      repoRoot,
+      overriddenConfigDir,
+      "--input",
+      overrideInputPath,
+      "--no-observe",
+    ], { stdout: "pipe", stderr: "pipe" });
+    assert.equal(overrideCli.exitCode, 0, overrideCli.stderr.toString());
+    const overrideResult = JSON.parse(overrideCli.stdout.toString());
+    assert.equal(overrideResult.precedence_source, "developer");
+    assert.deepEqual(overrideResult.developer_selection, {
+      ...overriddenRoute,
+      ...(mode === "ultra" ? { manifest_route_id: "ultra-inherit-build" } : {}),
+    });
+    assert.deepEqual(overrideResult.effective_execution_route, overriddenRoute);
+  }
+  const suppliedEffectiveInputPath = path.join(cliRoot, "overridden-supplied-effective-input.json");
+  fs.writeFileSync(
+    suppliedEffectiveInputPath,
+    JSON.stringify({
+      input: policyInput("build"),
+      effective_config: effectiveConfig({ build: overriddenRoute }),
+      live_catalog: catalogFor(overriddenRoute),
+    }),
+  );
+  const suppliedEffectiveCli = Bun.spawnSync([
+    "bun",
+    path.join(repoRoot, "scripts", "resolve-opencode-policy.mjs"),
+    repoRoot,
+    overriddenConfigDir,
+    "--input",
+    suppliedEffectiveInputPath,
+    "--no-observe",
+  ], { stdout: "pipe", stderr: "pipe" });
+  assert.equal(suppliedEffectiveCli.exitCode, 0, suppliedEffectiveCli.stderr.toString());
+  const suppliedEffectiveResult = JSON.parse(suppliedEffectiveCli.stdout.toString());
+  assert.equal(suppliedEffectiveResult.precedence_source, "developer");
+  assert.deepEqual(suppliedEffectiveResult.developer_selection, overriddenRoute);
 
   const disabledConfigDir = path.join(cliRoot, "disabled-config");
   fs.mkdirSync(disabledConfigDir);
