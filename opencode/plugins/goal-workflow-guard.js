@@ -28,6 +28,7 @@ const COMPLETION_EVIDENCE_KINDS = new Set([
 ]);
 const HANDOFF_CLASSIFICATIONS = new Set(["carryable", "repairable", "blocked"]);
 const MAX_COMPLETION_EVIDENCE_LENGTH = 4000;
+const MAX_COMPLETION_EVIDENCE_INPUT_LENGTH = 20000;
 
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -63,7 +64,7 @@ function safeEvidenceText(value, label, maximumLength) {
   if (/\r|\n|```/.test(result)) {
     throw new Error(`${label} must be a concise single-line summary, not raw output or source content`);
   }
-  if (/(?:\b(?:cookie|set-cookie|session_cookie|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(result)) {
+  if (/(?:\b(?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(result)) {
     throw new Error(`${label} must not contain credentials or secret material`);
   }
   if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(result)) {
@@ -366,6 +367,9 @@ export function stabilizeGoalSystemText(source) {
 export function parseCompletionEvidence(source) {
   if (typeof source !== "string") {
     throw new Error("completion evidence must be a JSON string");
+  }
+  if (source.length > MAX_COMPLETION_EVIDENCE_INPUT_LENGTH) {
+    throw new Error(`completion evidence input must be at most ${MAX_COMPLETION_EVIDENCE_INPUT_LENGTH} characters`);
   }
 
   let value;

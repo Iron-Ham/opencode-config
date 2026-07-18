@@ -6,6 +6,7 @@ const DEFAULT_REVIEW_AGENTS = new Set([
   "security_engineer",
   "software_architect",
 ]);
+const MAX_PENDING_CALLS = 1000;
 
 function taskArguments(args) {
   if (args && typeof args === "object" && !Array.isArray(args)) return args;
@@ -70,11 +71,16 @@ export async function createDelegationGuard(options = {}) {
       const agent = args.subagent_type;
       const prompt = args.prompt;
       if (typeof agent !== "string" || typeof prompt !== "string") throw new Error("delegation requires a subagent type and bounded prompt");
-      const hasConcreteBoundary = /```diff\b|^diff --git\b|\b(?:changed files?|source (?:path|boundary)|evidence bundle|claim checklist)\s*:\s*[^\s][^\n]*/im.test(prompt);
+      const hasConcreteBoundary = /```diff\b|^diff --git\b|\b(?:changed files?|source (?:path|boundary))\s*:\s*[^\s][^\n]*\//im.test(prompt) || /\b(?:evidence bundle|claim checklist)\s*:\s*[^\s][^\n]*/im.test(prompt);
       if (reviewAgents.has(agent) && !hasConcreteBoundary) {
         throw new Error("isolated review requires an exact diff, source boundary, or evidence bundle");
       }
-      if (reviewAgents.has(agent) && !/\b(?:read-only|do not edit|do not run commands|already-produced)\b/i.test(prompt)) {
+      const hasReadOnlyContract =
+        /\bread-only\b/i.test(prompt) &&
+        /\bdo not edit\b/i.test(prompt) &&
+        /\b(?:do not run commands|do not edit\s+or\s+run commands)\b/i.test(prompt);
+      const negatesReadOnlyContract = /\b(?:not|never)\s+read-only\b|\bdo not\s+not\s+edit\b|\bdo not\s+not\s+run commands\b/i.test(prompt);
+      if (reviewAgents.has(agent) && (!hasReadOnlyContract || negatesReadOnlyContract)) {
         throw new Error("isolated review request must preserve the reviewer read-only contract");
       }
       const active = activeFor(input.sessionID);
@@ -82,6 +88,7 @@ export async function createDelegationGuard(options = {}) {
       if (active.size + reserved >= maxConcurrent) throw new Error(`delegation concurrency limit reached (${maxConcurrent})`);
       if ((totalByParent.get(input.sessionID) ?? 0) + reserved >= maxTotal) throw new Error(`delegation total limit reached (${maxTotal})`);
       if (typeof input.callID !== "string") throw new Error("delegation requires a task call ID");
+      if (pendingCalls.size >= MAX_PENDING_CALLS) throw new Error("delegation pending-call limit reached");
       pendingCalls.set(input.callID, input.sessionID);
       reservedByParent.set(input.sessionID, reserved + 1);
     },
@@ -91,8 +98,14 @@ export async function createDelegationGuard(options = {}) {
       if (typeof input.callID === "string") pendingCalls.delete(input.callID);
       const childID = taskIDFromOutput(output);
       if (typeof parentID !== "string") return;
+      if (!childID) {
+        const unknownChildID = `unknown-${input.callID ?? "task"}`;
+        releaseReservation(parentID);
+        markActive(parentID, unknownChildID);
+        totalByParent.set(parentID, (totalByParent.get(parentID) ?? 0) + 1);
+        return;
+      }
       releaseReservation(parentID);
-      if (!childID) return;
       markActive(parentID, childID);
       totalByParent.set(parentID, (totalByParent.get(parentID) ?? 0) + 1);
     },

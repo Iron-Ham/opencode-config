@@ -22,6 +22,7 @@ async function start(callID, agent = "code_reviewer", prompt = reviewPrompt) {
 
 await assert.rejects(() => start("bad", "code_reviewer", "Please review this."), /exact diff/);
 await assert.rejects(() => start("keyword-only", "code_reviewer", "Read-only review; do not edit. Exact diff unavailable."), /exact diff/);
+await assert.rejects(() => start("fake-boundary", "code_reviewer", "Read-only review. Do not edit or run commands. Source boundary: x"), /exact diff/);
 await start("one");
 await start("two");
 await assert.rejects(() => start("three"), /concurrency limit/);
@@ -30,4 +31,9 @@ await start("three");
 await hooks.event({ event: { type: "session.status", properties: { sessionID: "child-two", status: { type: "idle" } } } });
 await hooks.event({ event: { type: "session.status", properties: { sessionID: "child-three", status: { type: "idle" } } } });
 await assert.rejects(() => start("four"), /total limit/);
+
+const malformedOutputHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await malformedOutputHooks["tool.execute.before"]({ tool: "task", sessionID: "malformed-parent", callID: "malformed" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } });
+await malformedOutputHooks["tool.execute.after"]({ tool: "task", sessionID: "malformed-parent", callID: "malformed" }, { output: "task started" });
+await assert.rejects(() => malformedOutputHooks["tool.execute.before"]({ tool: "task", sessionID: "malformed-parent", callID: "after-malformed" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } }), /concurrency limit|total limit/);
 console.log("OK     OpenCode delegation guard");
