@@ -7,14 +7,14 @@ function sessionDigest(sessionID) {
   return `sha256:${createHash("sha256").update(String(sessionID)).digest("hex")}`;
 }
 
-export function compactionObservationDirectory(environment = process.env) {
+function compactionObservationDirectory(environment = process.env) {
   const explicit = environment.OPENCODE_COMPACTION_OBSERVATION_DIR?.trim();
   if (explicit) return path.resolve(explicit);
   const stateHome = environment.XDG_STATE_HOME?.trim() || path.join(homedir(), ".local", "state");
   return path.join(stateHome, "opencode", "compaction-observations");
 }
 
-export async function recordCompactionObservation({
+async function recordCompactionObservation({
   sessionID,
   event,
   modelStrategy = "active-session",
@@ -42,7 +42,7 @@ export async function recordCompactionObservation({
   return record;
 }
 
-export async function createCompactionObservability(options = {}) {
+async function createCompactionObservability(options = {}) {
   const modelStrategy = options.model_strategy ?? "active-session";
   if (modelStrategy !== "active-session") throw new Error("compaction observer only supports active-session model inheritance");
   return {
@@ -56,6 +56,8 @@ export async function createCompactionObservability(options = {}) {
     },
   };
 }
+
+export const testHelpers = { compactionObservationDirectory, recordCompactionObservation, createCompactionObservability };
 
 export default {
   id: "opencode-compaction-observability",

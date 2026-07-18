@@ -34,7 +34,7 @@ function sessionFromEvent(event) {
   return info && typeof info === "object" && typeof info.id === "string" ? info.id : null;
 }
 
-export async function createDelegationGuard(options = {}) {
+async function createDelegationGuard(options = {}) {
   const maxConcurrent = options.max_concurrent ?? 4;
   const maxTotal = options.max_total ?? 8;
   const reviewAgents = new Set(options.isolated_review_agents ?? DEFAULT_REVIEW_AGENTS);
@@ -129,6 +129,8 @@ export async function createDelegationGuard(options = {}) {
     },
   };
 }
+
+export const testHelpers = { createDelegationGuard };
 
 export default {
   id: "opencode-delegation-guard",

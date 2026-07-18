@@ -13,8 +13,8 @@ try {
   process.env.OPENCODE_COMPACTION_OBSERVATION_DIR = directory;
   const observer = await import(path.join(repoRoot, "opencode", "plugins", "compaction-observability.js"));
   assert.equal(observer.default.id, "opencode-compaction-observability");
-  assert.equal(observer.compactionObservationDirectory(), directory);
-  const hooks = await observer.createCompactionObservability();
+  assert.equal(observer.testHelpers.compactionObservationDirectory(), directory);
+  const hooks = await observer.testHelpers.createCompactionObservability();
   await hooks["experimental.session.compacting"]({ sessionID: "sensitive-session-id" }, { context: [] });
   await hooks["experimental.compaction.autocontinue"]({ sessionID: "sensitive-session-id" }, { enabled: true });
   const records = fs.readdirSync(directory).map((name) => JSON.parse(fs.readFileSync(path.join(directory, name), "utf8")));
@@ -27,7 +27,7 @@ try {
   }
   assert.equal(fs.statSync(directory).mode & 0o777, 0o700);
   for (const name of fs.readdirSync(directory)) assert.equal(fs.statSync(path.join(directory, name)).mode & 0o777, 0o600);
-  await assert.rejects(() => observer.createCompactionObservability({ model_strategy: "separate-model" }));
+  await assert.rejects(() => observer.testHelpers.createCompactionObservability({ model_strategy: "separate-model" }));
   console.log("OK     OpenCode compaction observability");
 } finally {
   if (originalDirectory === undefined) delete process.env.OPENCODE_COMPACTION_OBSERVATION_DIR;

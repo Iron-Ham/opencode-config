@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const { createDelegationGuard } = await import(path.join(repoRoot, "opencode", "plugins", "delegation-guard.js"));
+const { testHelpers } = await import(path.join(repoRoot, "opencode", "plugins", "delegation-guard.js"));
+const { createDelegationGuard } = testHelpers;
 const hooks = await createDelegationGuard({ max_concurrent: 2, max_total: 3 });
 const reviewPrompt = "Read-only review of this concrete diff. Do not edit or run commands. Source boundary: opencode/plugins/delegation-guard.js.";
 
