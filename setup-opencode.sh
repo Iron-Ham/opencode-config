@@ -243,6 +243,20 @@ retire_repo_command_link() {
   fi
 }
 
+has_usable_notion_cli() {
+  local notion_path
+  notion_path="$(command -v notion 2>/dev/null || true)"
+  [ -n "$notion_path" ] || return 1
+
+  case "$notion_path" in
+    */mise/shims/notion)
+      return 1
+      ;;
+  esac
+
+  [ -x "$notion_path" ]
+}
+
 advisor_enabled="$(
   OPENCODE_ROUTING_PATH="$OPENCODE_DIR/model-routing.config.local.json" bun -e '
     const fs = require("node:fs")
@@ -252,7 +266,7 @@ advisor_enabled="$(
   '
 )"
 
-if ! command -v notion >/dev/null 2>&1 && ! {
+if ! has_usable_notion_cli && ! {
   [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
@@ -366,7 +380,7 @@ for src in "$REPO_DIR"/opencode/tui/*; do
   copy_item "$src" "$OPENCODE_TUI_DIR/$name" "OpenCode TUI support $name"
 done
 
-if command -v notion >/dev/null 2>&1; then
+if has_usable_notion_cli; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --prepare-refresh
   notion ai plugins add --agent opencode --strict \
@@ -381,7 +395,7 @@ else
   echo "ERROR  Notion OpenCode plugins are missing and the notion CLI is unavailable" >&2
   exit 1
 fi
-if ! command -v notion >/dev/null 2>&1; then
+if ! has_usable_notion_cli; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
 fi
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
@@ -396,7 +410,7 @@ bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets
 
-if command -v notion >/dev/null 2>&1; then
+if has_usable_notion_cli; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --commit-refresh
 fi
