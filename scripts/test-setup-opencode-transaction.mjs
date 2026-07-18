@@ -11,6 +11,7 @@ const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), "setup-opencode-transacti
 const homeDir = path.join(testRoot, "home");
 const configDir = path.join(homeDir, ".config", "opencode");
 const stubBin = path.join(testRoot, "bin");
+const miseShimBin = path.join(testRoot, "mise", "shims");
 const transactionTempDir = path.join(testRoot, "transaction-tmp");
 const externalTarget = path.join(testRoot, "external-target");
 
@@ -57,6 +58,7 @@ function fingerprintTree(root) {
 
 try {
   fs.mkdirSync(stubBin, { recursive: true });
+  fs.mkdirSync(miseShimBin, { recursive: true });
   fs.mkdirSync(transactionTempDir, { recursive: true });
   fs.mkdirSync(configDir, { recursive: true, mode: 0o751 });
   fs.chmodSync(configDir, 0o751);
@@ -113,10 +115,15 @@ try {
 set -eu
 config="$OPENCODE_CONFIG_DIR"
 mkdir -p "$config/commands/mobile-on-call" "$config/skills/mobile-review-pr" "$config/agents"
+for skill in mobile-ios-tma-module honeycomb tuist-generated-projects; do
+  mkdir -p "$config/skills/$skill"
+  printf 'plugin refresh skill\n' > "$config/skills/$skill/SKILL.md"
+done
 printf 'plugin refresh command\n' > "$config/commands/mobile-on-call/init.md"
 printf 'plugin refresh skill\n' > "$config/skills/mobile-review-pr/SKILL.md"
 printf 'generated plugin agent\n' > "$config/agents/periphery-fixer.md"
 `);
+  writeFile(path.join(miseShimBin, "notion"), "#!/bin/sh\nexit 42\n", 0o700);
   writeExecutable("bun", String.raw`#!/bin/bash
 set -eu
 if [ "$1" = "-e" ]; then
@@ -312,6 +319,24 @@ esac
       undefined,
     );
   }
+  assert.deepEqual(fs.readdirSync(transactionTempDir), []);
+
+  const shimFallback = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      HOME: homeDir,
+      OPENCODE_CONFIG_DIR: configDir,
+      OPENCODE_SETUP_TMPDIR: transactionTempDir,
+      FAIL_LATE_VALIDATION: "false",
+      MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
+      PATH: `${miseShimBin}:${stubBin}:${process.env.PATH}`,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  assert.equal(shimFallback.exitCode, 0, shimFallback.stderr.toString());
+  assert.match(shimFallback.stderr.toString(), /Notion OpenCode plugins could not be refreshed/);
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
   console.log("OK     OpenCode setup copies managed plugins and restores late failures");
