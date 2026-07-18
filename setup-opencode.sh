@@ -264,6 +264,9 @@ fi
 
 python3 "$REPO_DIR/scripts/generate-opencode-agents.py" --check
 bun "$REPO_DIR/scripts/test-opencode-workflow-plugin.mjs"
+bun "$REPO_DIR/scripts/test-opencode-policy-resolver.mjs"
+bun "$REPO_DIR/scripts/resolve-opencode-policy.mjs" \
+  "$REPO_DIR" "$OPENCODE_DIR" --validate
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --check --validate-model-routing
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
@@ -289,6 +292,7 @@ if [ "$advisor_enabled" != "true" ]; then
   rm "$preflight_dir/commands/advise.md"
 fi
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$preflight_dir" >/dev/null
+bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" "$REPO_DIR" "$preflight_dir"
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" "$REPO_DIR" "$preflight_dir"
 rm -R "$preflight_dir"
 preflight_dir=""
@@ -385,6 +389,9 @@ bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
 
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate-model-routing
+
+bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
+  "$REPO_DIR" "$OPENCODE_DIR"
 
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets

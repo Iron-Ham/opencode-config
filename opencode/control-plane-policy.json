@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "policy_version": 1,
+  "changelog": [
+    {
+      "policy_version": 1,
+      "date": "2026-07-17",
+      "summary": "Establish observe-only managed routes using current identities.",
+      "evidence_ref": "reports/opencode-model-routing/report.md"
+    }
+  ],
+  "routes": [
+    {
+      "id": "build-terra",
+      "match": {
+        "modes": [
+          "build"
+        ]
+      },
+      "execution": {
+        "provider": "openai",
+        "model": "gpt-5.6-terra",
+        "serving_path": "openai"
+      },
+      "controls": {
+        "continuation": "ordinary_open_code",
+        "compaction": "gpt_256k_with_20k_reserve",
+        "delegation": "bounded_by_agent_policy",
+        "independent_review": "developer_explicit_only"
+      },
+      "fallback": {
+        "disposition": "developer_action_required",
+        "message": "Choose an allowed exact route; the policy adapter will not substitute one."
+      }
+    },
+    {
+      "id": "ultra-inherit-build",
+      "match": {
+        "modes": [
+          "ultra"
+        ]
+      },
+      "execution": {
+        "inherits_route_id": "build-terra"
+      },
+      "controls": {
+        "continuation": "durable_goal_only",
+        "compaction": "gpt_256k_with_20k_reserve",
+        "delegation": "bounded_by_ultra_policy",
+        "independent_review": "developer_explicit_only"
+      },
+      "fallback": {
+        "disposition": "developer_action_required",
+        "message": "Resolve the Build route or choose an allowed exact route; Ultra does not change providers automatically."
+      }
+    },
+    {
+      "id": "advise-opus-isolated",
+      "match": {
+        "modes": [
+          "advise"
+        ]
+      },
+      "execution": {
+        "provider": "anthropic",
+        "model": "claude-opus-4-8",
+        "serving_path": "anthropic"
+      },
+      "controls": {
+        "continuation": "none",
+        "compaction": "gpt_256k_with_20k_reserve",
+        "delegation": "none",
+        "independent_review": "isolated_read_only"
+      },
+      "fallback": {
+        "disposition": "developer_action_required",
+        "message": "Enable the explicit /advise lane or choose an allowed exact route; the policy adapter will not substitute one."
+      }
+    }
+  ],
+  "deprecation": []
+}

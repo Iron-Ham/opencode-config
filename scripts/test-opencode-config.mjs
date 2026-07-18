@@ -4,8 +4,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { resolvePolicy } from "./resolve-opencode-policy.mjs";
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const policyManifest = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "opencode", "control-plane-policy.json"), "utf8"),
+);
 const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-merge-test-"));
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-merge-test-xdg-"),
@@ -335,10 +339,11 @@ try {
   const defaultModelRouting = JSON.parse(
     fs.readFileSync(modelRoutingConfigPath, "utf8"),
   );
-  assert.deepEqual(defaultModelRouting, {
-    advisor_enabled: false,
-    agents: {},
-    steps: {},
+   assert.deepEqual(defaultModelRouting, {
+     policy_adapter_enabled: true,
+     advisor_enabled: false,
+     agents: {},
+     steps: {},
   });
   assert.equal(fs.statSync(modelRoutingConfigPath).mode & 0o077, 0);
 
@@ -368,9 +373,10 @@ try {
         software_architect: 150,
       },
     };
-    const normalizedLocalRouting = {
-      advisor_enabled: false,
-      agents: {
+     const normalizedLocalRouting = {
+       policy_adapter_enabled: true,
+       advisor_enabled: false,
+       agents: {
         build: "anthropic/claude-sonnet-5",
         compaction: "openai/gpt-5.6-luna",
         general: "anthropic/claude-fable-5",
@@ -471,7 +477,7 @@ try {
       JSON.parse(fs.readFileSync(routingConfigPath, "utf8")),
       normalizedLocalRouting,
     );
-    assert.equal(fs.statSync(routingConfigPath).mode & 0o077, 0);
+     assert.equal(fs.statSync(routingConfigPath).mode & 0o077, 0);
 
     const softwareArchitectDebug = Bun.spawnSync([
       "opencode",
@@ -528,11 +534,189 @@ try {
       () => assertUltraPermissionsMatchBuild(enabled),
       assert.AssertionError,
     );
-  } finally {
-    fs.rmSync(routingConfigDir, { recursive: true, force: true });
-  }
+   } finally {
+     fs.rmSync(routingConfigDir, { recursive: true, force: true });
+   }
 
-  const restrictiveConfigDir = fs.mkdtempSync(
+   const disabledPolicyRoutingDir = fs.mkdtempSync(
+     path.join(os.tmpdir(), "opencode-policy-disabled-merge-test-"),
+   );
+   try {
+     const disabledPolicyRoutingPath = path.join(
+       disabledPolicyRoutingDir,
+       "model-routing.config.local.json",
+     );
+     fs.writeFileSync(
+       path.join(disabledPolicyRoutingDir, "opencode.json"),
+       JSON.stringify({ agent: { custom_controller: { model: "custom/local" } } }),
+     );
+     fs.writeFileSync(
+       disabledPolicyRoutingPath,
+       JSON.stringify({
+         policy_adapter_enabled: false,
+         advisor_enabled: true,
+         agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
+         steps: { build: 11 },
+       }),
+       { mode: 0o644 },
+     );
+     const disabledPolicyMerge = Bun.spawnSync([
+       "bun",
+       path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
+       repoRoot,
+       disabledPolicyRoutingDir,
+     ], { stdout: "pipe", stderr: "pipe" });
+     assert.equal(disabledPolicyMerge.exitCode, 0, disabledPolicyMerge.stderr.toString());
+     assert.deepEqual(
+       JSON.parse(fs.readFileSync(disabledPolicyRoutingPath, "utf8")),
+       {
+         policy_adapter_enabled: false,
+         advisor_enabled: true,
+         agents: { build: "openai/gpt-5.6-terra" },
+         steps: { build: 11 },
+       },
+     );
+     const disabledPolicyMerged = JSON.parse(
+       fs.readFileSync(path.join(disabledPolicyRoutingDir, "opencode.json"), "utf8"),
+     );
+     assert.equal(disabledPolicyMerged.agent.build.model, "openai/gpt-5.6-terra");
+     assert.equal(disabledPolicyMerged.agent.advisor_reviewer.disable, false);
+     assert.equal(disabledPolicyMerged.policy_adapter_enabled, undefined);
+     assert.equal(fs.statSync(disabledPolicyRoutingPath).mode & 0o077, 0);
+    } finally {
+      fs.rmSync(disabledPolicyRoutingDir, { recursive: true, force: true });
+    }
+
+   const migrationObservationDir = fs.mkdtempSync(
+     path.join(os.tmpdir(), "opencode-policy-migration-observation-test-"),
+   );
+   try {
+     fs.writeFileSync(path.join(migrationObservationDir, "opencode.json"), "{}");
+     fs.writeFileSync(
+       path.join(migrationObservationDir, "model-routing.config.local.json"),
+       JSON.stringify({
+         advisor_enabled: false,
+         agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
+         steps: {},
+       }),
+     );
+     const migrationMerge = Bun.spawnSync([
+       "bun",
+       path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
+       repoRoot,
+       migrationObservationDir,
+     ], { stdout: "pipe", stderr: "pipe" });
+     assert.equal(migrationMerge.exitCode, 0, migrationMerge.stderr.toString());
+     const migratedConfig = JSON.parse(
+       fs.readFileSync(path.join(migrationObservationDir, "opencode.json"), "utf8"),
+     );
+     assert.equal(migratedConfig.agent.build.model, "openai/gpt-5.6-terra");
+     const observed = resolvePolicy({
+       mode: "build",
+       repository_restrictions: {},
+       characteristics: {
+         boundedness: "normal_production",
+         verification_strength: "deterministic",
+         production_risk: "normal",
+         unattended_authorized: false,
+       },
+     }, {
+       manifest: policyManifest,
+       local: { policy_adapter_enabled: true, advisor_enabled: false },
+       effectiveConfig: {
+         agents: { build: { model: migratedConfig.agent.build.model } },
+         disabled_providers: [],
+       },
+       liveCatalog: {
+         providers: {
+           openai: {
+             status: "available",
+             models: { "gpt-5.6-terra": { serving_path: "openai" } },
+           },
+         },
+       },
+     });
+     assert.equal(observed.state, "resolved");
+     assert.equal(observed.effective_execution_route.model, "gpt-5.6-terra");
+     assert.equal(observed.execution_altered, false);
+   } finally {
+     fs.rmSync(migrationObservationDir, { recursive: true, force: true });
+   }
+
+   const catalogValidationDir = fs.mkdtempSync(
+     path.join(os.tmpdir(), "opencode-policy-catalog-validation-test-"),
+   );
+   const catalogProbeBin = fs.mkdtempSync(
+     path.join(os.tmpdir(), "opencode-policy-catalog-probe-bin-"),
+   );
+   try {
+     const markerPath = path.join(catalogValidationDir, "catalog-called");
+     const probePath = path.join(catalogProbeBin, "opencode");
+     fs.writeFileSync(
+       probePath,
+       "#!/bin/sh\nprintf called > \"$CATALOG_MARKER\"\nprintf 'Bearer test-secret\\n' >&2\nexit 91\n",
+     );
+     fs.chmodSync(probePath, 0o700);
+     const routingPath = path.join(
+       catalogValidationDir,
+       "model-routing.config.local.json",
+     );
+     fs.writeFileSync(
+       routingPath,
+       JSON.stringify({
+         policy_adapter_enabled: false,
+         advisor_enabled: false,
+         agents: { build: "openai/gpt-5.6-terra" },
+         steps: {},
+       }),
+     );
+     const disabledCatalogCheck = Bun.spawnSync([
+       "bun",
+       path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
+       repoRoot,
+       catalogValidationDir,
+       "--check",
+       "--validate-model-routing",
+     ], {
+       env: {
+         ...process.env,
+         CATALOG_MARKER: markerPath,
+         PATH: `${catalogProbeBin}:${process.env.PATH}`,
+       },
+       stdout: "pipe",
+       stderr: "pipe",
+     });
+     assert.equal(disabledCatalogCheck.exitCode, 0, disabledCatalogCheck.stderr.toString());
+     assert.equal(fs.existsSync(markerPath), false);
+
+     const enabledRouting = JSON.parse(fs.readFileSync(routingPath, "utf8"));
+     enabledRouting.policy_adapter_enabled = true;
+     fs.writeFileSync(routingPath, JSON.stringify(enabledRouting));
+     const enabledCatalogCheck = Bun.spawnSync([
+       "bun",
+       path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
+       repoRoot,
+       catalogValidationDir,
+       "--check",
+       "--validate-model-routing",
+     ], {
+       env: {
+         ...process.env,
+         CATALOG_MARKER: markerPath,
+         PATH: `${catalogProbeBin}:${process.env.PATH}`,
+       },
+       stdout: "pipe",
+       stderr: "pipe",
+     });
+     assert.notEqual(enabledCatalogCheck.exitCode, 0);
+     assert.match(enabledCatalogCheck.stderr.toString(), /Cannot validate the configured provider model catalog/);
+     assert.doesNotMatch(enabledCatalogCheck.stderr.toString(), /Bearer|test-secret/iu);
+   } finally {
+     fs.rmSync(catalogValidationDir, { recursive: true, force: true });
+     fs.rmSync(catalogProbeBin, { recursive: true, force: true });
+   }
+
+   const restrictiveConfigDir = fs.mkdtempSync(
     path.join(os.tmpdir(), "opencode-merge-restrictive-test-"),
   );
   try {
@@ -613,13 +797,23 @@ try {
     }
   }
 
-  for (const [name, modelRouting, expectedError] of [
-    ["array", [], /must contain a JSON object/],
-    [
-      "unknown-root-key",
-      { advisor_enabled: true, arbitrary: {} },
-      /contains unsupported keys: arbitrary/,
-    ],
+   for (const [name, modelRouting, expectedError] of [
+     ["array", [], /must contain a JSON object/],
+     [
+       "unknown-root-key",
+       { advisor_enabled: true, arbitrary: {} },
+       /contains unsupported keys: arbitrary/,
+     ],
+     [
+       "policy-enabled-string",
+       { policy_adapter_enabled: "false" },
+       /policy_adapter_enabled must be a boolean/,
+     ],
+     [
+       "policy-enabled-array",
+       { policy_adapter_enabled: [] },
+       /policy_adapter_enabled must be a boolean/,
+     ],
     ["enabled", { advisor_enabled: "false" }, /must be a boolean/],
     ["agents-array", { agents: [] }, /agents must contain a JSON object/],
     ["steps-array", { steps: [] }, /steps must contain a JSON object/],
