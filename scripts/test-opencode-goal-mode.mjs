@@ -32,9 +32,9 @@ try {
   assert.match(goalModeTuiSource, /Handoff: \$\{goal\.handoff\.classification\}/);
 
   const goalMode = (await import(goalModePath)).default;
-  const { persistCompletionEvidence } = await import(
+  const { persistCompletionEvidence } = (await import(
     path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"),
-  );
+  )).testHelpers;
   assert.equal(goalMode.id, "claude-config-goal-mode");
   const hooks = await goalMode.server({ client: {} }, { auto_continue: false });
   const context = { sessionID: "goal-test", agent: "build" };
@@ -63,18 +63,18 @@ try {
   assert.equal(cleared.cleared, true);
   assert.equal(JSON.parse(await hooks.tool.get_goal.execute({}, context)).goal, null);
 
-  async function createGoalFor(pluginHooks, sessionID) {
+  async function createGoalFor(pluginHooks, sessionID, agent = "build") {
     return JSON.parse(
       await pluginHooks.tool.create_goal.execute(
         { objective: `Goal for ${sessionID}.`, options: {} },
-        { sessionID, agent: "build" },
+        { sessionID, agent },
       ),
     ).goal;
   }
 
-  async function goalFor(pluginHooks, sessionID) {
+  async function goalFor(pluginHooks, sessionID, agent = "build") {
     return JSON.parse(
-      await pluginHooks.tool.get_goal.execute({}, { sessionID, agent: "build" }),
+      await pluginHooks.tool.get_goal.execute({}, { sessionID, agent }),
     ).goal;
   }
 
@@ -174,11 +174,12 @@ try {
       },
     },
   }, { auto_continue: true, retry_base_seconds: 60, retry_max_seconds: 60 });
-  await createGoalFor(transientHooks, "transient-provider");
+  const ultraGoal = await createGoalFor(transientHooks, "transient-provider", "ultra");
+  assert.equal(ultraGoal.sessionID, "transient-provider");
   await transientHooks.event({
     event: { type: "session.idle", properties: { sessionID: "transient-provider" } },
   });
-  const transient = await goalFor(transientHooks, "transient-provider");
+  const transient = await goalFor(transientHooks, "transient-provider", "ultra");
   assert.equal(transientPrompts, 1);
   assert.equal(transient.status, "active");
   assert.equal(transient.lastFailure.failureClass, "provider-transient");
@@ -188,7 +189,7 @@ try {
   await transientHooks.dispose();
 
   updateStoredGoal("transient-provider", {
-    nextRetryAt: Math.floor(Date.now() / 1000),
+    nextRetryAt: Math.floor(Date.now() / 1000) - 1,
     lastContinuationAt: null,
   });
   let recoveredRetryPrompts = 0;
@@ -207,7 +208,7 @@ try {
   }, { auto_continue: true });
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(recoveredRetryPrompts, 1);
-  assert.equal((await goalFor(recoveredRetryHooks, "transient-provider")).nextRetryAt, null);
+  assert.equal((await goalFor(recoveredRetryHooks, "transient-provider", "ultra")).nextRetryAt, null);
   await recoveredRetryHooks.dispose();
 
   await createGoalFor(hooks, "busy-retry");
@@ -575,9 +576,10 @@ try {
     },
   }, { auto_continue: true });
   await noGoalHooks.event({
-    event: { type: "session.idle", properties: { sessionID: "ordinary-build-without-goal" } },
+    event: { type: "session.idle", properties: { sessionID: "ordinary-build-without-goal", agent: "build" } },
   });
   assert.equal(ordinaryBuildPrompts, 0);
+  assert.equal(await goalFor(noGoalHooks, "ordinary-build-without-goal"), null);
   await noGoalHooks.dispose();
 
   console.log("OK     Vendored OpenCode goal mode");
