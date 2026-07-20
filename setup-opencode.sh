@@ -24,6 +24,19 @@ preflight_dir=""
 transaction_snapshot_dir=""
 transaction_active=false
 transaction_committed=false
+notion_cli_enabled=true
+
+for arg in "$@"; do
+  case "$arg" in
+    --skip-notion-cli)
+      notion_cli_enabled=false
+      ;;
+    *)
+      echo "Usage: $0 [--skip-notion-cli]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 for command in python3 bun opencode; do
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -257,6 +270,11 @@ has_usable_notion_cli() {
   [ -x "$notion_path" ]
 }
 
+notion_cli_available=false
+if [ "$notion_cli_enabled" = true ] && has_usable_notion_cli; then
+  notion_cli_available=true
+fi
+
 advisor_enabled="$(
   OPENCODE_ROUTING_PATH="$OPENCODE_DIR/model-routing.config.local.json" bun -e '
     const fs = require("node:fs")
@@ -266,7 +284,7 @@ advisor_enabled="$(
   '
 )"
 
-if ! has_usable_notion_cli && ! {
+if [ "$notion_cli_available" != true ] && ! {
   [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
@@ -380,7 +398,7 @@ for src in "$REPO_DIR"/opencode/tui/*; do
   copy_item "$src" "$OPENCODE_TUI_DIR/$name" "OpenCode TUI support $name"
 done
 
-if has_usable_notion_cli; then
+if [ "$notion_cli_available" = true ]; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --prepare-refresh
   notion ai plugins add --agent opencode --strict \
@@ -395,7 +413,7 @@ else
   echo "ERROR  Notion OpenCode plugins are missing and the notion CLI is unavailable" >&2
   exit 1
 fi
-if ! has_usable_notion_cli; then
+if [ "$notion_cli_available" != true ]; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
 fi
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
@@ -410,7 +428,7 @@ bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets
 
-if has_usable_notion_cli; then
+if [ "$notion_cli_available" = true ]; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
     "$OPENCODE_DIR" --commit-refresh
 fi

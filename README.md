@@ -8,9 +8,11 @@ Personal OpenCode TUI configuration: global instructions, agents, commands, skil
 git clone git@github.com:Iron-Ham/claude-config.git ~/Developer/claude-config
 cd ~/Developer/claude-config
 ./setup-opencode.sh
+# Or, when cached plugin bundles are already installed:
+./setup-opencode.sh --skip-notion-cli
 ```
 
-The installer requires `python3`, `bun`, and `opencode`. A fresh installation also needs the workspace CLI to install the supported OpenCode plugin bundles; later installs can use validated cached bundles when that CLI is unavailable.
+The installer requires `python3`, `bun`, and `opencode`. A fresh installation also needs the workspace CLI to install the supported OpenCode plugin bundles; later installs can use validated cached bundles when that CLI is unavailable. Pass `--skip-notion-cli` to explicitly avoid calling the workspace CLI; cached plugin bundles must already be installed.
 
 `setup-opencode.sh` manages `${OPENCODE_CONFIG_DIR:-~/.config/opencode}`. It links repository-owned instructions, agents, commands, and skills; copies plugins and TUI support; merges managed JSON defaults; preserves unrelated local configuration; backs up replacements; and rolls back the active configuration if a late validation fails. Restart OpenCode after installation.
 
