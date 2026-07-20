@@ -113,6 +113,7 @@ try {
   writeExecutable("opencode", "#!/bin/sh\nexit 0\n");
   writeExecutable("notion", String.raw`#!/bin/bash
 set -eu
+printf 'called\n' >> "$NOTION_CALL_LOG"
 config="$OPENCODE_CONFIG_DIR"
 mkdir -p "$config/commands/mobile-on-call" "$config/skills/mobile-review-pr" "$config/agents"
 for skill in mobile-ios-tma-module honeycomb tuist-generated-projects; do
@@ -216,6 +217,7 @@ esac
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
       FAIL_LATE_VALIDATION: "true",
+      NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
       MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
       PATH: `${stubBin}:${process.env.PATH}`,
     },
@@ -236,6 +238,7 @@ esac
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
       FAIL_LATE_VALIDATION: "false",
+      NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
       MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
       PATH: `${stubBin}:${process.env.PATH}`,
     },
@@ -321,6 +324,34 @@ esac
   }
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
+  const notionCallsBeforeSkip = fs.readFileSync(
+    path.join(testRoot, "notion-calls.log"),
+    "utf8",
+  );
+  const skipped = Bun.spawnSync(
+    ["bash", path.join(repoRoot, "setup-opencode.sh"), "--skip-notion-cli"],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        HOME: homeDir,
+        OPENCODE_CONFIG_DIR: configDir,
+        OPENCODE_SETUP_TMPDIR: transactionTempDir,
+        FAIL_LATE_VALIDATION: "false",
+        NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
+        MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
+        PATH: `${stubBin}:${process.env.PATH}`,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  assert.equal(skipped.exitCode, 0, skipped.stderr.toString());
+  assert.equal(
+    fs.readFileSync(path.join(testRoot, "notion-calls.log"), "utf8"),
+    notionCallsBeforeSkip,
+  );
+
   const shimFallback = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
     cwd: repoRoot,
     env: {
@@ -329,6 +360,7 @@ esac
       OPENCODE_CONFIG_DIR: configDir,
       OPENCODE_SETUP_TMPDIR: transactionTempDir,
       FAIL_LATE_VALIDATION: "false",
+      NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
       MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
       PATH: `${miseShimBin}:${stubBin}:${process.env.PATH}`,
     },
