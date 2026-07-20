@@ -74,6 +74,9 @@ OPENCODE_COMMANDS_DIR="$OPENCODE_DIR/commands"
 OPENCODE_PLUGINS_DIR="$OPENCODE_DIR/plugins"
 OPENCODE_TUI_DIR="$OPENCODE_DIR/tui"
 OPENCODE_SKILLS_DIR="$OPENCODE_DIR/skills"
+OPENCODE_TOOLS_DIR="$OPENCODE_DIR/tools"
+OPENCODE_CONTEXT_TOOLS_DIR="$OPENCODE_DIR/context-tools"
+OPENCODE_CONTEXT_TOOLS_LIB_DIR="$OPENCODE_DIR/context-tools-lib"
 OPENCODE_BACKUP_DIR="$OPENCODE_DIR/backups/setup-opencode"
 
 tree_exists() {
@@ -305,7 +308,7 @@ bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --check-refresh
 
 preflight_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-preflight.XXXXXX")"
-mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands" "$preflight_dir/tui"
+mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands" "$preflight_dir/tui" "$preflight_dir/tools" "$preflight_dir/context-tools" "$preflight_dir/context-tools-lib"
 for relative_path in \
   opencode.json \
   opencode.jsonc \
@@ -316,10 +319,20 @@ for relative_path in \
     cp "$OPENCODE_DIR/$relative_path" "$preflight_dir/$relative_path"
   fi
 done
+if [ -d "$OPENCODE_DIR/node_modules" ]; then
+  if ! cp -c -R "$OPENCODE_DIR/node_modules" "$preflight_dir/node_modules" 2>/dev/null; then
+    cp -R "$OPENCODE_DIR/node_modules" "$preflight_dir/node_modules"
+  fi
+fi
 cp -R "$REPO_DIR/opencode/agents/." "$preflight_dir/agents/"
 cp -R "$REPO_DIR/opencode/commands/." "$preflight_dir/commands/"
 cp -R "$REPO_DIR/opencode/plugins/." "$preflight_dir/plugins/"
 cp -R "$REPO_DIR/opencode/tui/." "$preflight_dir/tui/"
+cp "$REPO_DIR/opencode/context-tools/glob.ts" "$preflight_dir/tools/glob.ts"
+cp "$REPO_DIR/opencode/context-tools/grep.ts" "$preflight_dir/tools/grep.ts"
+cp "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$preflight_dir/tools/ast_grep.ts"
+cp -R "$REPO_DIR/opencode/context-tools/." "$preflight_dir/context-tools/"
+cp -R "$REPO_DIR/opencode/context-tools-lib/." "$preflight_dir/context-tools-lib/"
 if [ "$advisor_enabled" != "true" ]; then
   rm "$preflight_dir/commands/advise.md"
 fi
@@ -334,7 +347,7 @@ begin_transaction
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --retire-obsolete
 
-mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR"
+mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR" "$OPENCODE_TOOLS_DIR"
 chmod 700 "$OPENCODE_DIR"
 
 link_item "$REPO_DIR/AGENTS.md" "$OPENCODE_DIR/AGENTS.md" "AGENTS.md"
@@ -397,6 +410,12 @@ for src in "$REPO_DIR"/opencode/tui/*; do
   name="$(basename "$src")"
   copy_item "$src" "$OPENCODE_TUI_DIR/$name" "OpenCode TUI support $name"
 done
+
+copy_item "$REPO_DIR/opencode/context-tools" "$OPENCODE_CONTEXT_TOOLS_DIR" "inactive context-efficient tools"
+copy_item "$REPO_DIR/opencode/context-tools-lib" "$OPENCODE_CONTEXT_TOOLS_LIB_DIR" "context-efficient tool runtime"
+copy_item "$REPO_DIR/opencode/context-tools/glob.ts" "$OPENCODE_TOOLS_DIR/glob.ts" "context-efficient glob override"
+copy_item "$REPO_DIR/opencode/context-tools/grep.ts" "$OPENCODE_TOOLS_DIR/grep.ts" "context-efficient grep override"
+copy_item "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$OPENCODE_TOOLS_DIR/ast_grep.ts" "structural ast-grep search tool"
 
 if [ "$notion_cli_available" = true ]; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
