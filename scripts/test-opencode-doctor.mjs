@@ -15,7 +15,10 @@ try {
   fs.mkdirSync(observationDirectory, { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
     share: "disabled",
-    compaction: { auto: true, reserved: 20_000 },
+    model: "fixture/model",
+    provider: { fixture: { models: { model: { limit: { input: 100_000 } } } } },
+    tool_output: { max_lines: 300, max_bytes: 16_384 },
+    compaction: { auto: true, prune: true, tail_turns: 3, preserve_recent_tokens: 12_000, reserved: 20_000 },
     plugin: [
       "./plugins/goal-mode.js",
       "./plugins/goal-workflow-guard.js",
@@ -31,6 +34,16 @@ try {
   assert.equal(healthy.healthy, true);
   assert.equal(healthy.checks.some((item) => item.level === "error"), false);
   assert.doesNotMatch(JSON.stringify(healthy), /doctor-fixture-sensitive-value/);
+  assert.deepEqual(
+    healthy.checks
+      .filter((item) => ["tool output bounds", "compaction retention", "context budget"].includes(item.name))
+      .map((item) => [item.name, item.level, item.detail]),
+    [
+      ["compaction retention", "ok", "prune true, 3 tail turns, 12000 recent tokens"],
+      ["tool output bounds", "ok", "300 lines / 16384 bytes"],
+      ["context budget", "ok", "fixture/model: compaction threshold 80000 input tokens with 20000 reserved"],
+    ],
+  );
   assert.deepEqual(
     healthy.checks
       .filter((item) => [
@@ -51,6 +64,15 @@ try {
   const unhealthy = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
   assert.equal(unhealthy.healthy, false);
   assert.ok(unhealthy.checks.some((item) => item.name === "compaction route" && item.level === "error"));
+
+  fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
+    model: "fixture/model",
+    provider: { fixture: { models: { model: { limit: { input: 10_000 } } } } },
+    compaction: { auto: true, reserved: 20_000 },
+  }));
+  const incoherent = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
+  assert.equal(incoherent.healthy, false);
+  assert.ok(incoherent.checks.some((item) => item.name === "context budget" && item.level === "error"));
   console.log("OK     OpenCode doctor diagnostics");
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

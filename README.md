@@ -111,6 +111,8 @@ The observe-only policy adapter uses the separate `policy_adapter_enabled` kill 
 
 Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed plugin installation, compaction inheritance, private routing configuration, and redacted compaction observation records. Use `--json` for automation or `--config-dir <path>` to inspect a non-default installation.
 
+The doctor also reports compaction retention settings, configured tool-output bounds, and the static compaction threshold for the active model (`input limit - reserved tokens`). These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth; use the explicit `/kimi` and `/advise` briefs when delegating isolated work.
+
 ## Verify Changes
 
 Regenerate and validate generated agents after changing an agent source:

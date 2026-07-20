@@ -26,6 +26,7 @@ These instructions apply to every workspace opened in OpenCode. Read the workspa
 - `/ultra` is the unattended durable-goal workflow. Outside `/ultra`, use no more than two concurrent and four total native subagents unless the developer requests more.
 - Create or resume a durable goal only after an explicit `/goal`, `/ultra`, or direct request to work toward an objective. Close it only with complete, structured evidence or a concrete external blocker.
 - When goal status, limits, or checkpoints matter, call `get_goal`; goal reminders intentionally omit live counters. Complete a goal only with canonical evidence containing a nonempty summary, one passed check with typed evidence for each requested outcome, and no remaining work.
+- When a tool or MCP call returns multiple records, aggregate or filter the result before presenting it to the model. Return only fields needed for the decision, preserve identifiers needed for follow-up, and keep raw output available only when a specific record must be inspected.
 - Advisor access is disabled by default and is never automatic. `/advise` is the only explicit, isolated review path when a developer has enabled it locally; do not forward or reconstruct the parent transcript.
 - Do not infer a reviewer's quality from its role or model. Reconcile every review against source and verification evidence.
 - Use the editing tool the active model receives. Do not shell-emulate an unavailable editing tool.

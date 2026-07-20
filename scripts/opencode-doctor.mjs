@@ -31,6 +31,18 @@ function pluginSpecifier(plugin) {
   return Array.isArray(plugin) ? plugin[0] : plugin;
 }
 
+function configuredModelBudget(config) {
+  const model = config.model;
+  if (typeof model !== "string") return null;
+  const separator = model.indexOf("/");
+  if (separator <= 0 || separator === model.length - 1) return null;
+  const providerID = model.slice(0, separator);
+  const modelID = model.slice(separator + 1);
+  const limit = config.provider?.[providerID]?.models?.[modelID]?.limit;
+  if (!limit || !Number.isInteger(limit.input) || limit.input <= 0) return null;
+  return { model, input: limit.input };
+}
+
 function validCompactionObservation(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const keys = Object.keys(value).sort();
@@ -46,6 +58,18 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
     check(checks, config.share === "disabled" ? "ok" : "error", "sharing", config.share === "disabled" ? "sharing is disabled" : "managed configuration must set share to disabled");
     check(checks, config.compaction?.model == null ? "ok" : "error", "compaction route", config.compaction?.model == null ? "compaction inherits the active session route" : "a separate compaction model is configured");
     check(checks, config.compaction?.auto === true && Number.isInteger(config.compaction?.reserved) && config.compaction.reserved > 0 ? "ok" : "error", "compaction settings", config.compaction?.auto === true ? `automatic compaction retains a ${config.compaction.reserved}-token reserve` : "automatic compaction with a positive reserve is required");
+    const compaction = config.compaction ?? {};
+    const retentionConfigured = (compaction.prune === undefined || typeof compaction.prune === "boolean") && Number.isInteger(compaction.tail_turns) && compaction.tail_turns >= 0 && Number.isInteger(compaction.preserve_recent_tokens) && compaction.preserve_recent_tokens > 0;
+    check(checks, retentionConfigured ? "ok" : "warning", "compaction retention", retentionConfigured ? `prune ${compaction.prune === undefined ? "default" : compaction.prune}, ${compaction.tail_turns} tail turns, ${compaction.preserve_recent_tokens} recent tokens` : "prune, tail turns, or preserved recent tokens are not fully configured");
+    const toolOutput = config.tool_output;
+    check(checks, Number.isInteger(toolOutput?.max_lines) && toolOutput.max_lines > 0 && Number.isInteger(toolOutput?.max_bytes) && toolOutput.max_bytes > 0 ? "ok" : "warning", "tool output bounds", Number.isInteger(toolOutput?.max_lines) && Number.isInteger(toolOutput?.max_bytes) ? `${toolOutput.max_lines} lines / ${toolOutput.max_bytes} bytes` : "tool output bounds are not fully configured");
+    const budget = configuredModelBudget(config);
+    if (!budget) {
+      check(checks, "warning", "context budget", "the configured model has no static operational input limit");
+    } else {
+      const threshold = budget.input - config.compaction.reserved;
+      check(checks, threshold > 0 ? "ok" : "error", "context budget", threshold > 0 ? `${budget.model}: compaction threshold ${threshold} input tokens with ${config.compaction.reserved} reserved` : `${budget.model}: reserve exceeds the ${budget.input}-token input limit`);
+    }
     const plugins = config.plugin ?? [];
     for (const required of ["./plugins/goal-mode.js", "./plugins/goal-workflow-guard.js", "./plugins/compaction-observability.js", "./plugins/delegation-guard.js"]) {
       check(checks, plugins.some((plugin) => pluginSpecifier(plugin) === required) ? "ok" : "error", `plugin ${required}`, plugins.some((plugin) => pluginSpecifier(plugin) === required) ? "configured" : "missing");
