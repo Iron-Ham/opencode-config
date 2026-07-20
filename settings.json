@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "notion-mobile-ios@makenotion-plugins": true,
+    "notion-tuist@makenotion-plugins": true
+  }
+}
