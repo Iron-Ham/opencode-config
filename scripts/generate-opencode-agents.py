@@ -93,7 +93,7 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         '    "~/.aws/**": deny',
         '    "~/.azure/**": deny',
         '    "~/.cargo/**": deny',
-        '    "~/.config/**": deny',
+        '    "~/.config/**": allow',
         '    "~/.docker/**": deny',
         '    "~/.gem/**": deny',
         '    "~/.git-credentials": deny',

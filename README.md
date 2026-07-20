@@ -14,6 +14,8 @@ cd ~/Developer/claude-config
 
 The installer requires `python3`, `bun`, and `opencode`. A fresh installation also needs the workspace CLI to install the supported OpenCode plugin bundles; later installs can use validated cached bundles when that CLI is unavailable. Pass `--skip-notion-cli` to explicitly avoid calling the workspace CLI; cached plugin bundles must already be installed.
 
+Use `ugrep` rather than `grep` for shell content searches. On macOS, install it with `brew install ugrep`.
+
 `setup-opencode.sh` manages `${OPENCODE_CONFIG_DIR:-~/.config/opencode}`. It links repository-owned instructions, agents, commands, and skills; copies plugins and TUI support; merges managed JSON defaults; preserves unrelated local configuration; backs up replacements; and rolls back the active configuration if a late validation fails. Restart OpenCode after installation.
 
 On macOS, install `alerter` for native task notifications:

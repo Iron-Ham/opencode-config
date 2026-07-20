@@ -67,7 +67,7 @@ test ! -d "$(git rev-parse --git-dir)/rebase-apply"
 ORIGINAL_BRANCH=$(git symbolic-ref --short HEAD)
 
 # 5. Detect base branch (if not provided)
-BASE_BRANCH=${provided_base:-$(git branch -r | grep -oE 'origin/(main|master)' | head -1 | sed 's|origin/||')}
+BASE_BRANCH=${provided_base:-$(git branch -r | ugrep -oE 'origin/(main|master)' | head -1 | sed 's|origin/||')}
 # → "Could not detect base branch. Use --base <branch>."
 
 # 6. gh CLI available + authenticated
