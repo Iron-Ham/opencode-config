@@ -40,18 +40,48 @@ export function isBinary(content: Buffer) {
   return content.includes(0);
 }
 
-export async function runRipgrep(args: string[], directory: string) {
-  const process = Bun.spawn(["rg", ...args], {
+export async function runCommandLines(
+  command: string[],
+  directory: string,
+  onLine: (line: string) => boolean,
+) {
+  const process = Bun.spawn(command, {
     cwd: directory,
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [exitCode, stdout, stderr] = await Promise.all([
-    process.exited,
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-  ]);
-  return { exitCode, stdout, stderr: stderr.trim() };
+  const stderrPromise = new Response(process.stderr).text();
+  const reader = process.stdout.getReader();
+  const decoder = new TextDecoder();
+  let remainder = "";
+  let stopped = false;
+  while (!stopped) {
+    const { done, value } = await reader.read();
+    remainder += decoder.decode(value, { stream: !done });
+    let newline = remainder.indexOf("\n");
+    while (newline >= 0) {
+      if (!onLine(remainder.slice(0, newline))) {
+        stopped = true;
+        process.kill();
+        await reader.cancel();
+        break;
+      }
+      remainder = remainder.slice(newline + 1);
+      newline = remainder.indexOf("\n");
+    }
+    if (done) break;
+  }
+  if (!stopped && remainder) onLine(remainder);
+  const [exitCode, stderr] = await Promise.all([process.exited, stderrPromise]);
+  return { exitCode, stderr: stderr.trim(), stopped };
+}
+
+export function runRipgrepLines(
+  args: string[],
+  directory: string,
+  onLine: (line: string) => boolean,
+) {
+  return runCommandLines(["rg", "--no-config", ...args], directory, onLine);
 }
 
 export function ignoreArguments() {

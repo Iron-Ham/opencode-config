@@ -3,6 +3,7 @@ import { tool } from "@opencode-ai/plugin";
 import {
   MAX_RESULTS,
   resolvePath,
+  runCommandLines,
   utf8Prefix,
   visibleRelativePath,
 } from "../context-tools-lib/runtime";
@@ -16,7 +17,8 @@ export default tool({
   },
   async execute(args, context) {
     const searchRoot = resolvePath(args.path, context.directory);
-    const process = Bun.spawn([
+    const matches: string[] = [];
+    const result = await runCommandLines([
       "ast-grep",
       "run",
       "--lang",
@@ -25,35 +27,26 @@ export default tool({
       args.pattern,
       "--json=stream",
       searchRoot,
-    ], { cwd: context.directory, stdout: "pipe", stderr: "pipe" });
-    const [exitCode, stdout, stderr] = await Promise.all([
-      process.exited,
-      new Response(process.stdout).text(),
-      new Response(process.stderr).text(),
-    ]);
-    if (exitCode !== 0 && exitCode !== 1) {
-      return `AST search failed: ${stderr.trim() || "ast-grep exited unsuccessfully"}`;
-    }
-
-    const matches: string[] = [];
-    let total = 0;
-    for (const line of stdout.split("\n")) {
-      if (!line) continue;
+    ], context.directory, (line) => {
+      if (!line) return true;
       let match: { file?: string; range?: { start?: { line?: number; column?: number } }; text?: string };
       try {
         match = JSON.parse(line);
       } catch {
-        continue;
+        return true;
       }
-      if (!match.file || !match.range?.start) continue;
-      total += 1;
-      if (matches.length >= MAX_RESULTS) continue;
+      if (!match.file || !match.range?.start) return true;
+      if (matches.length >= MAX_RESULTS) return false;
       const snippet = (match.text ?? "").replace(/\s+/g, " ").slice(0, 300);
       matches.push(`${visibleRelativePath(path.resolve(match.file), context.directory)}:${(match.range.start.line ?? 0) + 1}:${(match.range.start.column ?? 0) + 1}: ${snippet}`);
+      return true;
+    });
+    if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {
+      return `AST search failed: ${result.stderr || "ast-grep exited unsuccessfully"}`;
     }
     if (matches.length === 0) return "No structural matches found.";
-    const suffix = total > matches.length
-      ? `\n[${total - matches.length} additional matches omitted. Narrow the pattern or path.]`
+    const suffix = result.stopped
+      ? "\n[Additional matches omitted. Narrow the pattern or path.]"
       : "";
     return utf8Prefix(matches.join("\n") + suffix).value;
   },

@@ -9,6 +9,7 @@ import {
   MAX_RESULTS,
   isBinary,
   positiveInteger,
+  runCommandLines,
   resolvePath,
   sortedDirectoryEntries,
   utf8Prefix,
@@ -36,5 +37,17 @@ try {
 } finally {
   fs.rmSync(directory, { recursive: true, force: true });
 }
+
+const received = [];
+const bounded = await runCommandLines(
+  [process.execPath, "-e", "for (let index = 0; index < 1_000; index += 1) console.log(index)"],
+  process.cwd(),
+  (line) => {
+    received.push(line);
+    return received.length < 3;
+  },
+);
+assert.deepEqual(received, ["0", "1", "2"]);
+assert.equal(bounded.stopped, true);
 
 console.log("PASS context-efficient tool runtime helpers");
