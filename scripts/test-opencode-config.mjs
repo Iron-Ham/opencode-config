@@ -143,6 +143,7 @@ try {
   assert.equal(merged.agent.explore.steps, 100);
   assert.equal(merged.agent.compaction.model, undefined);
   assert.equal(merged.lsp, true);
+  assert.deepEqual(merged.tool_output, { max_lines: 300, max_bytes: 16384 });
   assert.equal(merged.permission.create_goal, "deny");
   assert.equal(merged.permission.record_goal_progress, "deny");
   assert.equal(merged.permission.record_goal_failure, "deny");

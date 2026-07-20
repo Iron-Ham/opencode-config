@@ -5,6 +5,10 @@
   "share": "disabled",
   "autoupdate": "notify",
   "lsp": true,
+  "tool_output": {
+    "max_lines": 300,
+    "max_bytes": 16384
+  },
   "disabled_providers": [
     "amazon-bedrock",
     "opencode"
