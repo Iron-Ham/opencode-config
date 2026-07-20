@@ -49,7 +49,7 @@ CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
 
 # 4. Detect base branch (if not provided)
 # Try: main, master — whichever exists on the remote
-BASE_BRANCH=${provided_base:-$(git branch -r | grep -oE 'origin/(main|master)' | head -1 | sed 's|origin/||')}
+BASE_BRANCH=${provided_base:-$(git branch -r | ugrep -oE 'origin/(main|master)' | head -1 | sed 's|origin/||')}
 # If BASE_BRANCH is empty: "Could not detect base branch. Use --base <branch> to specify."
 
 # 5. Guard: current branch must not be the base branch
