@@ -47,6 +47,20 @@ for (const pluginName of [
   }
 }
 
+for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+  if (!fs.existsSync(path.join(configDir, "context-tools", toolName))) {
+    fail(`the managed context-efficient ${toolName} asset is not installed`);
+  }
+}
+for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+  if (!fs.existsSync(path.join(configDir, "tools", toolName))) {
+    fail(`the managed context-efficient ${toolName} override is not installed`);
+  }
+}
+if (!fs.existsSync(path.join(configDir, "context-tools-lib", "runtime.ts"))) {
+  fail("the managed context-efficient tool runtime is not installed");
+}
+
 for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
   if (plugins.some((plugin) =>
     String(pluginSpecifier(plugin)).startsWith("@prevalentware/opencode-goal-plugin")

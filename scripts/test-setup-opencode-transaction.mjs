@@ -309,6 +309,23 @@ esac
     fs.readFileSync(path.join(configDir, "plugins", "user-local.js"), "utf8"),
     "unmanaged plugin\n",
   );
+  for (const [directory, files] of Object.entries({
+    "context-tools": ["glob.ts", "grep.ts", "ast_grep.ts"],
+    "context-tools-lib": ["runtime.ts"],
+  })) {
+    for (const name of files) {
+      assert.equal(
+        fs.readFileSync(path.join(configDir, directory, name), "utf8"),
+        fs.readFileSync(path.join(repoRoot, "opencode", directory, name), "utf8"),
+      );
+    }
+  }
+  for (const name of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+    assert.equal(
+      fs.readFileSync(path.join(configDir, "tools", name), "utf8"),
+      fs.readFileSync(path.join(repoRoot, "opencode", "context-tools", name), "utf8"),
+    );
+  }
   assert.equal(
     fs.readFileSync(path.join(configDir, "commands", "user-local.md"), "utf8"),
     "unmanaged user command\n",

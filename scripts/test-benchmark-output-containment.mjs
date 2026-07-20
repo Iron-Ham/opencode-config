@@ -184,6 +184,30 @@ try {
     /Missing --fixture-dir or manifest fixture_dir/,
   );
 
+  const contextToolsOutput = path.join(
+    repositoryRoot,
+    ".raw-context-tools-output-test",
+    "results",
+  );
+  assertRunnerRejectsRepositoryOutput(
+    "benchmark-opencode-context-tools.mjs",
+    [
+      "--task-file",
+      path.join(externalRoot, "missing-task.md"),
+      "--workdir",
+      externalRoot,
+      "--output-dir",
+      contextToolsOutput,
+      "--model",
+      "openai/gpt-5.6-terra",
+      "--tool-node-modules",
+      externalRoot,
+      "--validation-command",
+      "true",
+    ],
+    contextToolsOutput,
+  );
+
   console.log("PASS raw benchmark output root containment");
 } finally {
   fs.rmSync(externalRoot, { recursive: true, force: true });
