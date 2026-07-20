@@ -230,6 +230,23 @@ try {
     false,
   );
 
+  fs.writeFileSync(
+    reviewSkillPath,
+    "2. **Reference (if Figma URL)** — before any `mcp__plugin_figma_figma__*` call:\n   1. Verify the Figma MCP is installed: `claude mcp list 2>/dev/null | grep -i figma`. If no match, install it: `claude mcp add figma-mcp --transport sse https://mcp.figma.com/sse`. Tell the user the MCP was just installed and that they may need to restart the Claude Code session for the tools to register; if so, pause and ask them to restart before proceeding.\n   2. Load the `figma:figma-use` skill — it is a MANDATORY prerequisite for every `use_figma` call.\n   3. Call `get_design_context` and `get_variable_defs` on the target node to extract spec values.\nusing the connected Figma MCP, pull `get_design_context` + `get_variable_defs`\nusing the connected Figma MCP, also pull `get_design_context` + `get_variable_defs`\n- **Figma MCP** when using a Figma URL. If not installed, the workflow's first step installs it via `opencode mcp add figma-mcp --url https://mcp.figma.com/sse`. Authenticate with `opencode mcp auth figma-mcp` if the server requires it.\n",
+  );
+  fs.writeFileSync(
+    path.join(configDir, "commands", "mobile-on-call", "init.md"),
+    "notion-dev_\nopencode mcp auth notion-dev\nOffer to authenticate it by running:\nThe read/write Notion MCP is installed at the user level; this authorizes the current OpenCode profile.\nAfter authenticating, re-run the check\n",
+  );
+  fs.writeFileSync(
+    path.join(configDir, "commands", "mobile-on-call", "triage.md"),
+    "notion-dev_\n",
+  );
+  run();
+  const normalizedReviewSkill = fs.readFileSync(reviewSkillPath, "utf8");
+  assert.match(normalizedReviewSkill, /`opencode mcp list 2>\/dev\/null \| rg -i figma`/);
+  assert.doesNotMatch(normalizedReviewSkill, /claude mcp list/);
+
   console.log("OK     OpenCode Notion asset refresh transaction");
 } finally {
   fs.rmSync(configDir, { recursive: true, force: true });
