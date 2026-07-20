@@ -62,6 +62,7 @@ Enable Code Mode, native Auto mode, and local LSP navigation through a shell dis
 export OPENCODE_EXPERIMENTAL_CODE_MODE=true
 export OPENCODE_EXPERIMENTAL_LSP_TOOL=true
 export OPENCODE_DISABLE_LSP_DOWNLOAD=true
+export OPENCODE_ENABLE_EXA=1
 _run_notion_local_or_command() {
 	local tool="$1"
 	shift
