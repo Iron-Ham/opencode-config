@@ -5,7 +5,7 @@ import {
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
-  runRipgrep,
+  runRipgrepLines,
   utf8Prefix,
   visibleRelativePath,
 } from "../context-tools-lib/runtime";
@@ -26,25 +26,28 @@ export default tool({
       return `Path does not exist: ${searchRoot}`;
     }
 
-    const result = await runRipgrep([
+    const files: string[] = [];
+    const result = await runRipgrepLines([
       "--files",
       "--sortr",
       "modified",
-      ...ignoreArguments(),
       "--glob",
       args.pattern,
+      ...ignoreArguments(),
       ".",
-    ], searchRoot);
-    if (result.exitCode !== 0 && result.exitCode !== 1) {
+    ], searchRoot, (line) => {
+      if (!line) return true;
+      if (files.length >= MAX_RESULTS) return false;
+      files.push(path.resolve(searchRoot, line));
+      return true;
+    });
+    if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {
       return `Glob failed: ${result.stderr || "ripgrep exited unsuccessfully"}`;
     }
 
-    const files = result.stdout.split("\n").filter(Boolean)
-      .map((filePath) => path.resolve(searchRoot, filePath));
-    const limited = files.slice(0, MAX_RESULTS)
-      .map((filePath) => visibleRelativePath(filePath, context.directory));
-    const suffix = files.length > limited.length
-      ? `\n[${files.length - limited.length} additional matches omitted. Narrow the pattern or path.]`
+    const limited = files.map((filePath) => visibleRelativePath(filePath, context.directory));
+    const suffix = result.stopped
+      ? "\n[Additional matches omitted. Narrow the pattern or path.]"
       : "";
     const output = utf8Prefix(limited.join("\n") + suffix);
     return output.value || "No files found.";

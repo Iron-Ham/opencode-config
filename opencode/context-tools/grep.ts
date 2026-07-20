@@ -5,7 +5,7 @@ import {
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
-  runRipgrep,
+  runRipgrepLines,
   utf8Prefix,
   visibleRelativePath,
 } from "../context-tools-lib/runtime";
@@ -27,45 +27,43 @@ export default tool({
     }
     const searchDirectory = stat.isDirectory() ? searchRoot : path.dirname(searchRoot);
     const target = stat.isDirectory() ? "." : path.basename(searchRoot);
-    const result = await runRipgrep([
+    const matches: string[] = [];
+    const result = await runRipgrepLines([
       "--json",
       "--line-number",
       "--column",
       "--color",
       "never",
-      ...ignoreArguments(),
       ...(args.include ? ["--glob", args.include] : []),
+      ...ignoreArguments(),
       "--",
       args.pattern,
       target,
-    ], searchDirectory);
-    if (result.exitCode !== 0 && result.exitCode !== 1) {
-      return `Search failed: ${result.stderr || "ripgrep exited unsuccessfully"}`;
-    }
-
-    const matches: string[] = [];
-    let total = 0;
-    for (const line of result.stdout.split("\n")) {
-      if (!line) continue;
-      let event: { type?: string; data?: { path?: { text?: string }; line_number?: number; absolute_offset?: number; lines?: { text?: string }; submatches?: Array<{ start?: number }> } };
+    ], searchDirectory, (line) => {
+      if (!line) return true;
+      let event: { type?: string; data?: { path?: { text?: string }; line_number?: number; lines?: { text?: string }; submatches?: Array<{ start?: number }> } };
       try {
         event = JSON.parse(line);
       } catch {
-        continue;
+        return true;
       }
-      if (event.type !== "match") continue;
-      total += 1;
-      if (matches.length >= MAX_RESULTS) continue;
+      if (event.type !== "match") return true;
+      if (matches.length >= MAX_RESULTS) return false;
       const data = event.data;
       const filePath = data?.path?.text;
-      if (!filePath || !data?.line_number) continue;
+      if (!filePath || !data?.line_number) return true;
       const column = (data.submatches?.[0]?.start ?? 0) + 1;
       const text = data.lines?.text?.replace(/\r?\n$/, "") ?? "";
       matches.push(`${visibleRelativePath(path.resolve(searchDirectory, filePath), context.directory)}:${data.line_number}:${column}: ${text}`);
+      return true;
+    });
+    if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {
+      return `Search failed: ${result.stderr || "ripgrep exited unsuccessfully"}`;
     }
+
     if (matches.length === 0) return "No matches found.";
-    const suffix = total > matches.length
-      ? `\n[${total - matches.length} additional matches omitted. Narrow the pattern or path.]`
+    const suffix = result.stopped
+      ? "\n[Additional matches omitted. Narrow the pattern or path.]"
       : "";
     return utf8Prefix(matches.join("\n") + suffix).value;
   },
