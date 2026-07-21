@@ -34,6 +34,7 @@ try {
         ".env": "allow",
         "*": "allow",
       },
+      text_read: "deny",
       task: { "machine-local-agent": "allow" },
       skill: { "machine-local-skill": "deny" },
       external_directory: { "*": "ask" },
@@ -121,6 +122,7 @@ try {
   assert.equal(merged.permission.bash["rm -rf *"], "deny");
   assert.equal(merged.permission.bash["custom-tool *"], "ask");
   assert.equal(merged.permission.read[".env"], "deny");
+  assert.equal(merged.permission.text_read["*"], "deny");
   assert.deepEqual(merged.permission.task, { "machine-local-agent": "allow" });
   assert.deepEqual(merged.permission.skill, { "machine-local-skill": "deny" });
   assert.equal(merged.agent.plan.permission.task["*"], "deny");

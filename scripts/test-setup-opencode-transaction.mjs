@@ -81,6 +81,7 @@ try {
     path.join(configDir, "commands", "user-local.md"),
     "unmanaged user command\n",
   );
+  writeFile(path.join(configDir, "tools", "read.ts"), "user read override\n");
   writeFile(
     path.join(configDir, "agents", "accessibility_auditor.md"),
     "pre-run agent override\n",
@@ -310,8 +311,8 @@ esac
     "unmanaged plugin\n",
   );
   for (const [directory, files] of Object.entries({
-    "context-tools": ["glob.ts", "grep.ts", "ast_grep.ts"],
-    "context-tools-lib": ["runtime.ts"],
+    "context-tools": ["glob.ts", "grep.ts", "ast_grep.ts", "text_read.ts"],
+    "context-tools-lib": ["runtime.ts", "text-read.ts"],
   })) {
     for (const name of files) {
       assert.equal(
@@ -320,12 +321,16 @@ esac
       );
     }
   }
-  for (const name of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+  for (const name of ["glob.ts", "grep.ts", "ast_grep.ts", "text_read.ts"]) {
     assert.equal(
       fs.readFileSync(path.join(configDir, "tools", name), "utf8"),
       fs.readFileSync(path.join(repoRoot, "opencode", "context-tools", name), "utf8"),
     );
   }
+  assert.equal(
+    fs.readFileSync(path.join(configDir, "tools", "read.ts"), "utf8"),
+    "user read override\n",
+  );
   assert.equal(
     fs.readFileSync(path.join(configDir, "commands", "user-local.md"), "utf8"),
     "unmanaged user command\n",
