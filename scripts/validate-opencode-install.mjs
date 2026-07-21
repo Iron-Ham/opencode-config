@@ -36,14 +36,34 @@ if (
 }
 
 for (const pluginName of [
-  "goal-mode.js",
-  "goal-mode-tui.tsx",
   "compaction-observability.js",
   "delegation-guard.js",
-  "goal-workflow-guard.js",
 ]) {
   if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
-    fail(`the managed Goal ${pluginName} plugin asset is not installed`);
+    fail(`the managed ${pluginName} plugin asset is not installed`);
+  }
+}
+for (const asset of [
+  path.join("agents", "advisor_reviewer.md"),
+  path.join("agents", "glm_worker.md"),
+  path.join("agents", "kimi_reader.md"),
+  path.join("agents", "ultra.md"),
+  path.join("commands", "advise.md"),
+  path.join("commands", "glm.md"),
+  path.join("commands", "glm-fireworks.md"),
+  path.join("commands", "glm-fireworks-fast.md"),
+  path.join("commands", "goal.md"),
+  path.join("commands", "kimi.md"),
+  path.join("commands", "kimi-fireworks.md"),
+  path.join("commands", "kimi-fireworks-fast.md"),
+  path.join("commands", "ultra.md"),
+  path.join("plugins", "goal-mode.js"),
+  path.join("plugins", "goal-mode.LICENSE"),
+  path.join("plugins", "goal-mode-tui.tsx"),
+  path.join("plugins", "goal-workflow-guard.js"),
+]) {
+  if (fs.existsSync(path.join(configDir, asset))) {
+    fail(`the retired ${asset} asset remains installed`);
   }
 }
 
@@ -64,15 +84,22 @@ for (const runtimeFile of ["runtime.ts", "text-read.ts"]) {
 }
 
 for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
+  for (const pluginPath of [
+    "./plugins/goal-mode.js",
+    "./plugins/goal-mode-tui.tsx",
+    "./plugins/goal-workflow-guard.js",
+  ]) {
+    if (plugins.some((plugin) => pluginSpecifier(plugin) === pluginPath)) {
+      fail(`the retired ${pluginPath} plugin remains configured`);
+    }
+  }
   if (plugins.some((plugin) =>
     String(pluginSpecifier(plugin)).startsWith("@prevalentware/opencode-goal-plugin")
   )) {
-    fail("the external Goal plugin remains configured");
+    fail("the retired external Goal plugin remains configured");
   }
 }
 for (const pluginPath of [
-  "./plugins/goal-mode.js",
-  "./plugins/goal-workflow-guard.js",
   "./plugins/compaction-observability.js",
   "./plugins/delegation-guard.js",
 ]) {
@@ -80,15 +107,62 @@ for (const pluginPath of [
     fail(`the auto-discovered plugin ${pluginPath} must not also be configured explicitly`);
   }
 }
-if (!(tui.plugin ?? []).includes("./plugins/goal-mode-tui.tsx")) {
-  fail("the vendored Goal TUI is not configured");
+for (const agent of ["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"]) {
+  if (config.agent?.[agent] !== undefined) {
+    fail(`retired ${agent} agent configuration remains active`);
+  }
 }
-const goalModeSource = fs.readFileSync(
-  path.join(repoRoot, "opencode", "plugins", "goal-mode.js"),
-  "utf8",
-);
-if (goalModeSource.includes('from "zod"')) {
-  fail("the vendored Goal server must not require zod at runtime");
+for (const command of [
+  "advise",
+  "glm",
+  "glm-fireworks",
+  "glm-fireworks-fast",
+  "goal",
+  "kimi",
+  "kimi-fireworks",
+  "kimi-fireworks-fast",
+  "ultra",
+]) {
+  if (config.command?.[command] !== undefined) {
+    fail(`retired /${command} command configuration remains active`);
+  }
+}
+if (config.provider?.["fireworks-ai"] !== undefined) {
+  fail("the retired Fireworks experiment provider remains configured");
+}
+if (
+  config.provider?.baseten?.models?.["zai-org/GLM-5.2"] !== undefined ||
+  config.provider?.baseten?.whitelist?.some((model) =>
+    ["moonshotai/Kimi-K2.7-Code", "zai-org/GLM-5.2"].includes(model)
+  )
+) {
+  fail("retired Kimi or GLM Baseten configuration remains active");
+}
+if (
+  packageConfig.dependencies?.["@prevalentware/opencode-goal-plugin"] !== undefined ||
+  packageConfig.devDependencies?.["@prevalentware/opencode-goal-plugin"] !== undefined
+) {
+  fail("the retired external Goal package remains installed");
+}
+const retiredGoalTools = [
+  "get_goal",
+  "get_goal_history",
+  "create_goal",
+  "set_goal",
+  "update_goal_objective",
+  "update_goal",
+  "update_goal_status",
+  "clear_goal",
+  "record_goal_progress",
+  "record_goal_failure",
+];
+for (const [name, permission] of [
+  ["global", config.permission],
+  ...Object.entries(config.agent ?? {}).map(([agent, value]) => [agent, value?.permission]),
+]) {
+  if (retiredGoalTools.some((tool) => Object.hasOwn(permission ?? {}, tool))) {
+    fail(`retired Goal tool permissions remain configured for ${name}`);
+  }
 }
 
 for (const sourceAgent of fs.readdirSync(path.join(repoRoot, "opencode", "agents"))) {

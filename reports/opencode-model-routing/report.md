@@ -11,7 +11,6 @@ This is a pilot recommendation under a candidate-spend policy, not evidence that
 | Role | Proposed pilot route or measured recommendation | Evidence status | Reason |
 |---|---|---|---|
 | Build controller | Terra xhigh | **Prospectively specified conservative policy** | Sol missed the locked cost-per-valid threshold; xhigh is an interim baseline, not a demonstrated optimal Terra effort |
-| Ultra | Inherit the Build route | **Policy transfer; unmeasured** | Orchestration has no separate model-quality evidence, so it should not imply a premium route |
 | Bounded cost-sensitive work | Luna high by explicit selection | **Policy from directional evidence** | Frontend xhigh improved Redrive to Carry with repair, but the benefit did not transfer to IaC; use only where checks make failure inexpensive |
 | Premium implementation | Sol high by explicit selection | **Within-experiment challenger** | More valid and 85-point results, higher valid-artifact quality, and effectively equal model-session time in the matched repeated cohort; explicit because the cost gate failed |
 | Planning | Terra xhigh, provisionally | **Historical aggregate; refresh pending** | Only historical finalist to finish 4/4 retained iOS plans without a fatal safety cap; nine current-protocol follow-ups are queued |
@@ -20,7 +19,7 @@ This is a pilot recommendation under a candidate-spend policy, not evidence that
 | Compaction | Active session model | **Policy transfer; unmeasured** | Avoids a separate transcript-egress route; no separate compactor has retained evidence |
 | Project-copy naming utility | Luna low, measured recommendation | **Within-experiment; not an installed default** | Zero defects across 16 outputs, an aggregate panel decision of Ship, and the best value rank |
 | Session-title utility | Kimi K2.7 Code · Baseten, measured recommendation | **Within-experiment; not an installed default** | Production-ready quality, best value and speed, and roughly one quarter of Luna low's median latency |
-| Open-weight routes | Provider-pinned Kimi/GLM commands; selectable DeepSeek Baseten route | **Within-experiment for Baseten; Fireworks unmeasured** | Baseten results are workload-specific and do not justify automatic coding or role routing; Fireworks still lacks matched outcomes |
+| Open-weight routes | Selectable DeepSeek Baseten route | **Within-experiment for Baseten; Fireworks unmeasured** | Baseten results are workload-specific and do not justify automatic coding or role routing; Fireworks still lacks matched outcomes |
 
 ### How to read the labels
 
@@ -229,11 +228,10 @@ Luna low also produced excellent session titles at 97.18 combined quality, but K
 ## Proposed pilot safeguards
 
 - Preserve explicit developer overrides and repository-policy precedence.
-- Keep Build, Plan, and Ultra evidence separate: Build has the repeated switch gate; Plan has historical iOS-only evidence with a refresh pending; Ultra inherits the Build route as an unmeasured policy simplification.
+- Keep Build and Plan evidence separate: Build has the repeated switch gate, while Plan has historical iOS-only evidence with a refresh pending.
 - Keep automatic transcript-fed advice off. Any independent review should be developer-invoked, isolated, read-only, locally disableable, and reconciled against source and test evidence.
 - Let compaction inherit the active session route unless retention evidence justifies a separate, privacy-reviewed compactor.
 - Keep open-weight comparisons provider-pinned and outside automatic routing until the complete route—model, provider, serving path, and reasoning setting—has repeated outcomes.
-- Do not impose short step limits on unattended production controllers, but retain provider-failure and no-progress loop guards plus machine-readable completion evidence.
 
 ## Limits and next decisions
 

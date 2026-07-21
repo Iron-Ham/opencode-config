@@ -589,12 +589,6 @@ function benchmarkConfig(cwd) {
       advisor: "deny",
       task: "deny",
       todowrite: "deny",
-      create_goal: "deny",
-      set_goal: "deny",
-      update_goal_objective: "deny",
-      update_goal: "deny",
-      update_goal_status: "deny",
-      clear_goal: "deny",
     },
   });
 }
@@ -901,7 +895,7 @@ async function runImplementation({
   const turns = [];
   const testAttempts = [];
   let session;
-  let prompt = `${spec.task_prompt.trim()}\n\nRead the public instructions and contract before editing. Work only in ${spec.source_path}, preserve the public API, and use Swift 6-safe concurrency. Do not add dependencies or weaken tests. The benchmark harness—not your shell—will run the public Swift Package tests after each turn and return failures for revision. Do not call an advisor, create a Goal, or delegate.\n\nInspect and edit the implementation, then report that it is ready for the fixed test harness.`;
+  let prompt = `${spec.task_prompt.trim()}\n\nRead the public instructions and contract before editing. Work only in ${spec.source_path}, preserve the public API, and use Swift 6-safe concurrency. Do not add dependencies or weaken tests. The benchmark harness—not your shell—will run the public Swift Package tests after each turn and return failures for revision. Do not call an advisor or delegate.\n\nInspect and edit the implementation, then report that it is ready for the fixed test harness.`;
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const turn = await runOpenCodeTurn({
@@ -1184,7 +1178,7 @@ async function runReviewRevision({
   configHome,
   authState,
 }) {
-  const prompt = `An independent advisor reviewed the frozen direct implementation and returned the guidance below. Reconcile it against the public contract and source; do not accept it blindly. Make one revision in ${spec.source_path} if a material correction is justified. Work only in that file. Do not call an advisor, delegate, create a Goal, or claim to have run tests. Report the resulting decision and implementation.\n\n[advisor review]\n${advice}`;
+  const prompt = `An independent advisor reviewed the frozen direct implementation and returned the guidance below. Reconcile it against the public contract and source; do not accept it blindly. Make one revision in ${spec.source_path} if a material correction is justified. Work only in that file. Do not call an advisor, delegate, or claim to have run tests. Report the resulting decision and implementation.\n\n[advisor review]\n${advice}`;
   const turn = await runOpenCodeTurn({
     cwd,
     ...candidate,

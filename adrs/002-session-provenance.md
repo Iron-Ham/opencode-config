@@ -15,9 +15,6 @@ injection, or live provenance surface is included in this change.
 
 Current managed interfaces provide separate, incomplete views:
 
-- Goal state persists `lastPromptAgent`, goal lifecycle metadata, and aggregate
-  timing. It has no per-turn agent, provider, model, effort, route, or policy
-  snapshot.
 - The observe-only resolver exposes the current effective route, policy
   version, and availability of reasoning-effort metadata. It is not associated
   with a session or individual message.
@@ -26,23 +23,16 @@ Current managed interfaces provide separate, incomplete views:
 - The total-cost TUI can traverse session `id` and `parentID`, but its declared
   session shape contains only identity and cost.
 
-For example, a synthetic session whose goal state says `lastPromptAgent` is
-`build` and whose current route is `openai/gpt-5.6-terra` cannot establish
-whether an earlier assistant turn was produced by Build, Plan, Advise, or a
-delegated child. It also cannot establish the effective route at that earlier
-turn. This ambiguity is material for on-demand review but does not justify
-changing model-visible history.
+For example, a synthetic session whose current route is
+`openai/gpt-5.6-terra` cannot establish whether an earlier assistant turn was
+produced by Build, Plan, or a delegated child. It also cannot establish the
+effective route at that earlier turn. This ambiguity is material for on-demand
+review but does not justify changing model-visible history.
 
 ### Existing Surfaces
 
 - Normal Build: the declared default is `openai/gpt-5.6-terra`; no fixed
   reasoning variant is declared.
-- Ultra: it is an explicit durable workflow and inherits the invoking primary
-  route; current goal metadata can record its last prompt agent but not a
-  per-turn route snapshot.
-- Advise: it is an explicit, isolated read-only command and remains disabled
-  unless a local opt-in enables it; its command does not create an attribution
-  ledger.
 - Delegated child: parent/child linkage is observable while delegation state is
   live, but no persisted child turn metadata is available through the managed
   guard.

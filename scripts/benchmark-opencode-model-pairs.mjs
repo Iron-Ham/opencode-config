@@ -1537,7 +1537,7 @@ async function runDraft({
   const assignment = planningOnly
     ? "Produce an implementation plan for an independent executor. Do not implement the task or provide a full patch. Make the plan concrete enough that the executor does not need to invent missing correctness mechanisms, sequencing, verification, or stop conditions."
     : "Complete the requested read-only source analysis.";
-  const prompt = `Controlled iOS controller benchmark. Read every applicable AGENTS.md first. Copied benchmark skills are available only inside this artifact; do not access ~ or any path outside the workdir. Do not edit or write files, install anything, run builds or tests, create or update a Goal, call an advisor, or delegate to a subagent. Work independently.\n\n${assignment}\n\n${task}\n\nReturn a source-grounded draft under 1,200 words in the requested structure. Cite path:line evidence and distinguish verified facts from inference.`;
+  const prompt = `Controlled iOS controller benchmark. Read every applicable AGENTS.md first. Copied benchmark skills are available only inside this artifact; do not access ~ or any path outside the workdir. Do not edit or write files, install anything, run builds or tests, call an advisor, or delegate to a subagent. Work independently.\n\n${assignment}\n\n${task}\n\nReturn a source-grounded draft under 1,200 words in the requested structure. Cite path:line evidence and distinguish verified facts from inference.`;
   const draft = await runOpenCode({
     cwd,
     ...implementer,
@@ -1797,7 +1797,7 @@ async function runTrial({
     const reviewFocus = planningOnly
       ? "source grounding, dependency ordering, implementation completeness, trust boundaries, verification, stop conditions, and calibrated uncertainty"
       : "correctness, causal completeness, repair safety, test design, and calibrated uncertainty";
-    const finalPrompt = `Take one independent self-review pass over the draft. Re-check it against the repository evidence and the original task, then revise only where doing so materially improves ${reviewFocus}. Do not edit files, run builds/tests, create a Goal, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.`;
+    const finalPrompt = `Take one independent self-review pass over the draft. Re-check it against the repository evidence and the original task, then revise only where doing so materially improves ${reviewFocus}. Do not edit files, run builds/tests, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.`;
     const final = await runOpenCode({
       cwd,
       ...combination.implementer,
@@ -1887,7 +1887,7 @@ async function runTrial({
   const reconciliation = planningOnly
     ? "Reconcile it against the source evidence and original planning constraints; preserve dependency ordering, concrete correctness mechanisms, verification, and hard stops, and do not accept the advice blindly."
     : "Reconcile it against the evidence; do not accept it blindly.";
-  const finalPrompt = `The single permitted advisor tool returned the result below. ${reconciliation} Do not edit files, run builds/tests, create a Goal, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.\n\n[tool: advisor] -> ${advice.text}`;
+  const finalPrompt = `The single permitted advisor tool returned the result below. ${reconciliation} Do not edit files, run builds/tests, call an advisor, or delegate. Return the final answer under 1,200 words in the original task's requested structure, with precise path:line citations and explicit uncertainty.\n\n[tool: advisor] -> ${advice.text}`;
   const final = await runOpenCode({
     cwd,
     ...combination.implementer,
@@ -2152,7 +2152,7 @@ async function main() {
       "Only completed, policy-compliant controller or revised-final artifacts are eligible for routing decisions. Failed, timed-out, incomplete, and policy-violating artifacts may be graded only for diagnosis.",
     advisor_mechanism: args.draft_only
       ? undefined
-      : "This benchmark models transcript-fed, tool-less automatic review. It does not measure the shipped isolated /advise command.",
+      : "This benchmark models transcript-fed, tool-less automatic review.",
     state_storage: {
       database: "Private XDG data directory under output-dir (directories 0700; files 0600).",
       authentication:

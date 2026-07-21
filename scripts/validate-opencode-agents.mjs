@@ -127,23 +127,6 @@ function finalPermission(agent, permission, pattern = "*") {
   return action;
 }
 
-function normalizedPermissions(agent, ignoredPermissions = new Set()) {
-  const finalRules = new Map();
-  for (const rule of agent.permission ?? []) {
-    if (ignoredPermissions.has(rule.permission)) continue;
-    const pattern = rule.pattern ?? "*";
-    finalRules.set(`${rule.permission}\0${pattern}`, {
-      permission: rule.permission,
-      pattern,
-      action: rule.action,
-    });
-  }
-  return [...finalRules.values()].sort((left, right) =>
-    left.permission.localeCompare(right.permission) ||
-    left.pattern.localeCompare(right.pattern)
-  );
-}
-
 const config = JSON.parse(
   fs.readFileSync(path.join(configDir, "opencode.json"), "utf8"),
 );
@@ -156,7 +139,7 @@ const managedDefaults = JSON.parse(
 const modelRoutingPath = path.join(configDir, "model-routing.config.local.json");
 const modelRouting = fs.existsSync(modelRoutingPath)
   ? JSON.parse(fs.readFileSync(modelRoutingPath, "utf8"))
-  : { policy_adapter_enabled: true, advisor_enabled: false, agents: {}, steps: {} };
+  : { policy_adapter_enabled: true, agents: {}, steps: {} };
 let policyValidation;
 try {
   policyValidation = inspectPolicyInstallation({ repoRoot, configDir });
@@ -164,13 +147,17 @@ try {
   fail(error instanceof Error ? error.message : "policy manifest validation failed");
 }
 const retiredManagedAgentNames = new Set([
+  "advisor_reviewer",
   "backend_architect",
   "evidence_collector",
   "frontend_developer",
   "git_workflow_master",
+  "glm_worker",
+  "kimi_reader",
   "periphery-fixer",
   "sol_reviewer",
   "technical_writer",
+  "ultra",
 ]);
 for (const name of retiredManagedAgentNames) {
   if (config.agent?.[name] !== undefined) {
@@ -194,7 +181,6 @@ const agentNames = [...new Set([
   "general",
   "explore",
   "compaction",
-  "ultra",
   ...managedAgentNames,
 ])].filter((name) => !disabledAgentNames.has(name)).sort();
 const agents = Object.fromEntries(await Promise.all(
@@ -211,7 +197,6 @@ const inheritedModelAgents = [
   "general",
   "security_engineer",
   "software_architect",
-  "ultra",
 ];
 const inheritedModelAgentNames = new Set(inheritedModelAgents);
 const managedBuildTaskTargets = [
@@ -224,43 +209,16 @@ const managedBuildTaskTargets = [
   "security_engineer",
   "software_architect",
 ];
-const ultraDeniedTaskTargets = ["advisor_reviewer", "glm_worker", "kimi_reader"];
 const expectedManagedBuildTask = Object.fromEntries([
   ["*", "deny"],
   ...managedBuildTaskTargets.map((target) => [target, "allow"]),
 ]);
-const expectedManagedUltraTask = Object.fromEntries([
-  ["*", "allow"],
-  ...ultraDeniedTaskTargets.map((target) => [target, "deny"]),
-  ...managedBuildTaskTargets.map((target) => [target, "allow"]),
-]);
-
-const {
-  question: managedUltraQuestion,
-  plan_enter: managedUltraPlanEnter,
-  task: managedUltraTask,
-  ...managedUltraSharedPermissions
-} = managedDefaults.agent.ultra.permission;
 const {
   task: managedBuildTask,
-  ...managedBuildSharedPermissions
 } = managedDefaults.agent.build.permission;
-if (managedUltraQuestion !== "deny" || managedUltraPlanEnter !== "deny") {
-  fail("the managed Ultra profile must explicitly deny questions and Plan entry");
-}
-if (!isDeepStrictEqual(
-  managedUltraSharedPermissions,
-  managedBuildSharedPermissions,
-)) {
-  fail("the managed Ultra permissions must match Build except for unattended-mode denials and Task delegation");
-}
 if (!isDeepStrictEqual(managedBuildTask, expectedManagedBuildTask)) {
   fail("the managed Build Task permissions must remain an exact reviewed-agent allowlist");
 }
-if (!isDeepStrictEqual(managedUltraTask, expectedManagedUltraTask)) {
-  fail("the managed Ultra Task permissions must allow local agents while denying advisor and command-only experiment targets");
-}
-
 if (config.agent?.compaction?.model === "anthropic/claude-sonnet-5") {
   fail("the retired fixed Sonnet compaction override is still configured");
 }
@@ -348,142 +306,46 @@ for (const protectedPath of [
   }
 }
 
-const goalControllers = new Set(["build", "ultra"]);
-const goalMutationTools = [
+const retiredGoalTools = [
+  "get_goal",
+  "get_goal_history",
   "create_goal",
   "set_goal",
   "update_goal_objective",
   "update_goal",
   "update_goal_status",
   "clear_goal",
+  "record_goal_progress",
+  "record_goal_failure",
 ];
-for (const [name, agent] of Object.entries(agents)) {
-  const expected = goalControllers.has(name) ? "allow" : "deny";
-  for (const permission of goalMutationTools) {
-    if (finalPermission(agent, permission) !== expected) {
-      fail(`${name} must ${expected} ${permission}`);
+for (const permission of retiredGoalTools) {
+  if (Object.hasOwn(managedDefaults.permission ?? {}, permission)) {
+    fail(`managed defaults retain the retired ${permission} permission`);
+  }
+  for (const [name, agent] of Object.entries(managedDefaults.agent ?? {})) {
+    if (Object.hasOwn(agent.permission ?? {}, permission)) {
+      fail(`managed ${name} retains the retired ${permission} permission`);
     }
   }
 }
-for (const name of goalControllers) {
-  for (const permission of ["get_goal", "get_goal_history"]) {
-    if (finalPermission(agents[name], permission) !== "allow") {
-      fail(`${name} must allow ${permission}`);
-    }
+for (const command of [
+  "advise",
+  "glm",
+  "glm-fireworks",
+  "glm-fireworks-fast",
+  "goal",
+  "kimi",
+  "kimi-fireworks",
+  "kimi-fireworks-fast",
+  "ultra",
+]) {
+  if (resolvedConfig.command?.[command] !== undefined) {
+    fail(`retired /${command} command remains resolved`);
   }
 }
-
-const reviewedTaskTargets = new Set(managedBuildTaskTargets.filter((target) => target !== "general"));
-for (const name of goalControllers) {
-  const controller = agents[name];
-  const expectedDefaultTaskPermission = name === "ultra" ? "allow" : "deny";
-  if (finalPermission(controller, "task", "*") !== expectedDefaultTaskPermission) {
-    fail(`${name} must ${expectedDefaultTaskPermission} Task targets by default`);
-  }
-  for (const target of reviewedTaskTargets) {
-    const expected = "allow";
-    if (finalPermission(controller, "task", target) !== expected) {
-      fail(`${name} must ${expected} reviewed Task target ${target}`);
-    }
-  }
-  const expectedGeneral = new Set(["build", "ultra"]).has(name) ? "allow" : "deny";
-  if (finalPermission(controller, "task", "general") !== expectedGeneral) {
-    fail(`${name} must ${expectedGeneral} writable general delegation`);
-  }
-  for (const target of ultraDeniedTaskTargets) {
-    if (finalPermission(controller, "task", target) !== "deny") {
-      fail(`${name} must deny Task delegation to ${target}`);
-    }
-  }
-}
-
-const ultra = agents.ultra;
-if (ultra.mode !== "primary" || ultra.hidden !== false) {
-  fail("ultra must remain a visible primary used by /ultra");
-}
-for (const permission of ["question", "plan_enter"]) {
-  if (finalPermission(ultra, permission) !== "deny") {
-    fail(`ultra must deny ${permission} for unattended execution`);
-  }
-}
-if (ultra.tools?.question === true) {
-  fail("ultra must not expose the interactive question tool");
-}
-const unattendedPermissionDifferences = new Set(["question", "plan_enter", "task"]);
-if (!isDeepStrictEqual(
-  normalizedPermissions(agents.build, unattendedPermissionDifferences),
-  normalizedPermissions(ultra, unattendedPermissionDifferences),
-)) {
-  fail("resolved Ultra permissions must match Build except for unattended-mode denials and Task delegation");
-}
-if (finalPermission(ultra, "task", "locally-defined-subagent") !== "allow") {
-  fail("Ultra must allow delegation to locally defined Task targets");
-}
-
-const ultraCommandSource = fs.readFileSync(
-  path.join(repoRoot, "opencode", "commands", "ultra.md"),
-  "utf8",
-);
-if (!ultraCommandSource.startsWith("---\n") || !ultraCommandSource.includes("\nagent: ultra\n")) {
-  fail("/ultra must target the visible Ultra execution profile");
-}
-const resolvedUltraCommand = resolvedConfig.command?.ultra;
-if (!resolvedUltraCommand || resolvedUltraCommand.agent !== "ultra") {
-  fail("/ultra must resolve to the visible Ultra execution profile");
-}
-if (resolvedUltraCommand.model !== undefined || resolvedUltraCommand.subtask === true) {
-  fail("/ultra must run as a primary and inherit the Ultra profile model");
-}
-
-const experimentalCommands = {
-  glm: {
-    agent: "glm_worker",
-    model: "baseten/zai-org/GLM-5.2",
-  },
-  "glm-fireworks": {
-    agent: "glm_worker",
-    model: "fireworks-ai/accounts/fireworks/models/glm-5p2",
-  },
-  "glm-fireworks-fast": {
-    agent: "glm_worker",
-    model: "fireworks-ai/accounts/fireworks/routers/glm-5p2-fast",
-  },
-  kimi: {
-    agent: "kimi_reader",
-    model: "baseten/moonshotai/Kimi-K2.7-Code",
-  },
-  "kimi-fireworks": {
-    agent: "kimi_reader",
-    model: "fireworks-ai/accounts/fireworks/models/kimi-k2p7-code",
-  },
-  "kimi-fireworks-fast": {
-    agent: "kimi_reader",
-    model: "fireworks-ai/accounts/fireworks/routers/kimi-k2p7-code-fast",
-  },
-};
-for (const [command, expected] of Object.entries(experimentalCommands)) {
-  const source = fs.readFileSync(
-    path.join(repoRoot, "opencode", "commands", `${command}.md`),
-    "utf8",
-  );
-  if (!source.startsWith("---\n") || !source.includes(`\nagent: ${expected.agent}\n`)) {
-    fail(`/${command} must target ${expected.agent}`);
-  }
-  if (!source.includes(`\nmodel: ${expected.model}\n`)) {
-    fail(`/${command} must pin ${expected.model}`);
-  }
-  if (!source.includes("\nsubtask: true\n")) {
-    fail(`/${command} must remain an explicit isolated subtask`);
-  }
-  const resolved = resolvedConfig.command?.[command];
-  if (!resolved) {
-    fail(`/${command} is missing from resolved OpenCode commands`);
-  }
-  if (resolved.agent !== expected.agent || resolved.model !== expected.model) {
-    fail(`/${command} resolved to ${resolved.agent ?? "no agent"} and ${resolved.model ?? "no model"}`);
-  }
-  if (resolved.subtask !== true) {
-    fail(`/${command} must resolve as an isolated subtask`);
+for (const agent of ["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"]) {
+  if (modelRouting.agents?.[agent] !== undefined || modelRouting.steps?.[agent] !== undefined) {
+    fail(`retired ${agent} routing override remains configured`);
   }
 }
 
@@ -581,7 +443,6 @@ const reviewedReadOnlyAgents = new Map([
   ["code_reviewer", { bash: "deny", grep: "deny" }],
   ["database_optimizer", { bash: "deny", grep: "deny" }],
   ["evidence_analyst", { bash: "deny", grep: "deny" }],
-  ["kimi_reader", { bash: "deny", grep: "deny" }],
   ["security_engineer", { bash: "deny", grep: "deny" }],
   ["software_architect", { bash: "deny", grep: "deny" }],
 ]);
@@ -606,7 +467,6 @@ for (const [name, expected] of reviewedReadOnlyAgents) {
     "task",
     "todowrite",
     "advisor",
-    ...goalMutationTools,
   ]) {
     if (finalPermission(child, permission) !== "deny") {
       fail(`${name} must deny ${permission}`);
@@ -617,47 +477,14 @@ for (const [name, expected] of reviewedReadOnlyAgents) {
   }
 }
 
-const glmWorker = agents.glm_worker;
-if (glmWorker.mode !== "subagent") {
-  fail("glm_worker must remain a subagent");
-}
-if (glmWorker.variant !== "max") {
-  fail("glm_worker must retain the max reasoning variant across provider-pinned commands");
-}
-for (const [permission, action] of Object.entries({
-  question: "deny",
-  read: "allow",
-  edit: "allow",
-  bash: "ask",
-  grep: "ask",
-  webfetch: "deny",
-  task: "deny",
-  todowrite: "deny",
-  advisor: "deny",
-})) {
-  if (finalPermission(glmWorker, permission) !== action) {
-    fail(`glm_worker must ${action} ${permission}`);
-  }
-}
-for (const permission of goalMutationTools) {
-  if (finalPermission(glmWorker, permission) !== "deny") {
-    fail(`glm_worker must deny ${permission}`);
-  }
-}
-if (finalPermission(glmWorker, "synthetic_external_mutation") !== "deny") {
-  fail("glm_worker must deny unknown external tools");
-}
-for (const name of ["general", "glm_worker", "database_optimizer", "evidence_analyst"]) {
+for (const name of ["general", "database_optimizer", "evidence_analyst"]) {
   if (finalPermission(plan, "task", name) !== "deny") {
     fail(`plan must deny writable task delegation to ${name}`);
   }
 }
 
 const expectedModels = {
-  glm_worker: ["baseten", "zai-org/GLM-5.2"],
-  kimi_reader: ["baseten", "moonshotai/Kimi-K2.7-Code"],
   plan: ["openai", "gpt-5.6-terra"],
-  advisor_reviewer: ["anthropic", "claude-opus-4-8"],
 };
 if (modelRouting.agents?.compaction) {
   expectedModels.compaction = undefined;
@@ -694,62 +521,28 @@ for (const name of inheritedModelAgents) {
   }
 }
 
-for (const name of ["glm_worker", "kimi_reader"]) {
-  if (agents[name].mode !== "subagent" || agents[name].hidden !== true) {
-    fail(`${name} must remain a hidden command-only experiment`);
-  }
-}
-
-if (!disabledAgentNames.has("advisor_reviewer")) {
-  const reviewer = agents.advisor_reviewer;
-  if (reviewer.mode !== "subagent" || reviewer.hidden !== true) {
-    fail("advisor_reviewer must remain a hidden command-only subagent");
-  }
-  for (const permission of [
-    "question",
-    "edit",
-    "bash",
-    "task",
-    "todowrite",
-    "advisor",
-    ...goalMutationTools,
-  ]) {
-    if (finalPermission(reviewer, permission) !== "deny") {
-      fail(`advisor_reviewer must deny ${permission}`);
-    }
-  }
-  if (finalPermission(reviewer, "read") !== "allow") {
-    fail("advisor_reviewer must retain read-only source access");
-  }
-  if (finalPermission(reviewer, "synthetic_external_mutation") !== "deny") {
-    fail("advisor_reviewer must deny unknown external tools");
-  }
-}
-
-const adviseCommandPath = path.join(configDir, "commands", "advise.md");
-if (modelRouting.advisor_enabled) {
-  if (!fs.existsSync(adviseCommandPath)) {
-    fail("enabled advisor lane must install /advise");
-  }
-  const adviseCommand = fs.readFileSync(adviseCommandPath, "utf8");
-  if (
-    !adviseCommand.includes("agent: advisor_reviewer") ||
-    !adviseCommand.includes("subtask: true")
-  ) {
-    fail("advise command must use the isolated advisor_reviewer subtask");
-  }
-} else if (fs.existsSync(adviseCommandPath)) {
-  fail("disabled advisor lane must not expose /advise");
-}
-
 if (requireInstalledAssets) {
-  for (const pluginName of [
-    "goal-mode.js",
-    "goal-mode-tui.tsx",
-    "goal-workflow-guard.js",
+  for (const asset of [
+    path.join("agents", "advisor_reviewer.md"),
+    path.join("agents", "glm_worker.md"),
+    path.join("agents", "kimi_reader.md"),
+    path.join("agents", "ultra.md"),
+    path.join("commands", "advise.md"),
+    path.join("commands", "glm.md"),
+    path.join("commands", "glm-fireworks.md"),
+    path.join("commands", "glm-fireworks-fast.md"),
+    path.join("commands", "goal.md"),
+    path.join("commands", "kimi.md"),
+    path.join("commands", "kimi-fireworks.md"),
+    path.join("commands", "kimi-fireworks-fast.md"),
+    path.join("commands", "ultra.md"),
+    path.join("plugins", "goal-mode.js"),
+    path.join("plugins", "goal-mode.LICENSE"),
+    path.join("plugins", "goal-mode-tui.tsx"),
+    path.join("plugins", "goal-workflow-guard.js"),
   ]) {
-    if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
-      fail(`the managed Goal ${pluginName} plugin asset is not installed`);
+    if (fs.existsSync(path.join(configDir, asset))) {
+      fail(`retired ${asset} asset remains installed`);
     }
   }
 }

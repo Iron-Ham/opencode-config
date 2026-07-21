@@ -31,12 +31,12 @@ brew install vjeantet/tap/alerter
 | Path | Purpose |
 |---|---|
 | `AGENTS.md` | Global OpenCode operating instructions |
-| `opencode/opencode.defaults.json` | Managed OpenCode defaults, model routes, permissions, and Goal settings |
+| `opencode/opencode.defaults.json` | Managed OpenCode defaults, model routes, and permissions |
 | `opencode/control-plane-policy.md` | Observe-only route-policy contract and implementation boundary |
-| `opencode/agents/` | Reviewed specialist, evidence, and experiment subagents |
+| `opencode/agents/` | Reviewed specialist and evidence subagents |
 | `opencode/agent-sources/` | Source prompts for generated specialist agents |
-| `opencode/commands/` | `/ultra`, `/advise`, and explicit model-provider experiment commands |
-| `opencode/plugins/` | Goal mode, workflow guard, notifications, and total-cost TUI support |
+| `opencode/commands/` | Managed command templates when configured |
+| `opencode/plugins/` | Notifications, workflow guards, and total-cost TUI support |
 | `opencode/tui/` | Shared support code for TUI plugins |
 | `opencode/*.defaults.json` | Managed JSON merged with local configuration |
 | `skills/` | Global skills installed directly into OpenCode |
@@ -83,25 +83,23 @@ Use `opencode --no-auto` or `opencode run --no-auto ...` when a session must req
 
 ## Model And Delegation Policy
 
-The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`. `/ultra` exposes an unattended durable-goal workflow and inherits its invoking primary model. It can delegate to locally configured non-experimental subagents when the reviewed set does not fit, while the delegation guard retains its concurrency, total-task, and reviewer-boundary controls. The advisor and Kimi/GLM experiment agents remain explicit-command-only. The Kimi and GLM commands are explicit provider experiments and are never automatic controller targets.
+The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`.
 
 The local routing file is private and has this shape:
 
 ```json
 {
   "policy_adapter_enabled": true,
-  "advisor_enabled": false,
   "agents": {},
   "steps": {}
 }
 ```
 
-Advisor access is disabled by default, including `/advise`. Set `"advisor_enabled": true` locally to opt into the explicit, isolated `/advise` command, which receives only developer-supplied context.
-The observe-only policy adapter uses the separate `policy_adapter_enabled` kill switch; disabling it leaves ordinary OpenCode model selection unchanged and does not alter advisor access.
+The observe-only policy adapter uses the `policy_adapter_enabled` kill switch; disabling it leaves ordinary OpenCode model selection unchanged.
 
 Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed plugin installation, compaction inheritance, private routing configuration, and redacted compaction observation records. Use `--json` for automation or `--config-dir <path>` to inspect a non-default installation.
 
-The doctor also reports compaction retention settings, configured tool-output bounds, and the static compaction threshold for the active model (`input limit - reserved tokens`). These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth; use the explicit `/kimi` and `/advise` briefs when delegating isolated work.
+The doctor also reports compaction retention settings, configured tool-output bounds, and the static compaction threshold for the active model (`input limit - reserved tokens`). These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth.
 
 ## Verify Changes
 
@@ -117,8 +115,6 @@ Run the focused regression suite before committing configuration changes:
 ```bash
 bun scripts/test-opencode-policy-resolver.mjs
 bun scripts/test-opencode-config.mjs
-bun scripts/test-opencode-goal-mode.mjs
-bun scripts/test-opencode-workflow-plugin.mjs
 bun scripts/test-opencode-compaction-observability.mjs
 bun scripts/test-opencode-doctor.mjs
 bun scripts/test-opencode-delegation-guard.mjs
