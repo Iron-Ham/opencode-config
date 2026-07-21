@@ -31,6 +31,8 @@ permission:
     "~/.ssh/**": deny
     "~/.terraform.d/**": deny
     "~/Library/**": deny
+    "~/.local/share/opencode/worktree/**": allow
+    "/private/var/folders/**/T/opencode/**": allow
   glob: allow
   grep: deny
   text_read: allow

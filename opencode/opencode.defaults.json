@@ -125,7 +125,9 @@
           "~/.pypirc": "deny",
           "~/.ssh/**": "deny",
           "~/.terraform.d/**": "deny",
-          "~/Library/**": "deny"
+          "~/Library/**": "deny",
+          "~/.local/share/opencode/worktree/**": "allow",
+          "/private/var/folders/**/T/opencode/**": "allow"
         },
         "glob": "allow",
         "grep": "allow",
@@ -177,7 +179,9 @@
           "~/.pypirc": "deny",
           "~/.ssh/**": "deny",
           "~/.terraform.d/**": "deny",
-          "~/Library/**": "deny"
+          "~/Library/**": "deny",
+          "~/.local/share/opencode/worktree/**": "allow",
+          "/private/var/folders/**/T/opencode/**": "allow"
         },
         "glob": "allow",
         "grep": "allow",
@@ -232,7 +236,9 @@
           "~/.pypirc": "deny",
           "~/.ssh/**": "deny",
           "~/.terraform.d/**": "deny",
-          "~/Library/**": "deny"
+          "~/Library/**": "deny",
+          "~/.local/share/opencode/worktree/**": "allow",
+          "/private/var/folders/**/T/opencode/**": "allow"
         },
         "glob": "allow",
         "grep": "allow",
@@ -301,7 +307,9 @@
       "~/.pypirc": "deny",
       "~/.ssh/**": "deny",
       "~/.terraform.d/**": "deny",
-      "~/Library/**": "deny"
+      "~/Library/**": "deny",
+      "~/.local/share/opencode/worktree/**": "allow",
+      "/private/var/folders/**/T/opencode/**": "allow"
     },
     "read": {
       "*": "allow",

@@ -202,10 +202,32 @@ try {
     merged.agent.general.permission.external_directory["~/.cargo/**"],
     "deny",
   );
+  for (const agentName of ["plan", "general", "explore"]) {
+    assert.equal(
+      merged.agent[agentName].permission.external_directory[
+        "~/.local/share/opencode/worktree/**"
+      ],
+      "allow",
+    );
+    assert.equal(
+      merged.agent[agentName].permission.external_directory[
+        "/private/var/folders/**/T/opencode/**"
+      ],
+      "allow",
+    );
+  }
   assert.equal(merged.agent.general.permission.bash["git push *"], "deny");
   assert.equal(merged.permission.external_directory["~/**"], "allow");
   assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
   assert.equal(merged.permission.external_directory["~/.cargo/**"], "deny");
+  assert.equal(
+    merged.permission.external_directory["~/.local/share/opencode/worktree/**"],
+    "allow",
+  );
+  assert.equal(
+    merged.permission.external_directory["/private/var/folders/**/T/opencode/**"],
+    "allow",
+  );
   assert.equal(merged.agent.luna, undefined);
   assert.equal(merged.agent.sonnet, undefined);
   assert.equal(merged.agent.sol, undefined);

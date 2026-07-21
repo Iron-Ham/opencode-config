@@ -107,6 +107,8 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         '    "~/.ssh/**": deny',
         '    "~/.terraform.d/**": deny',
         '    "~/Library/**": deny',
+        '    "~/.local/share/opencode/worktree/**": allow',
+        '    "/private/var/folders/**/T/opencode/**": allow',
         "  glob: allow",
         "  grep: deny",
         "  text_read: allow",
