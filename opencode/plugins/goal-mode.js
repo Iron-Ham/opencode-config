@@ -257,7 +257,7 @@ function validateSafeText(value, label) {
   if (/\r|\n|```/.test(text)) {
     throw new Error(`${label} must be a concise single-line summary, not raw output or source content`);
   }
-  if (/(?:\b(?:cookie|set-cookie|session_cookie|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(text)) {
+  if (/(?:\b(?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization)\s*[:=]|["'](?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization|aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)["']\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)[_-][A-Za-z0-9_-]{20,})/i.test(text)) {
     throw new Error(`${label} must not contain credentials or secret material`);
   }
   if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(text)) {
@@ -266,7 +266,7 @@ function validateSafeText(value, label) {
   return text;
 }
 function validateSafeBlocker(blocker) {
-  return `sha256:${createHash("sha256").update(validateSafeText(blocker, "blocker")).digest("hex")}`;
+  return validateSafeText(blocker, "blocker");
 }
 function validateSafeFailureAction(nextAction) {
   return validateSafeText(nextAction, "next_action");
@@ -1797,8 +1797,11 @@ function sessionIDFromEvent(event) {
   if (typeof direct === "string")
     return direct;
   const info = event.properties?.info;
-  if (typeof info === "object" && info !== null && typeof info.sessionID === "string") {
-    return info.sessionID;
+  if (typeof info === "object" && info !== null) {
+    if (typeof info.sessionID === "string")
+      return info.sessionID;
+    if (typeof info.id === "string")
+      return info.id;
   }
   return;
 }

@@ -346,7 +346,10 @@
         "record_goal_progress": "allow",
         "record_goal_failure": "allow",
         "task": {
-          "*": "deny",
+          "*": "allow",
+          "advisor_reviewer": "deny",
+          "glm_worker": "deny",
+          "kimi_reader": "deny",
           "accessibility_auditor": "allow",
           "code_reviewer": "allow",
           "database_optimizer": "allow",

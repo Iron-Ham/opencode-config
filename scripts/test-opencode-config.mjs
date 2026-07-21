@@ -14,12 +14,51 @@ const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-merge-test-"))
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-merge-test-xdg-"),
 );
+const buildTaskTargets = [
+  "accessibility_auditor",
+  "code_reviewer",
+  "database_optimizer",
+  "evidence_analyst",
+  "explore",
+  "general",
+  "security_engineer",
+  "software_architect",
+];
+const ultraDeniedTaskTargets = ["advisor_reviewer", "glm_worker", "kimi_reader"];
 
-function assertUltraPermissionsMatchBuild(config) {
-  const { question, plan_enter: planEnter, ...shared } = config.agent.ultra.permission;
+function assertUltraPermissions(config) {
+  const {
+    question,
+    plan_enter: planEnter,
+    task: ultraTask,
+    ...shared
+  } = config.agent.ultra.permission;
+  const { task: buildTask, ...buildShared } = config.agent.build.permission;
   assert.equal(question, "deny");
   assert.equal(planEnter, "deny");
-  assert.deepEqual(shared, config.agent.build.permission);
+  assert.deepEqual(shared, buildShared);
+  assert.equal(ultraTask["*"], "allow");
+  assert.equal(buildTask["*"], "deny");
+  assert.deepEqual(Object.keys(buildTask).sort(), ["*", ...buildTaskTargets].sort());
+  assert.deepEqual(
+    Object.keys(ultraTask).sort(),
+    ["*", ...buildTaskTargets, ...ultraDeniedTaskTargets].sort(),
+  );
+  for (const target of buildTaskTargets) {
+    assert.equal(buildTask[target], "allow");
+    assert.equal(ultraTask[target], "allow");
+  }
+  for (const target of ultraDeniedTaskTargets) {
+    assert.equal(buildTask[target], undefined);
+    assert.equal(ultraTask[target], "deny");
+  }
+}
+
+function resolvedTaskAction(agent, target) {
+  const matches = (agent.permission ?? []).filter(
+    (rule) => rule.permission === "task" && (rule.pattern === "*" || rule.pattern === target),
+  );
+  return matches.at(-1)?.action;
 }
 
 try {
@@ -196,7 +235,31 @@ try {
   assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
   assert.equal(merged.permission.external_directory["~/.cargo/**"], "deny");
   assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
+  assert.equal(merged.agent.ultra.permission.task["*"], "allow");
   assert.equal(merged.agent.ultra.permission.task.general, "allow");
+  assertUltraPermissions(merged);
+  const resolvedUltra = Bun.spawnSync([
+    "opencode",
+    "debug",
+    "agent",
+    "ultra",
+    "--pure",
+  ], {
+    cwd: os.tmpdir(),
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: isolatedXdgConfigHome,
+      OPENCODE_CONFIG_DIR: configDir,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  assert.equal(resolvedUltra.exitCode, 0, resolvedUltra.stderr.toString());
+  const resolvedUltraAgent = JSON.parse(resolvedUltra.stdout.toString());
+  assert.equal(resolvedTaskAction(resolvedUltraAgent, "locally-defined-subagent"), "allow");
+  for (const target of ultraDeniedTaskTargets) {
+    assert.equal(resolvedTaskAction(resolvedUltraAgent, target), "deny");
+  }
   assert.equal(merged.agent.luna, undefined);
   assert.equal(merged.agent.sonnet, undefined);
   assert.equal(merged.agent.sol, undefined);
@@ -466,7 +529,7 @@ try {
       fs.existsSync(path.join(routingConfigDir, "commands", "advise.md")),
       false,
     );
-    assertUltraPermissionsMatchBuild(routed);
+    assertUltraPermissions(routed);
     assert.deepEqual(
       JSON.parse(fs.readFileSync(routingConfigPath, "utf8")),
       normalizedLocalRouting,
@@ -517,7 +580,7 @@ try {
     );
     assert.equal(enabled.agent.advisor_reviewer.disable, false);
     assert.equal(enabled.agent.advisor_reviewer.permission.advisor, "deny");
-    assertUltraPermissionsMatchBuild(enabled);
+    assertUltraPermissions(enabled);
 
     enabled.agent.ultra.permission.webfetch = "deny";
     fs.writeFileSync(
@@ -525,7 +588,7 @@ try {
       JSON.stringify(enabled),
     );
     assert.throws(
-      () => assertUltraPermissionsMatchBuild(enabled),
+      () => assertUltraPermissions(enabled),
       assert.AssertionError,
     );
    } finally {

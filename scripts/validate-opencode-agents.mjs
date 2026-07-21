@@ -214,20 +214,51 @@ const inheritedModelAgents = [
   "ultra",
 ];
 const inheritedModelAgentNames = new Set(inheritedModelAgents);
+const managedBuildTaskTargets = [
+  "accessibility_auditor",
+  "code_reviewer",
+  "database_optimizer",
+  "evidence_analyst",
+  "explore",
+  "general",
+  "security_engineer",
+  "software_architect",
+];
+const ultraDeniedTaskTargets = ["advisor_reviewer", "glm_worker", "kimi_reader"];
+const expectedManagedBuildTask = Object.fromEntries([
+  ["*", "deny"],
+  ...managedBuildTaskTargets.map((target) => [target, "allow"]),
+]);
+const expectedManagedUltraTask = Object.fromEntries([
+  ["*", "allow"],
+  ...ultraDeniedTaskTargets.map((target) => [target, "deny"]),
+  ...managedBuildTaskTargets.map((target) => [target, "allow"]),
+]);
 
 const {
   question: managedUltraQuestion,
   plan_enter: managedUltraPlanEnter,
+  task: managedUltraTask,
   ...managedUltraSharedPermissions
 } = managedDefaults.agent.ultra.permission;
+const {
+  task: managedBuildTask,
+  ...managedBuildSharedPermissions
+} = managedDefaults.agent.build.permission;
 if (managedUltraQuestion !== "deny" || managedUltraPlanEnter !== "deny") {
   fail("the managed Ultra profile must explicitly deny questions and Plan entry");
 }
 if (!isDeepStrictEqual(
   managedUltraSharedPermissions,
-  managedDefaults.agent.build.permission,
+  managedBuildSharedPermissions,
 )) {
-  fail("the managed Ultra permissions must match Build except for unattended-mode denials");
+  fail("the managed Ultra permissions must match Build except for unattended-mode denials and Task delegation");
+}
+if (!isDeepStrictEqual(managedBuildTask, expectedManagedBuildTask)) {
+  fail("the managed Build Task permissions must remain an exact reviewed-agent allowlist");
+}
+if (!isDeepStrictEqual(managedUltraTask, expectedManagedUltraTask)) {
+  fail("the managed Ultra Task permissions must allow local agents while denying advisor and command-only experiment targets");
 }
 
 if (config.agent?.compaction?.model === "anthropic/claude-sonnet-5") {
@@ -342,19 +373,12 @@ for (const name of goalControllers) {
   }
 }
 
-const reviewedTaskTargets = new Set([
-  "accessibility_auditor",
-  "code_reviewer",
-  "database_optimizer",
-  "evidence_analyst",
-  "explore",
-  "security_engineer",
-  "software_architect",
-]);
+const reviewedTaskTargets = new Set(managedBuildTaskTargets.filter((target) => target !== "general"));
 for (const name of goalControllers) {
   const controller = agents[name];
-  if (finalPermission(controller, "task", "*") !== "deny") {
-    fail(`${name} must deny Task targets by default`);
+  const expectedDefaultTaskPermission = name === "ultra" ? "allow" : "deny";
+  if (finalPermission(controller, "task", "*") !== expectedDefaultTaskPermission) {
+    fail(`${name} must ${expectedDefaultTaskPermission} Task targets by default`);
   }
   for (const target of reviewedTaskTargets) {
     const expected = "allow";
@@ -366,9 +390,9 @@ for (const name of goalControllers) {
   if (finalPermission(controller, "task", "general") !== expectedGeneral) {
     fail(`${name} must ${expectedGeneral} writable general delegation`);
   }
-  for (const target of ["advisor_reviewer", "glm_worker", "kimi_reader"]) {
+  for (const target of ultraDeniedTaskTargets) {
     if (finalPermission(controller, "task", target) !== "deny") {
-      fail(`${name} must deny automatic Task delegation to ${target}`);
+      fail(`${name} must deny Task delegation to ${target}`);
     }
   }
 }
@@ -385,12 +409,15 @@ for (const permission of ["question", "plan_enter"]) {
 if (ultra.tools?.question === true) {
   fail("ultra must not expose the interactive question tool");
 }
-const unattendedPermissionDifferences = new Set(["question", "plan_enter"]);
+const unattendedPermissionDifferences = new Set(["question", "plan_enter", "task"]);
 if (!isDeepStrictEqual(
   normalizedPermissions(agents.build, unattendedPermissionDifferences),
   normalizedPermissions(ultra, unattendedPermissionDifferences),
 )) {
-  fail("resolved Ultra permissions must match Build except for unattended-mode denials");
+  fail("resolved Ultra permissions must match Build except for unattended-mode denials and Task delegation");
+}
+if (finalPermission(ultra, "task", "locally-defined-subagent") !== "allow") {
+  fail("Ultra must allow delegation to locally defined Task targets");
 }
 
 const ultraCommandSource = fs.readFileSync(

@@ -71,6 +71,8 @@ async function createDelegationGuard(options = {}) {
   const pendingCalls = new Map();
   const reservedByParent = new Map();
   const parentByChild = new Map();
+  const outputSeenChildren = new Set();
+  const terminalBeforeTaskOutput = new Set();
   const rootFor = (sessionID) => {
     const seen = new Set();
     let rootID = sessionID;
@@ -92,6 +94,9 @@ async function createDelegationGuard(options = {}) {
     if (!parentID) return;
     activeFor(parentID).delete(childID);
     parentByChild.delete(childID);
+    if (!outputSeenChildren.delete(childID)) {
+      terminalBeforeTaskOutput.add(childID);
+    }
   };
   const releaseReservation = (parentID) => {
     const reserved = reservedByParent.get(parentID) ?? 0;
@@ -137,7 +142,10 @@ async function createDelegationGuard(options = {}) {
         return;
       }
       releaseReservation(parentID);
-      markActive(parentID, childID);
+      if (!terminalBeforeTaskOutput.delete(childID)) {
+        outputSeenChildren.add(childID);
+        markActive(parentID, childID);
+      }
       totalByParent.set(parentID, (totalByParent.get(parentID) ?? 0) + 1);
     },
     async event({ event }) {
