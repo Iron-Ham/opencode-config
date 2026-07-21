@@ -70,7 +70,7 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
       const threshold = budget.input - config.compaction.reserved;
       check(checks, threshold > 0 ? "ok" : "error", "context budget", threshold > 0 ? `${budget.model}: compaction threshold ${threshold} input tokens with ${config.compaction.reserved} reserved` : `${budget.model}: reserve exceeds the ${budget.input}-token input limit`);
     }
-    const managedPlugins = ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"];
+    const managedPlugins = ["compaction-observability.js", "delegation-guard.js"];
     const configuredPlugins = config.plugin ?? [];
     for (const pluginName of managedPlugins) {
       const pluginPath = `./plugins/${pluginName}`;
@@ -78,6 +78,47 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
       const duplicated = configuredPlugins.some((plugin) => pluginSpecifier(plugin) === pluginPath);
       check(checks, installed && !duplicated ? "ok" : "error", `plugin ${pluginPath}`, installed ? duplicated ? "auto-discovered plugin is also configured explicitly" : "auto-discovered" : "missing from the plugin directory");
     }
+    const retiredPluginSpecs = new Set([
+      "./plugins/goal-mode.js",
+      "./plugins/goal-mode-tui.tsx",
+      "./plugins/goal-workflow-guard.js",
+    ]);
+    const retiredPluginConfigured = configuredPlugins.some((plugin) =>
+      retiredPluginSpecs.has(pluginSpecifier(plugin)) ||
+      String(pluginSpecifier(plugin)).startsWith("@prevalentware/opencode-goal-plugin")
+    );
+    for (const pluginName of ["goal-mode.js", "goal-mode.LICENSE", "goal-mode-tui.tsx", "goal-workflow-guard.js"]) {
+      const installed = fs.existsSync(path.join(resolvedConfigDir, "plugins", pluginName));
+      check(
+        checks,
+        !installed && !retiredPluginConfigured ? "ok" : "error",
+        `retired plugin ${pluginName}`,
+        !installed && !retiredPluginConfigured
+          ? "not installed"
+          : "retired Goal mode assets or configuration remain",
+      );
+    }
+    const retiredCommandLaneConfigured = ["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"].some(
+      (agent) => config.agent?.[agent] !== undefined,
+    ) || [
+        "advise",
+        "glm",
+        "glm-fireworks",
+        "glm-fireworks-fast",
+        "goal",
+        "kimi",
+        "kimi-fireworks",
+        "kimi-fireworks-fast",
+        "ultra",
+      ].some((command) => config.command?.[command] !== undefined);
+    check(
+      checks,
+      !retiredCommandLaneConfigured ? "ok" : "error",
+      "retired command-lane configuration",
+      !retiredCommandLaneConfigured
+        ? "not configured"
+        : "retired agents or commands remain configured",
+    );
   }
 
   const routingPath = path.join(resolvedConfigDir, "model-routing.config.local.json");
@@ -88,7 +129,16 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
     if (routing) {
       const secure = (fs.statSync(routingPath).mode & 0o077) === 0;
       check(checks, secure ? "ok" : "error", "local routing permissions", secure ? "private permissions are set" : "local routing configuration must not be group/world readable");
-      check(checks, routing.advisor_enabled === true || routing.advisor_enabled === false ? "ok" : "error", "advisor isolation", "advisor_enabled must be an explicit boolean");
+      const policyAdapterConfigured =
+        routing.policy_adapter_enabled === true || routing.policy_adapter_enabled === false;
+      check(
+        checks,
+        policyAdapterConfigured ? "ok" : "error",
+        "policy adapter",
+        policyAdapterConfigured
+          ? "policy_adapter_enabled is explicitly configured"
+          : "policy_adapter_enabled must be an explicit boolean",
+      );
     }
   }
 

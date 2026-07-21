@@ -259,6 +259,16 @@ retire_repo_command_link() {
   fi
 }
 
+retire_managed_file() {
+  local dest="$1"
+  local label="$2"
+
+  if tree_exists "$dest"; then
+    backup_item "$dest"
+    echo "RETIRE $dest ($label)"
+  fi
+}
+
 has_usable_notion_cli() {
   local notion_path
   notion_path="$(command -v notion 2>/dev/null || true)"
@@ -278,15 +288,6 @@ if [ "$notion_cli_enabled" = true ] && has_usable_notion_cli; then
   notion_cli_available=true
 fi
 
-advisor_enabled="$(
-  OPENCODE_ROUTING_PATH="$OPENCODE_DIR/model-routing.config.local.json" bun -e '
-    const fs = require("node:fs")
-    const file = process.env.OPENCODE_ROUTING_PATH
-    const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {}
-    process.stdout.write(String(config.advisor_enabled ?? false))
-  '
-)"
-
 if [ "$notion_cli_available" != true ] && ! {
   [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
     [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
@@ -298,7 +299,6 @@ if [ "$notion_cli_available" != true ] && ! {
 fi
 
 python3 "$REPO_DIR/scripts/generate-opencode-agents.py" --check
-bun "$REPO_DIR/scripts/test-opencode-workflow-plugin.mjs"
 bun "$REPO_DIR/scripts/test-opencode-policy-resolver.mjs"
 bun "$REPO_DIR/scripts/resolve-opencode-policy.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate
@@ -334,9 +334,6 @@ cp "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$preflight_dir/tools/ast_grep
 cp "$REPO_DIR/opencode/context-tools/text_read.ts" "$preflight_dir/tools/text_read.ts"
 cp -R "$REPO_DIR/opencode/context-tools/." "$preflight_dir/context-tools/"
 cp -R "$REPO_DIR/opencode/context-tools-lib/." "$preflight_dir/context-tools-lib/"
-if [ "$advisor_enabled" != "true" ]; then
-  rm "$preflight_dir/commands/advise.md"
-fi
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$preflight_dir" >/dev/null
 bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" "$REPO_DIR" "$preflight_dir"
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" "$REPO_DIR" "$preflight_dir"
@@ -344,6 +341,16 @@ rm -R "$preflight_dir"
 preflight_dir=""
 
 begin_transaction
+
+for name in advisor_reviewer glm_worker kimi_reader ultra; do
+  retire_managed_file "$OPENCODE_AGENTS_DIR/$name.md" "retired managed agent"
+done
+for name in advise glm glm-fireworks glm-fireworks-fast goal kimi kimi-fireworks kimi-fireworks-fast ultra; do
+  retire_managed_file "$OPENCODE_COMMANDS_DIR/$name.md" "retired managed command"
+done
+for name in goal-mode.js goal-mode.LICENSE goal-mode-tui.tsx goal-workflow-guard.js; do
+  retire_managed_file "$OPENCODE_PLUGINS_DIR/$name" "retired Goal mode asset"
+done
 
 bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
   "$OPENCODE_DIR" --retire-obsolete
@@ -389,14 +396,6 @@ done
 for src in "$REPO_DIR"/opencode/commands/*.md; do
   [ -e "$src" ] || continue
   name="$(basename "$src")"
-  if [ "$name" = "advise.md" ] && [ "$advisor_enabled" != "true" ]; then
-    dest="$OPENCODE_COMMANDS_DIR/$name"
-    if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
-      rm "$dest"
-      echo "UNLINK $dest (advisor lane disabled)"
-    fi
-    continue
-  fi
   link_item "$src" "$OPENCODE_COMMANDS_DIR/$name" "OpenCode command $name"
 done
 

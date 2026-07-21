@@ -6,11 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
-const SUPPORTED_MODES = new Set(["build", "ultra", "advise"]);
+const SUPPORTED_MODES = new Set(["build"]);
 const MODE_AGENTS = {
   build: "build",
-  ultra: "ultra",
-  advise: "advisor_reviewer",
 };
 const CHARACTERISTIC_ENUMS = {
   boundedness: new Set(["bounded_verifiable", "normal_production", "premium_quality"]),
@@ -18,10 +16,10 @@ const CHARACTERISTIC_ENUMS = {
   production_risk: new Set(["bounded", "normal", "high"]),
 };
 const CONTROL_ENUMS = {
-  continuation: new Set(["ordinary_open_code", "durable_goal_only", "none"]),
+  continuation: new Set(["ordinary_open_code", "none"]),
   compaction: new Set(["gpt_256k_with_20k_reserve", "ordinary_open_code", "none"]),
-  delegation: new Set(["bounded_by_agent_policy", "bounded_by_ultra_policy", "none"]),
-  independent_review: new Set(["developer_explicit_only", "isolated_read_only"]),
+  delegation: new Set(["bounded_by_agent_policy", "none"]),
+  independent_review: new Set(["developer_explicit_only"]),
 };
 const FALLBACK_DISPOSITION = "developer_action_required";
 const DEFAULT_FALLBACK_MESSAGE =
@@ -50,7 +48,6 @@ const SAFE_STRING_MAX = 512;
 const POLICY_REASON_CODES = new Set([
   "managed_route_available",
   "developer_route_available",
-  "advisor_disabled",
   "restrictions_missing",
   "restriction_prohibited_provider",
   "restriction_provider_not_allowed",
@@ -581,12 +578,6 @@ function normalizeEffectiveConfig(value, mode) {
     result.agents.build = routeFromValue({ model: value.model }, "effective_config.model");
   }
   const agentName = MODE_AGENTS[mode];
-  if (mode === "ultra" && (!result.agents.ultra || result.agents.ultra.status === "missing")) {
-    const invokingPrimary = value.invoking_primary !== undefined
-      ? routeFromValue(value.invoking_primary, "effective_config.invoking_primary")
-      : result.agents.build ?? { status: "missing" };
-    result.agents.ultra = structuredClone(invokingPrimary);
-  }
   return {
     ...result,
     agent: agentName,
@@ -827,7 +818,6 @@ function effectiveObservation(candidate, effectiveConfig) {
 
 function nextAction(reason) {
   const actions = {
-    advisor_disabled: "Enable the explicit /advise lane first.",
     restrictions_missing: "Declare normalized repository restrictions before relying on this observation.",
     restriction_prohibited_provider: "Choose an exact route allowed by the repository provider restriction.",
     restriction_provider_not_allowed: "Choose an exact route allowed by the repository provider allowlist.",
@@ -916,7 +906,7 @@ function disabledResolution() {
 }
 
 export function resolvePolicy(input, options = {}) {
-  const local = options.local ?? { policy_adapter_enabled: true, advisor_enabled: false };
+  const local = options.local ?? { policy_adapter_enabled: true };
   if (local.policy_adapter_enabled === false) return disabledResolution();
   if (local.policy_adapter_enabled !== true) fail("policy_adapter_enabled must be a boolean", "input");
 
@@ -925,32 +915,9 @@ export function resolvePolicy(input, options = {}) {
   const normalizedInput = normalizePolicyInput(input);
   let policyRoute = routeForMode(manifest, normalizedInput.mode);
 
-  if (normalizedInput.mode === "advise" && local.advisor_enabled !== true) {
-    return baseResolution({
-      state: "unavailable",
-      manifest,
-      hash,
-      precedenceSource: "mode",
-      reason: "advisor_disabled",
-      catalog: { status: "unverified", reason: "advisor_disabled" },
-      routeInfo: policyRoute,
-    });
-  }
-
   const effectiveConfig = options.effectiveConfig !== undefined
     ? normalizeEffectiveConfig(options.effectiveConfig, normalizedInput.mode)
     : { status: "missing", agents: {}, disabled_providers: [], route: { status: "missing" } };
-  if (normalizedInput.mode === "ultra" && policyRoute) {
-    if (effectiveConfig.route.status === "resolved") {
-      policyRoute = {
-        ...policyRoute,
-        route: copyRoute(effectiveConfig.route.route),
-      };
-    } else {
-      policyRoute = undefined;
-    }
-  }
-
   const developerRoute = normalizedInput.developer_selection
     ? {
         route: normalizedInput.developer_selection,
@@ -967,29 +934,6 @@ export function resolvePolicy(input, options = {}) {
   const routeInfo = developerRoute ? undefined : policyRoute;
 
   if (!candidate) {
-    const unavailableReason = normalizedInput.mode === "ultra" &&
-      routeForMode(manifest, normalizedInput.mode)
-      ? effectiveConfig.route.status === "unverified"
-        ? "effective_route_unverified"
-        : "effective_alias_missing"
-      : undefined;
-    if (unavailableReason) {
-      return baseResolution({
-        state: unavailableReason === "effective_alias_missing" ? "unavailable" : "unverified",
-        manifest,
-        hash,
-        precedenceSource: "managed",
-        reason: unavailableReason,
-        catalog: {
-          status: unavailableReason === "effective_alias_missing" ? "unavailable" : "unverified",
-          reason: unavailableReason,
-        },
-        effectiveRoute: effectiveConfig.route.status === "resolved"
-          ? effectiveConfig.route.route
-          : undefined,
-        routeInfo: undefined,
-      });
-    }
     return baseResolution({
       state: "no_managed_route",
       manifest,
@@ -1134,7 +1078,7 @@ export function localRoutingPath(configDir) {
 export function readPolicyLocalState(configDir) {
   const filePath = localRoutingPath(configDir);
   if (!fs.existsSync(filePath)) {
-    return { policy_adapter_enabled: true, advisor_enabled: false, agent_overrides: {} };
+    return { policy_adapter_enabled: true, agent_overrides: {} };
   }
   let value;
   try {
@@ -1144,22 +1088,17 @@ export function readPolicyLocalState(configDir) {
   }
   if (!isPlainObject(value)) fail("local routing configuration must be an object", "input");
   const policyAdapterEnabled = value.policy_adapter_enabled ?? true;
-  const advisorEnabled = value.advisor_enabled ?? false;
   if (typeof policyAdapterEnabled !== "boolean") fail("policy_adapter_enabled must be a boolean", "input");
-  if (typeof advisorEnabled !== "boolean") fail("advisor_enabled must be a boolean", "input");
   return {
     policy_adapter_enabled: policyAdapterEnabled,
-    advisor_enabled: advisorEnabled,
     agent_overrides: isPlainObject(value.agents) ? { ...value.agents } : {},
   };
 }
 
 function localDeveloperSelection(local, mode, effectiveConfig) {
-  if (mode !== "build" && mode !== "ultra") return undefined;
+  if (mode !== "build") return undefined;
   const effectiveRoute = normalizeEffectiveConfig(effectiveConfig, mode).route;
-  const overrideName = mode === "ultra" && typeof local.agent_overrides.ultra === "string"
-    ? "ultra"
-    : "build";
+  const overrideName = "build";
   const override = local.agent_overrides[overrideName];
   if (typeof override !== "string" || effectiveRoute.status !== "resolved") return undefined;
   const expected = parseProviderModel(override, `local ${overrideName} override`, "input");

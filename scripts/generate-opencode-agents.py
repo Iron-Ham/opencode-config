@@ -134,12 +134,6 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         "  task: deny",
         "  todowrite: deny",
         "  advisor: deny",
-        "  create_goal: deny",
-        "  set_goal: deny",
-        "  update_goal_objective: deny",
-        "  update_goal: deny",
-        "  update_goal_status: deny",
-        "  clear_goal: deny",
     ])
 
     relative_source = source.relative_to(repo_root)

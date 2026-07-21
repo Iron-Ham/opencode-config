@@ -22,7 +22,7 @@ Production source, repository and product identity, paths, symbols, commit and s
 Raw runs live outside the repository in private directories. The runner:
 
 - requires a clean frozen worktree;
-- denies edits, shell, network, Goal, and advisor access to planning and source-analysis controllers;
+- denies edits, shell, network, and advisor access to planning and source-analysis controllers;
 - validates that tool paths stay inside the worktree;
 - removes the controller step ceiling and gives production-shaped candidate work a configurable 3,600-second wall-time limit after setup;
 - records stage completion and incomplete-cost lower bounds;

@@ -22,12 +22,9 @@ These instructions apply to every workspace opened in OpenCode. Read the workspa
 
 - Use `build` for durable production implementation, `plan` for read-only planning, `general` only for an independent, non-overlapping writable slice, and `explore` for bounded read-only discovery.
 - Use `code_reviewer`, `software_architect`, `security_engineer`, `accessibility_auditor`, and `database_optimizer` only for bounded independent review. They inherit the invoking model unless explicitly overridden locally.
-- Do not select hidden experimental agents automatically. Kimi and GLM remain available only through their explicit developer-invoked commands.
-- `/ultra` is the unattended durable-goal workflow. Outside `/ultra`, use no more than two concurrent and four total native subagents unless the developer requests more.
-- Create or resume a durable goal only after an explicit `/goal`, `/ultra`, or direct request to work toward an objective. Close it only with complete, structured evidence or a concrete external blocker.
-- When goal status, limits, or checkpoints matter, call `get_goal`; goal reminders intentionally omit live counters. Complete a goal only with canonical evidence containing a nonempty summary, one passed check with typed evidence for each requested outcome, and no remaining work.
+- Use no more than two concurrent and four total native subagents unless the developer requests more.
 - When a tool or MCP call returns multiple records, aggregate or filter the result before presenting it to the model. Return only fields needed for the decision, preserve identifiers needed for follow-up, and keep raw output available only when a specific record must be inspected.
-- Advisor access is disabled by default and is never automatic. `/advise` is the only explicit, isolated review path when a developer has enabled it locally; do not forward or reconstruct the parent transcript.
+- External advisor access is disabled by default and is never automatic; do not forward or reconstruct the parent transcript.
 - Do not infer a reviewer's quality from its role or model. Reconcile every review against source and verification evidence.
 - Use the editing tool the active model receives. Do not shell-emulate an unavailable editing tool.
 - Use only tools available in the active OpenCode catalog. A skill written for another harness does not add tools or permissions.

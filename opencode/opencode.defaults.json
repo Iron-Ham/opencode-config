@@ -71,35 +71,8 @@
       "options": {
         "baseURL": "https://inference.baseten.co/v1"
       },
-      "models": {
-        "zai-org/GLM-5.2": {
-          "limit": {
-            "context": 202720,
-            "input": 202720,
-            "output": 128000
-          }
-        }
-      },
       "whitelist": [
-        "zai-org/GLM-5.2",
-        "moonshotai/Kimi-K2.7-Code",
         "deepseek-ai/DeepSeek-V4-Pro"
-      ]
-    },
-    "fireworks-ai": {
-      "env": [
-        "FIREWORKS_API_KEY"
-      ],
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Fireworks AI",
-      "options": {
-        "baseURL": "https://api.fireworks.ai/inference/v1/"
-      },
-      "whitelist": [
-        "accounts/fireworks/models/glm-5p2",
-        "accounts/fireworks/routers/glm-5p2-fast",
-        "accounts/fireworks/models/kimi-k2p7-code",
-        "accounts/fireworks/routers/kimi-k2p7-code-fast"
       ]
     }
   },
@@ -107,16 +80,6 @@
     "build": {
       "permission": {
         "advisor": "deny",
-        "get_goal": "allow",
-        "get_goal_history": "allow",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "record_goal_progress": "allow",
-        "record_goal_failure": "allow",
         "task": {
           "*": "deny",
           "accessibility_auditor": "allow",
@@ -173,14 +136,6 @@
         "bash": "ask",
         "todowrite": "allow",
         "advisor": "deny",
-        "create_goal": "deny",
-        "set_goal": "deny",
-        "update_goal_objective": "deny",
-        "update_goal": "deny",
-        "update_goal_status": "deny",
-        "clear_goal": "deny",
-        "record_goal_progress": "deny",
-        "record_goal_failure": "deny",
         "task": {
           "*": "deny",
           "accessibility_auditor": "allow",
@@ -242,13 +197,7 @@
         },
         "task": "deny",
         "todowrite": "deny",
-        "advisor": "deny",
-        "create_goal": "deny",
-        "set_goal": "deny",
-        "update_goal_objective": "deny",
-        "update_goal": "deny",
-        "update_goal_status": "deny",
-        "clear_goal": "deny"
+        "advisor": "deny"
       }
     },
     "explore": {
@@ -309,57 +258,11 @@
     "evidence_analyst": {
       "steps": 100
     },
-    "glm_worker": {
-      "model": "baseten/zai-org/GLM-5.2",
-      "steps": 100
-    },
-    "kimi_reader": {
-      "model": "baseten/moonshotai/Kimi-K2.7-Code",
-      "steps": 100
-    },
     "security_engineer": {
       "steps": 100
     },
     "software_architect": {
       "steps": 100
-    },
-    "advisor_reviewer": {
-      "model": "anthropic/claude-opus-4-8",
-      "steps": 60
-    },
-    "ultra": {
-      "description": "Unattended execution policy for /ultra; direct use omits the command template.",
-      "hidden": false,
-      "mode": "primary",
-      "permission": {
-        "advisor": "deny",
-        "question": "deny",
-        "plan_enter": "deny",
-        "get_goal": "allow",
-        "get_goal_history": "allow",
-        "create_goal": "allow",
-        "set_goal": "allow",
-        "update_goal_objective": "allow",
-        "update_goal": "allow",
-        "update_goal_status": "allow",
-        "clear_goal": "allow",
-        "record_goal_progress": "allow",
-        "record_goal_failure": "allow",
-        "task": {
-          "*": "allow",
-          "advisor_reviewer": "deny",
-          "glm_worker": "deny",
-          "kimi_reader": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
-          "general": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
-        }
-      }
     }
   },
   "compaction": {
@@ -420,16 +323,6 @@
       "git push": "ask",
       "git push *": "ask"
     },
-    "get_goal": "allow",
-    "get_goal_history": "allow",
-    "create_goal": "deny",
-    "set_goal": "deny",
-    "update_goal_objective": "deny",
-    "update_goal": "deny",
-    "update_goal_status": "deny",
-    "clear_goal": "deny",
-    "record_goal_progress": "deny",
-    "record_goal_failure": "deny",
     "advisor": "deny",
     "doom_loop": "ask"
   }

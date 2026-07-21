@@ -120,16 +120,9 @@
     "production_defaults_changed": false,
     "automatic_role_assignment": false,
     "small_model_assignment": false,
-    "model_picker": "Fireworks Standard and Fast GLM/Kimi routes are installed alongside Baseten; DeepSeek V4 Pro is selectable through Baseten",
-    "commands": [
-      "/glm",
-      "/glm-fireworks",
-      "/glm-fireworks-fast",
-      "/kimi",
-      "/kimi-fireworks",
-      "/kimi-fireworks-fast"
-    ],
-    "rationale": "Baseten outcomes are workload-specific and do not justify a general coding or reader assignment. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
+    "model_picker": "DeepSeek V4 Pro is selectable through Baseten.",
+    "commands": [],
+    "rationale": "Historical open-weight outcomes are workload-specific and do not justify a general coding or reader assignment. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
   },
   "role_assessment": [
     {
@@ -139,8 +132,8 @@
     },
     {
       "role": "bounded implementer",
-      "decision": "GLM, Kimi, and DeepSeek remain explicit route experiments",
-      "required_open_weight_evidence": "repeat strong route-specific outcomes; neither GLM's tooling result nor DeepSeek's mixed/backend results transferred uniformly across cohorts"
+      "decision": "DeepSeek remains a manual route selection",
+      "required_open_weight_evidence": "repeat strong route-specific outcomes; historical open-weight results did not transfer uniformly across cohorts"
     },
     {
       "role": "plan",

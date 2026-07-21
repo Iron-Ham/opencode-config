@@ -14,53 +14,6 @@ const configDir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-merge-test-"))
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-merge-test-xdg-"),
 );
-const buildTaskTargets = [
-  "accessibility_auditor",
-  "code_reviewer",
-  "database_optimizer",
-  "evidence_analyst",
-  "explore",
-  "general",
-  "security_engineer",
-  "software_architect",
-];
-const ultraDeniedTaskTargets = ["advisor_reviewer", "glm_worker", "kimi_reader"];
-
-function assertUltraPermissions(config) {
-  const {
-    question,
-    plan_enter: planEnter,
-    task: ultraTask,
-    ...shared
-  } = config.agent.ultra.permission;
-  const { task: buildTask, ...buildShared } = config.agent.build.permission;
-  assert.equal(question, "deny");
-  assert.equal(planEnter, "deny");
-  assert.deepEqual(shared, buildShared);
-  assert.equal(ultraTask["*"], "allow");
-  assert.equal(buildTask["*"], "deny");
-  assert.deepEqual(Object.keys(buildTask).sort(), ["*", ...buildTaskTargets].sort());
-  assert.deepEqual(
-    Object.keys(ultraTask).sort(),
-    ["*", ...buildTaskTargets, ...ultraDeniedTaskTargets].sort(),
-  );
-  for (const target of buildTaskTargets) {
-    assert.equal(buildTask[target], "allow");
-    assert.equal(ultraTask[target], "allow");
-  }
-  for (const target of ultraDeniedTaskTargets) {
-    assert.equal(buildTask[target], undefined);
-    assert.equal(ultraTask[target], "deny");
-  }
-}
-
-function resolvedTaskAction(agent, target) {
-  const matches = (agent.permission ?? []).filter(
-    (rule) => rule.permission === "task" && (rule.pattern === "*" || rule.pattern === target),
-  );
-  return matches.at(-1)?.action;
-}
-
 try {
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({
     permission: {
@@ -77,6 +30,7 @@ try {
       task: { "machine-local-agent": "allow" },
       skill: { "machine-local-skill": "deny" },
       external_directory: { "*": "ask" },
+      create_goal: "allow",
     },
     agent: {
       backend_architect: { model: "anthropic/claude-sonnet-5" },
@@ -86,6 +40,7 @@ try {
         permission: {
           advisor: "deny",
           task: { glm_worker: "allow", "machine-local-agent": "allow" },
+          create_goal: "allow",
         },
       },
       frontend_developer: { model: "openai/gpt-5.6-luna" },
@@ -101,6 +56,10 @@ try {
       },
       compaction: { model: "anthropic/claude-sonnet-5" },
       technical_writer: { model: "anthropic/claude-sonnet-5" },
+      advisor_reviewer: { model: "anthropic/claude-opus-4-8" },
+      glm_worker: { model: "baseten/zai-org/GLM-5.2" },
+      kimi_reader: { model: "baseten/moonshotai/Kimi-K2.7-Code" },
+      ultra: { model: "openai/gpt-5.6-sol" },
       custom_controller: { model: "openai/gpt-5.6-luna-xhigh-pinned" },
     },
     provider: {
@@ -112,7 +71,14 @@ try {
           baseURL: "https://attacker.invalid/v1",
           timeout: 750000,
         },
-        whitelist: ["org/machine-local-model"],
+        whitelist: [
+          "org/machine-local-model",
+          "moonshotai/Kimi-K2.7-Code",
+          "zai-org/GLM-5.2",
+        ],
+        models: {
+          "zai-org/GLM-5.2": { name: "Retired experiment" },
+        },
       },
       "fireworks-ai": {
         env: ["ATTACKER_FIREWORKS_KEY"],
@@ -139,6 +105,12 @@ try {
     },
     mcp: { local: { type: "local", command: ["true"] } },
     small_model: "baseten/moonshotai/Kimi-K2.7-Code",
+    command: {
+      advise: { agent: "advisor_reviewer" },
+      glm: { agent: "glm_worker" },
+      kimi: { agent: "kimi_reader" },
+      ultra: { agent: "ultra" },
+    },
     plugin: [
       "machine-local-plugin@9.9.9",
       "opencode-dynamic-workflows@1.2.3",
@@ -149,6 +121,14 @@ try {
       ["./plugins/delegation-guard.js", { max_concurrent: 4, max_total: 8 }],
     ],
   }));
+  fs.writeFileSync(
+    path.join(configDir, "tui.json"),
+    JSON.stringify({ plugin: ["./plugins/goal-mode-tui.tsx"] }),
+  );
+  fs.writeFileSync(
+    path.join(configDir, "package.json"),
+    JSON.stringify({ dependencies: { "@prevalentware/opencode-goal-plugin": "0.0.1" } }),
+  );
 
   const merge = Bun.spawnSync([
     "bun",
@@ -175,11 +155,11 @@ try {
   assert.equal(merged.agent.plan.variant, undefined);
   assert.equal(merged.agent.plan.options, undefined);
   assert.equal(merged.agent.plan.model, "openai/gpt-5.6-terra");
-  assert.equal(merged.agent.plan.permission.create_goal, "deny");
-  assert.equal(merged.agent.plan.permission.record_goal_progress, "deny");
-  assert.equal(merged.agent.plan.permission.record_goal_failure, "deny");
+  assert.equal(merged.agent.plan.permission.create_goal, undefined);
+  assert.equal(merged.agent.plan.permission.record_goal_progress, undefined);
+  assert.equal(merged.agent.plan.permission.record_goal_failure, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
-  assert.equal(merged.agent.general.permission.create_goal, "deny");
+  assert.equal(merged.agent.general.permission.create_goal, undefined);
   assert.equal(merged.agent.general.steps, undefined);
   assert.equal(merged.agent.explore.permission.bash, "deny");
   assert.equal(merged.agent.explore.permission.edit, "deny");
@@ -189,13 +169,13 @@ try {
   assert.equal(merged.agent.compaction.model, undefined);
   assert.equal(merged.lsp, true);
   assert.deepEqual(merged.tool_output, { max_lines: 300, max_bytes: 16384 });
-  assert.equal(merged.permission.create_goal, "deny");
-  assert.equal(merged.permission.record_goal_progress, "deny");
-  assert.equal(merged.permission.record_goal_failure, "deny");
-  assert.equal(merged.agent.build.permission.get_goal, "allow");
-  assert.equal(merged.agent.build.permission.create_goal, "allow");
-  assert.equal(merged.agent.build.permission.record_goal_progress, "allow");
-  assert.equal(merged.agent.build.permission.record_goal_failure, "allow");
+  assert.equal(merged.permission.create_goal, undefined);
+  assert.equal(merged.permission.record_goal_progress, undefined);
+  assert.equal(merged.permission.record_goal_failure, undefined);
+  assert.equal(merged.agent.build.permission.get_goal, undefined);
+  assert.equal(merged.agent.build.permission.create_goal, undefined);
+  assert.equal(merged.agent.build.permission.record_goal_progress, undefined);
+  assert.equal(merged.agent.build.permission.record_goal_failure, undefined);
   assert.equal(merged.agent.build.permission.advisor, "deny");
   assert.equal(merged.agent.build.permission.external_directory, undefined);
   assert.equal(merged.agent.build.permission.task["*"], "deny");
@@ -207,7 +187,7 @@ try {
   assert.equal(merged.agent.build.model, undefined);
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
-  assert.equal(merged.agent.ultra.model, undefined);
+  assert.equal(merged.agent.ultra, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
   assert.equal(
@@ -223,61 +203,28 @@ try {
     "deny",
   );
   assert.equal(merged.agent.general.permission.bash["git push *"], "deny");
-  assert.equal(merged.agent.ultra.hidden, false);
-  assert.equal(merged.agent.ultra.steps, undefined);
-  assert.equal(merged.agent.ultra.permission.advisor, "deny");
-  assert.equal(merged.agent.ultra.permission.question, "deny");
-  assert.equal(merged.agent.ultra.permission.get_goal, "allow");
-  assert.equal(merged.agent.ultra.permission.record_goal_progress, "allow");
-  assert.equal(merged.agent.ultra.permission.record_goal_failure, "allow");
-  assert.equal(merged.agent.ultra.permission.external_directory, undefined);
   assert.equal(merged.permission.external_directory["~/**"], "allow");
   assert.equal(merged.permission.external_directory["~/.ssh/**"], "deny");
   assert.equal(merged.permission.external_directory["~/.cargo/**"], "deny");
-  assert.equal(merged.agent.ultra.permission.plan_enter, "deny");
-  assert.equal(merged.agent.ultra.permission.task["*"], "allow");
-  assert.equal(merged.agent.ultra.permission.task.general, "allow");
-  assertUltraPermissions(merged);
-  const resolvedUltra = Bun.spawnSync([
-    "opencode",
-    "debug",
-    "agent",
-    "ultra",
-    "--pure",
-  ], {
-    cwd: os.tmpdir(),
-    env: {
-      ...process.env,
-      XDG_CONFIG_HOME: isolatedXdgConfigHome,
-      OPENCODE_CONFIG_DIR: configDir,
-    },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  assert.equal(resolvedUltra.exitCode, 0, resolvedUltra.stderr.toString());
-  const resolvedUltraAgent = JSON.parse(resolvedUltra.stdout.toString());
-  assert.equal(resolvedTaskAction(resolvedUltraAgent, "locally-defined-subagent"), "allow");
-  for (const target of ultraDeniedTaskTargets) {
-    assert.equal(resolvedTaskAction(resolvedUltraAgent, target), "deny");
-  }
   assert.equal(merged.agent.luna, undefined);
   assert.equal(merged.agent.sonnet, undefined);
   assert.equal(merged.agent.sol, undefined);
   assert.equal(merged.agent.terra, undefined);
-  assert.equal(merged.agent.advisor_reviewer.permission.advisor, "deny");
-  assert.equal(merged.agent.advisor_reviewer.disable, true);
-  assert.equal(merged.agent.advisor_reviewer.steps, 60);
-  assert.equal(
-    merged.agent.advisor_reviewer.model,
-    "anthropic/claude-opus-4-8",
-  );
+  assert.equal(merged.agent.advisor_reviewer, undefined);
+  assert.equal(merged.agent.glm_worker, undefined);
+  assert.equal(merged.agent.kimi_reader, undefined);
+  assert.equal(merged.command.advise, undefined);
+  assert.equal(merged.command.glm, undefined);
+  assert.equal(merged.command.kimi, undefined);
+  assert.equal(merged.command.ultra, undefined);
   assert.equal(merged.agent.frontend_developer, undefined);
   assert.equal(merged.agent.backend_architect, undefined);
   assert.equal(merged.agent.git_workflow_master, undefined);
   assert.equal(merged.agent.technical_writer, undefined);
   assert.equal(merged.provider.custom.models.local.name, "Local");
   assert.ok(merged.provider.baseten.whitelist.includes("org/machine-local-model"));
-  assert.ok(merged.provider.baseten.whitelist.includes("zai-org/GLM-5.2"));
+  assert.equal(merged.provider.baseten.whitelist.includes("zai-org/GLM-5.2"), false);
+  assert.equal(merged.provider.baseten.whitelist.includes("moonshotai/Kimi-K2.7-Code"), false);
   assert.ok(
     merged.provider.baseten.whitelist.includes(
       "deepseek-ai/DeepSeek-V4-Pro",
@@ -289,35 +236,9 @@ try {
     merged.provider.baseten.options.baseURL,
     "https://inference.baseten.co/v1",
   );
-  assert.deepEqual(
-    merged.provider.baseten.models["zai-org/GLM-5.2"].limit,
-    { context: 202_720, input: 202_720, output: 128_000 },
-  );
+  assert.equal(merged.provider.baseten.models?.["zai-org/GLM-5.2"], undefined);
   assert.equal(merged.provider.baseten.options.timeout, 750000);
-  assert.equal(
-    merged.provider["fireworks-ai"].options.baseURL,
-    "https://api.fireworks.ai/inference/v1/",
-  );
-  assert.deepEqual(merged.provider["fireworks-ai"].env, [
-    "FIREWORKS_API_KEY",
-  ]);
-  assert.equal(merged.provider["fireworks-ai"].options.timeout, 900000);
-  assert.ok(
-    merged.provider["fireworks-ai"].whitelist.includes(
-      "accounts/example/models/machine-local",
-    ),
-  );
-  assert.ok(
-    merged.provider["fireworks-ai"].whitelist.includes(
-      "accounts/fireworks/models/glm-5p2",
-    ),
-  );
-  assert.equal(
-    merged.provider["fireworks-ai"].models[
-      "accounts/example/models/machine-local"
-    ].name,
-    "Machine local",
-  );
+  assert.equal(merged.provider["fireworks-ai"], undefined);
   assert.equal(merged.mcp.local.command[0], "true");
   assert.equal(merged.small_model, undefined);
 
@@ -346,11 +267,6 @@ try {
   assert.equal(merged.compaction.reserved, 20_000);
   assert.equal(merged.compaction.auto, true);
   assert.equal(merged.compaction.model, undefined);
-  assert.equal(
-    merged.provider.baseten.models["zai-org/GLM-5.2"].limit.input -
-      merged.compaction.reserved,
-    182_720,
-  );
   const compactAt = merged.provider.openai.models["gpt-5.6-terra"].limit.input -
     merged.compaction.reserved;
   assert.equal(compactAt, 902_000);
@@ -379,13 +295,14 @@ try {
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );
-  assert.ok(mergedTui.plugin.includes("./plugins/goal-mode-tui.tsx"));
+  assert.equal(mergedTui.plugin.includes("./plugins/goal-mode-tui.tsx"), false);
   assert.ok(mergedTui.plugin.includes("./plugins/opencode-total-cost.tsx"));
   const mergedPackage = JSON.parse(
     fs.readFileSync(path.join(configDir, "package.json"), "utf8"),
   );
   assert.equal(mergedPackage.dependencies["@opentui/solid"], "0.4.3");
   assert.equal(mergedPackage.dependencies["solid-js"], "1.9.12");
+  assert.equal(mergedPackage.dependencies["@prevalentware/opencode-goal-plugin"], undefined);
   assert.equal(mergedPackage.dependencies.zod, undefined);
   assert.equal(fs.statSync(path.join(configDir, "opencode.json")).mode & 0o077, 0);
 
@@ -398,8 +315,7 @@ try {
   );
    assert.deepEqual(defaultModelRouting, {
      policy_adapter_enabled: true,
-     advisor_enabled: false,
-     agents: {},
+      agents: {},
      steps: {},
   });
   assert.equal(fs.statSync(modelRoutingConfigPath).mode & 0o077, 0);
@@ -413,13 +329,14 @@ try {
       "model-routing.config.local.json",
     );
     const legacyLocalRouting = {
-      advisor_enabled: false,
       agents: {
         build: "anthropic/claude-sonnet-5-default-pinned",
         compaction: "openai/gpt-5.6-luna-xhigh-pinned",
         general: "anthropic/claude-fable-5",
         plan: "openai/gpt-5.6-terra-xhigh-pinned",
         advisor_reviewer: "anthropic/claude-fable-5",
+        glm_worker: "baseten/zai-org/GLM-5.2",
+        kimi_reader: "baseten/moonshotai/Kimi-K2.7-Code",
         software_architect: "openai/gpt-5.6-luna-xhigh-pinned",
         ultra: "openai/gpt-5.6-sol-xhigh-pinned",
       },
@@ -432,15 +349,12 @@ try {
     };
      const normalizedLocalRouting = {
        policy_adapter_enabled: true,
-       advisor_enabled: false,
-       agents: {
+        agents: {
         build: "anthropic/claude-sonnet-5",
         compaction: "openai/gpt-5.6-luna",
         general: "anthropic/claude-fable-5",
         plan: "openai/gpt-5.6-terra",
-        advisor_reviewer: "anthropic/claude-fable-5",
-        software_architect: "openai/gpt-5.6-luna",
-        ultra: "openai/gpt-5.6-sol",
+         software_architect: "openai/gpt-5.6-luna",
       },
       steps: {
         build: 600,
@@ -456,7 +370,6 @@ try {
     );
     fs.mkdirSync(path.join(routingConfigDir, "commands"));
     for (const name of fs.readdirSync(path.join(repoRoot, "opencode", "commands"))) {
-      if (name === "advise.md") continue;
       fs.copyFileSync(
         path.join(repoRoot, "opencode", "commands", name),
         path.join(routingConfigDir, "commands", name),
@@ -494,13 +407,10 @@ try {
     for (const [agentName, model] of Object.entries(normalizedLocalRouting.agents)) {
       assert.equal(routed.agent[agentName].model, model);
     }
-    assert.equal(routed.agent.ultra.hidden, false);
-    assert.equal(
-      routed.agent.ultra.model,
-      normalizedLocalRouting.agents.ultra,
-    );
-    assert.equal(routed.agent.ultra.permission.question, "deny");
-    assert.equal(routed.agent.ultra.permission.plan_enter, "deny");
+    assert.equal(routed.agent.advisor_reviewer, undefined);
+    assert.equal(routed.agent.glm_worker, undefined);
+    assert.equal(routed.agent.kimi_reader, undefined);
+    assert.equal(routed.agent.ultra, undefined);
     for (const [agentName, steps] of Object.entries(normalizedLocalRouting.steps)) {
       assert.equal(routed.agent[agentName].steps, steps ?? undefined);
     }
@@ -514,9 +424,7 @@ try {
       "luna",
       "plan",
       "sol",
-      "advisor_reviewer",
       "software_architect",
-      "ultra",
     ]) {
       assert.equal(
         routed.agent[agentName].permission.advisor,
@@ -524,12 +432,6 @@ try {
         `${agentName} must deny the advisor when globally disabled`,
       );
     }
-    assert.equal(routed.agent.advisor_reviewer.disable, true);
-    assert.equal(
-      fs.existsSync(path.join(routingConfigDir, "commands", "advise.md")),
-      false,
-    );
-    assertUltraPermissions(routed);
     assert.deepEqual(
       JSON.parse(fs.readFileSync(routingConfigPath, "utf8")),
       normalizedLocalRouting,
@@ -562,35 +464,6 @@ try {
     assert.equal(softwareArchitect.model.modelID, "gpt-5.6-luna");
     assert.equal(softwareArchitect.steps, 150);
 
-    normalizedLocalRouting.advisor_enabled = true;
-    fs.writeFileSync(routingConfigPath, JSON.stringify(normalizedLocalRouting));
-    fs.copyFileSync(
-      path.join(repoRoot, "opencode", "commands", "advise.md"),
-      path.join(routingConfigDir, "commands", "advise.md"),
-    );
-    const enabledMerge = Bun.spawnSync([
-      "bun",
-      path.join(repoRoot, "scripts", "merge-opencode-config.mjs"),
-      repoRoot,
-      routingConfigDir,
-    ], { stdout: "pipe", stderr: "pipe" });
-    assert.equal(enabledMerge.exitCode, 0, enabledMerge.stderr.toString());
-    const enabled = JSON.parse(
-      fs.readFileSync(path.join(routingConfigDir, "opencode.json"), "utf8"),
-    );
-    assert.equal(enabled.agent.advisor_reviewer.disable, false);
-    assert.equal(enabled.agent.advisor_reviewer.permission.advisor, "deny");
-    assertUltraPermissions(enabled);
-
-    enabled.agent.ultra.permission.webfetch = "deny";
-    fs.writeFileSync(
-      path.join(routingConfigDir, "opencode.json"),
-      JSON.stringify(enabled),
-    );
-    assert.throws(
-      () => assertUltraPermissions(enabled),
-      assert.AssertionError,
-    );
    } finally {
      fs.rmSync(routingConfigDir, { recursive: true, force: true });
    }
@@ -609,10 +482,9 @@ try {
      );
      fs.writeFileSync(
        disabledPolicyRoutingPath,
-       JSON.stringify({
-         policy_adapter_enabled: false,
-         advisor_enabled: true,
-         agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
+        JSON.stringify({
+          policy_adapter_enabled: false,
+          agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
          steps: { build: 11 },
        }),
        { mode: 0o644 },
@@ -626,10 +498,9 @@ try {
      assert.equal(disabledPolicyMerge.exitCode, 0, disabledPolicyMerge.stderr.toString());
      assert.deepEqual(
        JSON.parse(fs.readFileSync(disabledPolicyRoutingPath, "utf8")),
-       {
-         policy_adapter_enabled: false,
-         advisor_enabled: true,
-         agents: { build: "openai/gpt-5.6-terra" },
+        {
+          policy_adapter_enabled: false,
+          agents: { build: "openai/gpt-5.6-terra" },
          steps: { build: 11 },
        },
      );
@@ -637,7 +508,7 @@ try {
        fs.readFileSync(path.join(disabledPolicyRoutingDir, "opencode.json"), "utf8"),
      );
      assert.equal(disabledPolicyMerged.agent.build.model, "openai/gpt-5.6-terra");
-     assert.equal(disabledPolicyMerged.agent.advisor_reviewer.disable, false);
+      assert.equal(disabledPolicyMerged.agent.advisor_reviewer, undefined);
      assert.equal(disabledPolicyMerged.policy_adapter_enabled, undefined);
      assert.equal(fs.statSync(disabledPolicyRoutingPath).mode & 0o077, 0);
     } finally {
@@ -651,9 +522,8 @@ try {
      fs.writeFileSync(path.join(migrationObservationDir, "opencode.json"), "{}");
      fs.writeFileSync(
        path.join(migrationObservationDir, "model-routing.config.local.json"),
-       JSON.stringify({
-         advisor_enabled: false,
-         agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
+        JSON.stringify({
+          agents: { build: "openai/gpt-5.6-terra-xhigh-pinned" },
          steps: {},
        }),
      );
@@ -679,7 +549,7 @@ try {
        },
      }, {
        manifest: policyManifest,
-       local: { policy_adapter_enabled: true, advisor_enabled: false },
+        local: { policy_adapter_enabled: true },
        effectiveConfig: {
          agents: { build: { model: migratedConfig.agent.build.model } },
          disabled_providers: [],
@@ -720,10 +590,9 @@ try {
      );
      fs.writeFileSync(
        routingPath,
-       JSON.stringify({
-         policy_adapter_enabled: false,
-         advisor_enabled: false,
-         agents: { build: "openai/gpt-5.6-terra" },
+        JSON.stringify({
+          policy_adapter_enabled: false,
+          agents: { build: "openai/gpt-5.6-terra" },
          steps: {},
        }),
      );
@@ -796,7 +665,7 @@ try {
     }));
     fs.writeFileSync(
       path.join(restrictiveConfigDir, "model-routing.config.local.json"),
-      JSON.stringify({ advisor_enabled: true, agents: {} }),
+      JSON.stringify({ agents: {} }),
     );
     const restrictiveMerge = Bun.spawnSync([
       "bun",
@@ -871,7 +740,6 @@ try {
        { policy_adapter_enabled: [] },
        /policy_adapter_enabled must be a boolean/,
      ],
-    ["enabled", { advisor_enabled: "false" }, /must be a boolean/],
     ["agents-array", { agents: [] }, /agents must contain a JSON object/],
     ["steps-array", { steps: [] }, /steps must contain a JSON object/],
     [

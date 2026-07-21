@@ -22,7 +22,6 @@ const modelRoutingConfigPath = path.join(
 );
 const modelRoutingAgentNames = new Set([
   "accessibility_auditor",
-  "advisor_reviewer",
   "build",
   "code_reviewer",
   "compaction",
@@ -30,8 +29,6 @@ const modelRoutingAgentNames = new Set([
   "evidence_analyst",
   "explore",
   "general",
-  "glm_worker",
-  "kimi_reader",
   "luna",
   "plan",
   "security_engineer",
@@ -39,11 +36,9 @@ const modelRoutingAgentNames = new Set([
   "sol",
   "sonnet",
   "terra",
-  "ultra",
 ]);
 const modelOverrideAgentNames = new Set([
   "accessibility_auditor",
-  "advisor_reviewer",
   "build",
   "code_reviewer",
   "compaction",
@@ -54,7 +49,6 @@ const modelOverrideAgentNames = new Set([
   "plan",
   "security_engineer",
   "software_architect",
-  "ultra",
 ]);
 const inheritedModelAgentNames = new Set([
   "accessibility_auditor",
@@ -66,16 +60,52 @@ const inheritedModelAgentNames = new Set([
   "general",
   "security_engineer",
   "software_architect",
-  "ultra",
 ]);
 const retiredManagedAgentNames = new Set([
+  "advisor_reviewer",
   "backend_architect",
   "evidence_collector",
   "frontend_developer",
   "git_workflow_master",
+  "glm_worker",
+  "kimi_reader",
   "periphery-fixer",
   "sol_reviewer",
   "technical_writer",
+  "ultra",
+]);
+const retiredRoutingAgentNames = new Set([
+  "advisor_reviewer",
+  "glm_worker",
+  "kimi_reader",
+  "ultra",
+]);
+const retiredGoalToolNames = new Set([
+  "get_goal",
+  "get_goal_history",
+  "create_goal",
+  "set_goal",
+  "update_goal_objective",
+  "update_goal",
+  "update_goal_status",
+  "clear_goal",
+  "record_goal_progress",
+  "record_goal_failure",
+]);
+const retiredCommandNames = new Set([
+  "advise",
+  "glm",
+  "glm-fireworks",
+  "glm-fireworks-fast",
+  "goal",
+  "kimi",
+  "kimi-fireworks",
+  "kimi-fireworks-fast",
+  "ultra",
+]);
+const retiredBasetenModelNames = new Set([
+  "moonshotai/Kimi-K2.7-Code",
+  "zai-org/GLM-5.2",
 ]);
 const obsoleteInstructionPaths = new Set([
   "~/Developer/claude-config/AGENTS.md",
@@ -294,6 +324,7 @@ function mergePlugins(existing = [], managed = []) {
   const managedPackages = ["@prevalentware/opencode-goal-plugin"];
   const managedLocalPluginSpecs = new Set([
     "./plugins/goal-mode.js",
+    "./plugins/goal-mode-tui.tsx",
     "./plugins/goal-workflow-guard.js",
     "./plugins/compaction-observability.js",
     "./plugins/delegation-guard.js",
@@ -404,6 +435,36 @@ function denyAdvisor(permission) {
   return { advisor: "deny" };
 }
 
+function removeRetiredFeatureConfiguration(config) {
+  if (isPlainObject(config.permission)) {
+    for (const toolName of retiredGoalToolNames) {
+      delete config.permission[toolName];
+    }
+  }
+  for (const agent of Object.values(config.agent ?? {})) {
+    if (!isPlainObject(agent) || !isPlainObject(agent.permission)) continue;
+    for (const toolName of retiredGoalToolNames) {
+      delete agent.permission[toolName];
+    }
+  }
+  if (isPlainObject(config.command)) {
+    for (const commandName of retiredCommandNames) {
+      delete config.command[commandName];
+    }
+  }
+  delete config.provider?.["fireworks-ai"];
+  if (isPlainObject(config.provider?.baseten)) {
+    if (Array.isArray(config.provider.baseten.whitelist)) {
+      config.provider.baseten.whitelist = config.provider.baseten.whitelist.filter(
+        (model) => !retiredBasetenModelNames.has(model),
+      );
+    }
+    for (const model of retiredBasetenModelNames) {
+      delete config.provider.baseten.models?.[model];
+    }
+  }
+}
+
 function applyModelRoutingConfig(merged, config, managed) {
   merged.agent ??= {};
   for (const agentName of modelRoutingAgentNames) {
@@ -443,17 +504,12 @@ function applyModelRoutingConfig(merged, config, managed) {
     }
   }
 
-  merged.agent.advisor_reviewer ??= {};
-  if (!isPlainObject(merged.agent.advisor_reviewer)) {
-    throw new Error("agent.advisor_reviewer must contain a JSON object");
-  }
   merged.permission ??= {};
   merged.permission.advisor = "deny";
   for (const agent of Object.values(merged.agent)) {
     if (!isPlainObject(agent)) continue;
     agent.permission = denyAdvisor(agent.permission);
   }
-  merged.agent.advisor_reviewer.disable = !config.advisor_enabled;
 }
 
 function mergeOpenCodeConfig(modelRouting) {
@@ -480,7 +536,11 @@ function mergeOpenCodeConfig(modelRouting) {
       delete merged.agent[agentName];
     }
   }
-  if (merged.small_model === "baseten/moonshotai/Kimi-K2.7-Code") {
+  if (
+    typeof merged.small_model === "string" &&
+    merged.small_model.startsWith("baseten/") &&
+    retiredBasetenModelNames.has(merged.small_model.slice("baseten/".length))
+  ) {
     delete merged.small_model;
   }
   merged.permission ??= {};
@@ -496,14 +556,14 @@ function mergeOpenCodeConfig(modelRouting) {
       merged.agent[agentName].permission = structuredClone(managedPermission);
     }
   }
-  for (const agentName of ["build", "luna", "sonnet", "sol", "terra", "ultra"]) {
+  for (const agentName of ["build", "luna", "sonnet", "sol", "terra"]) {
     const managedTaskPermission = managed.agent?.[agentName]?.permission?.task;
     if (managedTaskPermission) {
       merged.agent[agentName].permission ??= {};
       merged.agent[agentName].permission.task = structuredClone(managedTaskPermission);
     }
   }
-  for (const providerID of ["baseten", "fireworks-ai"]) {
+  for (const providerID of ["baseten"]) {
     if (!managed.provider?.[providerID]?.whitelist) continue;
     merged.provider[providerID].whitelist = uniqueStrings(
       existing.provider?.[providerID]?.whitelist,
@@ -538,8 +598,6 @@ function mergeOpenCodeConfig(modelRouting) {
   delete merged.agent?.plan?.options;
   delete merged.agent?.compaction?.variant;
   delete merged.agent?.compaction?.options;
-  delete merged.agent?.ultra?.variant;
-  delete merged.agent?.ultra?.options;
   delete merged.agent?.luna?.variant;
   delete merged.agent?.luna?.options;
   delete merged.agent?.sonnet?.variant;
@@ -554,6 +612,7 @@ function mergeOpenCodeConfig(modelRouting) {
     }
   }
   applyModelRoutingConfig(merged, modelRouting, managed);
+  removeRetiredFeatureConfiguration(merged);
   if (isPlainObject(merged.mcp)) {
     for (const name of Object.keys(merged.mcp)) {
       if (unsupportedOpenCodeMcps.has(name)) {
@@ -588,7 +647,11 @@ function mergePackageConfig() {
     {},
   );
   const existing = readJson(target, {});
-  writeJson(target, mergeManaged(existing, managed));
+  const merged = mergeManaged(existing, managed);
+  for (const section of ["dependencies", "devDependencies"]) {
+    delete merged[section]?.["@prevalentware/opencode-goal-plugin"];
+  }
+  writeJson(target, merged);
 }
 
 function modelRoutingConfig() {
@@ -597,32 +660,31 @@ function modelRoutingConfig() {
     throw new Error(`${modelRoutingConfigPath} must contain a JSON object`);
   }
 
+  const normalizedExisting = structuredClone(existing);
+  delete normalizedExisting.advisor_enabled;
   const allowedKeys = new Set([
     "policy_adapter_enabled",
-    "advisor_enabled",
     "agents",
     "steps",
   ]);
-  const unknownKeys = Object.keys(existing).filter((key) => !allowedKeys.has(key));
+  const unknownKeys = Object.keys(normalizedExisting).filter((key) => !allowedKeys.has(key));
   if (unknownKeys.length > 0) {
     throw new Error(
       `${modelRoutingConfigPath} contains unsupported keys: ${unknownKeys.join(", ")}`,
     );
   }
 
-  const policyAdapterEnabled = existing.policy_adapter_enabled ?? true;
+  const policyAdapterEnabled = normalizedExisting.policy_adapter_enabled ?? true;
   if (typeof policyAdapterEnabled !== "boolean") {
     throw new Error(`${modelRoutingConfigPath} policy_adapter_enabled must be a boolean`);
   }
 
-  const advisorEnabled = existing.advisor_enabled ?? false;
-  if (typeof advisorEnabled !== "boolean") {
-    throw new Error(`${modelRoutingConfigPath} advisor_enabled must be a boolean`);
-  }
-
-  const agents = existing.agents ?? {};
+  const agents = structuredClone(normalizedExisting.agents ?? {});
   if (!isPlainObject(agents)) {
     throw new Error(`${modelRoutingConfigPath} agents must contain a JSON object`);
+  }
+  for (const agentName of retiredRoutingAgentNames) {
+    delete agents[agentName];
   }
   const normalizedAgents = {};
   for (const [agentName, model] of Object.entries(agents)) {
@@ -635,9 +697,12 @@ function modelRoutingConfig() {
     normalizedAgents[agentName] = unpinModel(model);
   }
 
-  const steps = existing.steps ?? {};
+  const steps = structuredClone(normalizedExisting.steps ?? {});
   if (!isPlainObject(steps)) {
     throw new Error(`${modelRoutingConfigPath} steps must contain a JSON object`);
+  }
+  for (const agentName of retiredRoutingAgentNames) {
+    delete steps[agentName];
   }
   for (const [agentName, maximum] of Object.entries(steps)) {
     if (!modelRoutingAgentNames.has(agentName)) {
@@ -650,7 +715,6 @@ function modelRoutingConfig() {
 
   return {
     policy_adapter_enabled: policyAdapterEnabled,
-    advisor_enabled: advisorEnabled,
     agents: normalizedAgents,
     steps: structuredClone(steps),
   };

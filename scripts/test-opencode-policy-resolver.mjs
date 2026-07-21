@@ -23,18 +23,12 @@ const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "
 const manifest = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "opencode", "control-plane-policy.json"), "utf8"),
 );
-const EXPECTED_MANIFEST_HASH = "sha256:ad357fa8feb728513bafb46d6f5d113ddde3854c8a665b9cab9fd68ab7c8fa66";
+const EXPECTED_MANIFEST_HASH = "sha256:0a987d73da0c0c39372796d280fff53d158efa5fc3accaedecaa1bf11da9c13a";
 const buildRoute = {
   provider: "openai",
   model: "gpt-5.6-terra",
   serving_path: "openai",
 };
-const adviseRoute = {
-  provider: "anthropic",
-  model: "claude-opus-4-8",
-  serving_path: "anthropic",
-};
-
 function policyInput(mode, overrides = {}) {
   return {
     mode,
@@ -43,19 +37,17 @@ function policyInput(mode, overrides = {}) {
       boundedness: "normal_production",
       verification_strength: "deterministic",
       production_risk: "normal",
-      unattended_authorized: mode === "ultra",
+      unattended_authorized: false,
     },
     ...overrides,
   };
 }
 
-function effectiveConfig({ build = buildRoute, ultra = buildRoute, advisor = adviseRoute, disabled = [] } = {}) {
+function effectiveConfig({ build = buildRoute, disabled = [] } = {}) {
   return {
     disabled_providers: disabled,
     agents: {
       build,
-      ultra,
-      advisor_reviewer: advisor,
     },
   };
 }
@@ -75,16 +67,13 @@ function catalogFor(route, { effort } = {}) {
 
 function resolve(mode, options = {}) {
   const input = policyInput(mode, options.input);
-  const route = options.effectiveRoute ??
-    (mode === "advise" ? adviseRoute : buildRoute);
+  const route = options.effectiveRoute ?? buildRoute;
   const effective = options.effectiveConfig ?? effectiveConfig({
     build: mode === "build" ? route : buildRoute,
-    ultra: mode === "ultra" ? route : buildRoute,
-    advisor: mode === "advise" ? route : adviseRoute,
   });
   return resolvePolicy(input, {
     manifest: options.manifest ?? manifest,
-    local: options.local ?? { policy_adapter_enabled: true, advisor_enabled: mode === "advise" },
+    local: options.local ?? { policy_adapter_enabled: true },
     effectiveConfig: effective,
     liveCatalog: Object.hasOwn(options, "liveCatalog")
       ? options.liveCatalog
@@ -114,39 +103,10 @@ caseOf("compatible ordinary Build", () => {
   assertObserveOnly(result);
 });
 
-caseOf("compatible explicit Ultra", () => {
-  const result = resolve("ultra");
-  assert.equal(result.state, "resolved");
-  assert.equal(result.policy_route.id, "ultra-inherit-build");
-  assert.deepEqual(result.policy_route, { id: "ultra-inherit-build", ...buildRoute });
-  assert.equal(result.controls.continuation, "durable_goal_only");
-  assert.deepEqual(result.effective_execution_route, buildRoute);
-  assertObserveOnly(result);
-});
-
-caseOf("Ultra observes the invoking primary model", () => {
-  const primary = {
-    provider: "openai",
-    model: "gpt-5.6-sol",
-    serving_path: "openai",
-  };
-  const result = resolvePolicy(policyInput("ultra"), {
-    manifest,
-    local: { policy_adapter_enabled: true, advisor_enabled: false },
-    effectiveConfig: {
-      agents: {
-        build: primary,
-        advisor_reviewer: adviseRoute,
-      },
-      disabled_providers: [],
-    },
-    liveCatalog: catalogFor(primary),
-  });
-  assert.equal(result.state, "resolved");
-  assert.equal(result.policy_route.id, "ultra-inherit-build");
-  assert.equal(result.policy_route.model, "gpt-5.6-sol");
-  assert.equal(result.effective_execution_route.model, "gpt-5.6-sol");
-  assertObserveOnly(result);
+caseOf("retired command-only modes are rejected", () => {
+  for (const mode of ["advise", "ultra"]) {
+    assert.throws(() => resolve(mode), /mode is unsupported/);
+  }
 });
 
 caseOf("input-supplied catalog evidence is used without a provider call", () => {
@@ -156,7 +116,7 @@ caseOf("input-supplied catalog evidence is used without a provider call", () => 
     live_catalog: catalogFor(buildRoute),
   }, {
     manifest,
-    local: { policy_adapter_enabled: true, advisor_enabled: false },
+    local: { policy_adapter_enabled: true },
     effectiveConfig: effectiveConfig(),
     loadCatalog: () => {
       catalogCalls += 1;
@@ -213,23 +173,6 @@ caseOf("malformed normalized restriction is unverified", () => {
   assert.equal(result.state, "unverified");
   assert.equal(result.reason, "restrictions_missing");
   assert.equal(result.policy_route, undefined);
-  assertObserveOnly(result);
-});
-
-caseOf("Advise while locally disabled", () => {
-  let catalogCalls = 0;
-  const result = resolve("advise", {
-    local: { policy_adapter_enabled: true, advisor_enabled: false },
-    loadCatalog: () => {
-      catalogCalls += 1;
-      throw new Error("catalog must not be read");
-    },
-  });
-  assert.equal(result.state, "unavailable");
-  assert.equal(result.reason, "advisor_disabled");
-  assert.match(result.next_action, /Enable the explicit \/advise lane/);
-  assert.equal(result.policy_route, undefined);
-  assert.equal(catalogCalls, 0);
   assertObserveOnly(result);
 });
 
@@ -291,7 +234,7 @@ caseOf("policy_adapter_enabled false", () => {
   let manifestCalls = 0;
   let catalogCalls = 0;
   const result = resolvePolicyFromSources({
-    local: { policy_adapter_enabled: false, advisor_enabled: true },
+    local: { policy_adapter_enabled: false },
     input: policyInput("build"),
     loadManifest: () => {
       manifestCalls += 1;
@@ -341,7 +284,7 @@ caseOf("redacted decision receipts", () => {
 
   const disabled = createPolicyDecisionReceipt(resolvePolicy(policyInput("build"), {
     manifest,
-    local: { policy_adapter_enabled: false, advisor_enabled: false },
+    local: { policy_adapter_enabled: false },
   }), { observedAt });
   assert.equal(disabled.decision, "adapter_disabled");
   assert.equal(disabled.policy_version, null);
@@ -373,15 +316,15 @@ caseOf("invalid schema or unsupported version", () => {
 
 caseOf("manifest semantic change", () => {
   const changed = structuredClone(manifest);
-  changed.policy_version = 2;
+  changed.policy_version = 3;
   changed.changelog.push({
-    policy_version: 2,
+    policy_version: 3,
     date: "2026-07-18",
     summary: "Record the current unpinned route identities.",
     evidence_ref: "reports/opencode-model-routing/report.md",
   });
   const parsed = parsePolicyManifest(changed);
-  assert.equal(parsed.policy_version, 2);
+  assert.equal(parsed.policy_version, 3);
   assert.notEqual(policyConfigurationHash(parsed), EXPECTED_MANIFEST_HASH);
   assert.match(canonicalJson(parsed), /gpt-5\.6-terra/);
 });
@@ -403,55 +346,12 @@ caseOf("legacy pinned routing normalizes to the observed unpinned route", () => 
   assertObserveOnly(result);
 });
 
-caseOf("explicit Advise route when locally enabled", () => {
-  const result = resolve("advise", {
-    local: { policy_adapter_enabled: true, advisor_enabled: true },
-    effectiveConfig: effectiveConfig({ advisor: adviseRoute }),
-    effectiveRoute: adviseRoute,
-    liveCatalog: catalogFor(adviseRoute),
-  });
-  assert.equal(result.state, "resolved");
-  assert.equal(result.policy_route.id, "advise-opus-isolated");
-  assert.deepEqual(result.policy_route, { id: "advise-opus-isolated", ...adviseRoute });
-  assert.equal(result.controls.continuation, "none");
-  assert.equal(result.controls.independent_review, "isolated_read_only");
-  assertObserveOnly(result);
-});
-
 caseOf("runtime effort metadata is reported only when exposed", () => {
   const route = { ...buildRoute, reasoning_effort: "high" };
   const result = resolve("build", {
     effectiveConfig: effectiveConfig({ build: route }),
     effectiveRoute: route,
     liveCatalog: catalogFor(route, { effort: "high" }),
-  });
-  assert.equal(result.state, "resolved");
-  assert.equal(result.effective_execution_route.reasoning_effort, "high");
-  assert.equal(result.route_metadata.reasoning_effort, "available");
-  assertObserveOnly(result);
-});
-
-caseOf("effective advisor variant is reported rather than hidden", () => {
-  const result = resolvePolicy(policyInput("advise"), {
-    manifest,
-    local: { policy_adapter_enabled: true, advisor_enabled: true },
-    effectiveConfig: {
-      agents: {
-        advisor_reviewer: {
-          model: "anthropic/claude-opus-4-8",
-          variant: "high",
-        },
-      },
-      disabled_providers: [],
-    },
-    liveCatalog: {
-      providers: {
-        anthropic: {
-          status: "available",
-          models: { "claude-opus-4-8": { serving_path: "anthropic", reasoning_effort: "high" } },
-        },
-      },
-    },
   });
   assert.equal(result.state, "resolved");
   assert.equal(result.effective_execution_route.reasoning_effort, "high");
@@ -584,36 +484,6 @@ try {
   assert.equal(query.exitCode, 0, query.stderr.toString());
   assert.deepEqual(JSON.parse(query.stdout.toString()), cliRecord);
 
-  const inheritedConfigDir = path.join(cliRoot, "inherited-config");
-  fs.mkdirSync(inheritedConfigDir);
-  fs.writeFileSync(
-    path.join(inheritedConfigDir, "opencode.json"),
-    JSON.stringify({ model: "openai/gpt-5.6-terra", agent: { build: {}, ultra: {} } }),
-  );
-  const inheritedInputPath = path.join(cliRoot, "inherited-input.json");
-  fs.writeFileSync(
-    inheritedInputPath,
-    JSON.stringify({ ...policyInput("ultra"), live_catalog: catalogFor(buildRoute) }),
-  );
-  const inheritedCli = Bun.spawnSync([
-    "bun",
-    path.join(repoRoot, "scripts", "resolve-opencode-policy.mjs"),
-    repoRoot,
-    inheritedConfigDir,
-    "--input",
-    inheritedInputPath,
-    "--no-observe",
-  ], {
-    env: { ...process.env, OPENCODE_POLICY_OBSERVATION_DIR: observationDirectory },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  assert.equal(inheritedCli.exitCode, 0, inheritedCli.stderr.toString());
-  const inheritedResult = JSON.parse(inheritedCli.stdout.toString());
-  assert.equal(inheritedResult.state, "resolved");
-  assert.equal(inheritedResult.policy_route.model, "gpt-5.6-terra");
-  assert.equal(inheritedResult.effective_execution_route.model, "gpt-5.6-terra");
-
   const overriddenConfigDir = path.join(cliRoot, "overridden-config");
   fs.mkdirSync(overriddenConfigDir);
   fs.writeFileSync(
@@ -629,7 +499,7 @@ try {
     model: "gpt-5.6-sol",
     serving_path: "openai",
   };
-  for (const mode of ["build", "ultra"]) {
+  for (const mode of ["build"]) {
     const overrideInputPath = path.join(cliRoot, `overridden-${mode}-input.json`);
     fs.writeFileSync(
       overrideInputPath,
@@ -647,10 +517,7 @@ try {
     assert.equal(overrideCli.exitCode, 0, overrideCli.stderr.toString());
     const overrideResult = JSON.parse(overrideCli.stdout.toString());
     assert.equal(overrideResult.precedence_source, "developer");
-    assert.deepEqual(overrideResult.developer_selection, {
-      ...overriddenRoute,
-      ...(mode === "ultra" ? { manifest_route_id: "ultra-inherit-build" } : {}),
-    });
+    assert.deepEqual(overrideResult.developer_selection, overriddenRoute);
     assert.deepEqual(overrideResult.effective_execution_route, overriddenRoute);
   }
   const suppliedEffectiveInputPath = path.join(cliRoot, "overridden-supplied-effective-input.json");

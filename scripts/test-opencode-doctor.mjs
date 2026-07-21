@@ -22,10 +22,10 @@ try {
     metadata: { api_token: "doctor-fixture-sensitive-value" },
   }));
   fs.mkdirSync(path.join(configDir, "plugins"), { recursive: true, mode: 0o700 });
-  for (const pluginName of ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"]) {
+  for (const pluginName of ["compaction-observability.js", "delegation-guard.js"]) {
     fs.writeFileSync(path.join(configDir, "plugins", pluginName), "export default {};\n");
   }
-  fs.writeFileSync(path.join(configDir, "model-routing.config.local.json"), JSON.stringify({ advisor_enabled: false }), { mode: 0o600 });
+  fs.writeFileSync(path.join(configDir, "model-routing.config.local.json"), JSON.stringify({ policy_adapter_enabled: true }), { mode: 0o600 });
   fs.writeFileSync(path.join(observationDirectory, "record.json"), JSON.stringify({ schema_version: 1, event: "started", observed_at: "2026-07-18T00:00:00.000Z", model_strategy: "active-session", session_sha256: `sha256:${"a".repeat(64)}` }), { mode: 0o600 });
   const { diagnoseOpenCode } = await import(path.join(repoRoot, "scripts", "opencode-doctor.mjs"));
   const healthy = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
@@ -42,18 +42,11 @@ try {
       ["context budget", "ok", "fixture/model: compaction threshold 80000 input tokens with 20000 reserved"],
     ],
   );
-  assert.deepEqual(
-    healthy.checks
-      .filter((item) => [
-        "plugin ./plugins/goal-mode.js",
-        "plugin ./plugins/goal-workflow-guard.js",
-      ].includes(item.name))
-      .map((item) => [item.name, item.level]),
-    [
-      ["plugin ./plugins/goal-mode.js", "ok"],
-      ["plugin ./plugins/goal-workflow-guard.js", "ok"],
-    ],
-  );
+  fs.writeFileSync(path.join(configDir, "plugins", "goal-mode.js"), "export default {};\n");
+  const staleGoalMode = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
+  assert.equal(staleGoalMode.healthy, false);
+  assert.ok(staleGoalMode.checks.some((item) => item.name === "retired plugin goal-mode.js" && item.level === "error"));
+  fs.rmSync(path.join(configDir, "plugins", "goal-mode.js"));
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({ share: "enabled", compaction: { model: "other" }, plugin: [] }));
   const unhealthy = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
   assert.equal(unhealthy.healthy, false);

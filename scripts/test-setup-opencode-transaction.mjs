@@ -13,7 +13,6 @@ const configDir = path.join(homeDir, ".config", "opencode");
 const stubBin = path.join(testRoot, "bin");
 const miseShimBin = path.join(testRoot, "mise", "shims");
 const transactionTempDir = path.join(testRoot, "transaction-tmp");
-const externalTarget = path.join(testRoot, "external-target");
 
 function writeFile(filePath, content, mode = 0o640) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -62,7 +61,6 @@ try {
   fs.mkdirSync(transactionTempDir, { recursive: true });
   fs.mkdirSync(configDir, { recursive: true, mode: 0o751 });
   fs.chmodSync(configDir, 0o751);
-  writeFile(externalTarget, "external symlink target\n", 0o600);
 
   writeFile(path.join(configDir, "AGENTS.md"), "pre-run local instructions\n");
   writeFile(path.join(configDir, "opencode.json"), '{"preRun":true}\n', 0o600);
@@ -73,6 +71,9 @@ try {
   );
   writeFile(path.join(configDir, "plugins", "advisor.ts"), "retired plugin\n", 0o600);
   writeFile(path.join(configDir, "plugins", "user-local.js"), "unmanaged plugin\n", 0o600);
+  for (const name of ["goal-mode.js", "goal-mode.LICENSE", "goal-mode-tui.tsx", "goal-workflow-guard.js"]) {
+    writeFile(path.join(configDir, "plugins", name), "retired Goal mode plugin\n", 0o600);
+  }
   writeFile(
     path.join(configDir, "commands", "mobile-on-call", "init.md"),
     "pre-run plugin command\n",
@@ -86,6 +87,9 @@ try {
     path.join(configDir, "agents", "accessibility_auditor.md"),
     "pre-run agent override\n",
   );
+  for (const name of ["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"]) {
+    writeFile(path.join(configDir, "agents", `${name}.md`), "retired managed agent\n");
+  }
   writeFile(path.join(configDir, "skills", "split", "SKILL.md"), "pre-run split skill\n");
   writeFile(
     path.join(configDir, "backups", "setup-opencode", "existing-backup"),
@@ -104,7 +108,9 @@ try {
     "legacy-generated-skill",
   );
   fs.symlinkSync(retiredSkillTarget, retiredSkillPath);
-  fs.symlinkSync(externalTarget, path.join(configDir, "commands", "advise.md"));
+  for (const name of ["advise", "glm", "glm-fireworks", "glm-fireworks-fast", "goal", "kimi", "kimi-fireworks", "kimi-fireworks-fast", "ultra"]) {
+    writeFile(path.join(configDir, "commands", `${name}.md`), "retired managed command\n");
+  }
   for (const name of ["luna", "sol", "sonnet", "terra"]) {
     fs.symlinkSync(
       path.join(repoRoot, "opencode", "commands", `${name}.md`),
@@ -145,9 +151,6 @@ case "$script" in
       cp "$config/opencode.json" "$config/backups/setup-opencode/stub-merge-backup"
     fi
     printf '{"mutatedByLateMerge":true}\n' > "$config/opencode.json"
-    ;;
-  */test-opencode-workflow-plugin.mjs)
-    exit 0
     ;;
   */test-opencode-policy-resolver.mjs)
     exit 0
@@ -247,10 +250,6 @@ esac
     stderr: "pipe",
   });
   assert.equal(success.exitCode, 0, success.stderr.toString());
-  assert.equal(
-    fs.readlinkSync(path.join(configDir, "commands", "advise.md")),
-    externalTarget,
-  );
   for (const name of fs.readdirSync(path.join(repoRoot, "skills"))) {
     const source = path.join(repoRoot, "skills", name);
     if (!fs.statSync(source).isDirectory() || !fs.existsSync(path.join(source, "SKILL.md"))) {
@@ -271,12 +270,6 @@ esac
     ),
     retiredSkillTarget,
   );
-  const workflowGuardPath = path.join(
-    configDir,
-    "plugins",
-    "goal-workflow-guard.js",
-  );
-  const goalModePath = path.join(configDir, "plugins", "goal-mode.js");
   for (const name of fs.readdirSync(path.join(repoRoot, "opencode", "plugins"))) {
     assert.equal(
       fs.lstatSync(path.join(configDir, "plugins", name)).isSymbolicLink(),
@@ -284,22 +277,13 @@ esac
       `${name} must be copied into the active OpenCode plugin directory`,
     );
   }
-  assert.equal(
-    fs.lstatSync(workflowGuardPath).isSymbolicLink(),
-    false,
-  );
-  assert.equal(
-    fs.readFileSync(workflowGuardPath, "utf8"),
-    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"), "utf8"),
-  );
-  assert.equal(
-    fs.lstatSync(goalModePath).isSymbolicLink(),
-    false,
-  );
-  assert.equal(
-    fs.readFileSync(goalModePath, "utf8"),
-    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "goal-mode.js"), "utf8"),
-  );
+  for (const asset of [
+    ...["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"].map((name) => path.join("agents", `${name}.md`)),
+    ...["advise", "glm", "glm-fireworks", "glm-fireworks-fast", "goal", "kimi", "kimi-fireworks", "kimi-fireworks-fast", "ultra"].map((name) => path.join("commands", `${name}.md`)),
+    ...["goal-mode.js", "goal-mode.LICENSE", "goal-mode-tui.tsx", "goal-workflow-guard.js"].map((name) => path.join("plugins", name)),
+  ]) {
+    assert.equal(fs.lstatSync(path.join(configDir, asset), { throwIfNoEntry: false }), undefined);
+  }
   const primitivesPath = path.join(configDir, "plugins", "kdco-primitives");
   assert.equal(fs.lstatSync(primitivesPath).isSymbolicLink(), false);
   assert.equal(
