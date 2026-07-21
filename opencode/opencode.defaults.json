@@ -429,48 +429,5 @@
     "record_goal_failure": "deny",
     "advisor": "deny",
     "doom_loop": "ask"
-  },
-  "plugin": [
-    [
-      "./plugins/goal-mode.js",
-      {
-        "auto_continue": true,
-        "defer_while_tasks_active": true,
-        "max_auto_turns": 9007199254740991,
-        "max_prompt_failures": 3,
-        "max_repeated_failures": 3,
-        "max_repeated_tool_calls": 3,
-        "retry_base_seconds": 1,
-        "retry_max_seconds": 60,
-        "no_progress_token_threshold": 50,
-        "max_no_progress_turns": 3,
-        "restricted_agents": [
-          "plan"
-        ],
-        "allow_goal_execution_from_plan": false
-      }
-    ],
-    [
-      "./plugins/compaction-observability.js",
-      {
-        "model_strategy": "active-session"
-      }
-    ],
-    [
-      "./plugins/delegation-guard.js",
-      {
-        "max_concurrent": 4,
-        "max_total": 8,
-        "isolated_review_agents": [
-          "accessibility_auditor",
-          "code_reviewer",
-          "database_optimizer",
-          "evidence_analyst",
-          "security_engineer",
-          "software_architect"
-        ]
-      }
-    ],
-    "./plugins/goal-workflow-guard.js"
-  ]
+  }
 }

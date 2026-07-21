@@ -70,17 +70,15 @@ for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
     fail("the external Goal plugin remains configured");
   }
 }
-if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/goal-mode.js")) {
-  fail("the vendored Goal server is not configured");
-}
-if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/goal-workflow-guard.js")) {
-  fail("the completion-evidence guard is not configured");
-}
-if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/compaction-observability.js")) {
-  fail("the compaction observability plugin is not configured");
-}
-if (!(config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === "./plugins/delegation-guard.js")) {
-  fail("the delegation guard is not configured");
+for (const pluginPath of [
+  "./plugins/goal-mode.js",
+  "./plugins/goal-workflow-guard.js",
+  "./plugins/compaction-observability.js",
+  "./plugins/delegation-guard.js",
+]) {
+  if ((config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === pluginPath)) {
+    fail(`the auto-discovered plugin ${pluginPath} must not also be configured explicitly`);
+  }
 }
 if (!(tui.plugin ?? []).includes("./plugins/goal-mode-tui.tsx")) {
   fail("the vendored Goal TUI is not configured");
