@@ -59,15 +59,15 @@ function nonEmptyString(value, label, maximumLength) {
   return result;
 }
 
-function safeEvidenceText(value, label, maximumLength) {
+function safeEvidenceText(value, label, maximumLength, { allowSourceCode = false } = {}) {
   const result = nonEmptyString(value, label, maximumLength);
   if (/\r|\n|```/.test(result)) {
     throw new Error(`${label} must be a concise single-line summary, not raw output or source content`);
   }
-  if (/(?:\b(?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(result)) {
+  if (/(?:\b(?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization)\s*[:=]|["'](?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization|aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)["']\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(result)) {
     throw new Error(`${label} must not contain credentials or secret material`);
   }
-  if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(result)) {
+  if (!allowSourceCode && /(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(result)) {
     throw new Error(`${label} must not contain source code`);
   }
   return result;
@@ -404,7 +404,7 @@ function parseCompletionEvidence(source) {
     if (!isRecord(check)) throw new Error(`${label} must be an object`);
     assertExactKeys(check, ["requirement", "status", "evidence"], label);
 
-    const requirement = safeEvidenceText(check.requirement, `${label}.requirement`, 4000);
+    const requirement = safeEvidenceText(check.requirement, `${label}.requirement`, 4000, { allowSourceCode: true });
     if (seenRequirements.has(requirement)) {
       throw new Error(`${label}.requirement duplicates another check`);
     }

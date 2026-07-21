@@ -104,6 +104,10 @@ try {
       "machine-local-plugin@9.9.9",
       "opencode-dynamic-workflows@1.2.3",
       "@prevalentware/opencode-goal-plugin@0.0.1",
+      ["./plugins/goal-mode.js", { max_repeated_tool_calls: 3 }],
+      "./plugins/goal-workflow-guard.js",
+      ["./plugins/compaction-observability.js", { model_strategy: "active-session" }],
+      ["./plugins/delegation-guard.js", { max_concurrent: 4, max_total: 8 }],
     ],
   }));
 
@@ -279,13 +283,6 @@ try {
   assert.equal(merged.compaction.reserved, 20_000);
   assert.equal(merged.compaction.auto, true);
   assert.equal(merged.compaction.model, undefined);
-  const goalPlugin = merged.plugin.find((plugin) =>
-    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-mode.js"
-  );
-  assert.equal(goalPlugin[1].max_repeated_failures, 3);
-  assert.equal(goalPlugin[1].max_repeated_tool_calls, 3);
-  assert.equal(goalPlugin[1].retry_base_seconds, 1);
-  assert.equal(goalPlugin[1].retry_max_seconds, 60);
   assert.equal(
     merged.provider.baseten.models["zai-org/GLM-5.2"].limit.input -
       merged.compaction.reserved,
@@ -303,25 +300,19 @@ try {
       )
     ),
   );
-  assert.ok(
-    merged.plugin.some((plugin) =>
-      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-mode.js"
-    ),
-  );
-  assert.ok(
-    merged.plugin.some((plugin) =>
-      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/goal-workflow-guard.js"
-    ),
-  );
-  const compactionObserver = merged.plugin.find((plugin) =>
-    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/compaction-observability.js"
-  );
-  assert.equal(compactionObserver[1].model_strategy, "active-session");
-  const delegationGuard = merged.plugin.find((plugin) =>
-    (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/delegation-guard.js"
-  );
-  assert.equal(delegationGuard[1].max_concurrent, 4);
-  assert.equal(delegationGuard[1].max_total, 8);
+  for (const pluginPath of [
+    "./plugins/goal-mode.js",
+    "./plugins/goal-workflow-guard.js",
+    "./plugins/compaction-observability.js",
+    "./plugins/delegation-guard.js",
+  ]) {
+    assert.equal(
+      merged.plugin.some((plugin) =>
+        (Array.isArray(plugin) ? plugin[0] : plugin) === pluginPath
+      ),
+      false,
+    );
+  }
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );

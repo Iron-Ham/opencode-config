@@ -70,14 +70,14 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
       const threshold = budget.input - config.compaction.reserved;
       check(checks, threshold > 0 ? "ok" : "error", "context budget", threshold > 0 ? `${budget.model}: compaction threshold ${threshold} input tokens with ${config.compaction.reserved} reserved` : `${budget.model}: reserve exceeds the ${budget.input}-token input limit`);
     }
-    const plugins = config.plugin ?? [];
-    for (const required of ["./plugins/goal-mode.js", "./plugins/goal-workflow-guard.js", "./plugins/compaction-observability.js", "./plugins/delegation-guard.js"]) {
-      check(checks, plugins.some((plugin) => pluginSpecifier(plugin) === required) ? "ok" : "error", `plugin ${required}`, plugins.some((plugin) => pluginSpecifier(plugin) === required) ? "configured" : "missing");
+    const managedPlugins = ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"];
+    const configuredPlugins = config.plugin ?? [];
+    for (const pluginName of managedPlugins) {
+      const pluginPath = `./plugins/${pluginName}`;
+      const installed = fs.existsSync(path.join(resolvedConfigDir, "plugins", pluginName));
+      const duplicated = configuredPlugins.some((plugin) => pluginSpecifier(plugin) === pluginPath);
+      check(checks, installed && !duplicated ? "ok" : "error", `plugin ${pluginPath}`, installed ? duplicated ? "auto-discovered plugin is also configured explicitly" : "auto-discovered" : "missing from the plugin directory");
     }
-    const observer = plugins.find((plugin) => pluginSpecifier(plugin) === "./plugins/compaction-observability.js");
-    check(checks, Array.isArray(observer) && observer[1]?.model_strategy === "active-session" ? "ok" : "error", "compaction observer strategy", "compaction observability must use active-session inheritance");
-    const delegationGuard = plugins.find((plugin) => pluginSpecifier(plugin) === "./plugins/delegation-guard.js");
-    check(checks, Array.isArray(delegationGuard) && delegationGuard[1]?.max_concurrent === 4 && delegationGuard[1]?.max_total === 8 ? "ok" : "error", "delegation limits", "delegation guard must enforce four concurrent and eight total tasks");
   }
 
   const routingPath = path.join(resolvedConfigDir, "model-routing.config.local.json");

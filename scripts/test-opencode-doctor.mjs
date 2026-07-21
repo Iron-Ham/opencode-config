@@ -19,14 +19,12 @@ try {
     provider: { fixture: { models: { model: { limit: { input: 100_000 } } } } },
     tool_output: { max_lines: 300, max_bytes: 16_384 },
     compaction: { auto: true, prune: true, tail_turns: 3, preserve_recent_tokens: 12_000, reserved: 20_000 },
-    plugin: [
-      "./plugins/goal-mode.js",
-      "./plugins/goal-workflow-guard.js",
-      ["./plugins/compaction-observability.js", { model_strategy: "active-session" }],
-      ["./plugins/delegation-guard.js", { max_concurrent: 4, max_total: 8 }],
-    ],
     metadata: { api_token: "doctor-fixture-sensitive-value" },
   }));
+  fs.mkdirSync(path.join(configDir, "plugins"), { recursive: true, mode: 0o700 });
+  for (const pluginName of ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"]) {
+    fs.writeFileSync(path.join(configDir, "plugins", pluginName), "export default {};\n");
+  }
   fs.writeFileSync(path.join(configDir, "model-routing.config.local.json"), JSON.stringify({ advisor_enabled: false }), { mode: 0o600 });
   fs.writeFileSync(path.join(observationDirectory, "record.json"), JSON.stringify({ schema_version: 1, event: "started", observed_at: "2026-07-18T00:00:00.000Z", model_strategy: "active-session", session_sha256: `sha256:${"a".repeat(64)}` }), { mode: 0o600 });
   const { diagnoseOpenCode } = await import(path.join(repoRoot, "scripts", "opencode-doctor.mjs"));
@@ -49,15 +47,11 @@ try {
       .filter((item) => [
         "plugin ./plugins/goal-mode.js",
         "plugin ./plugins/goal-workflow-guard.js",
-        "compaction observer strategy",
-        "delegation limits",
       ].includes(item.name))
       .map((item) => [item.name, item.level]),
     [
       ["plugin ./plugins/goal-mode.js", "ok"],
       ["plugin ./plugins/goal-workflow-guard.js", "ok"],
-      ["compaction observer strategy", "ok"],
-      ["delegation limits", "ok"],
     ],
   );
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({ share: "enabled", compaction: { model: "other" }, plugin: [] }));

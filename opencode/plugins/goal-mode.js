@@ -1,6 +1,6 @@
 // Derived from https://github.com/prevalentWare/opencode-goal-plugin/tree/02ffc88cb5b9665b8a0688b6358d0bc620ff175b under the MIT License in goal-mode.LICENSE.
 // @bun
-import { chmod, mkdir, readFile, rename, writeFile } from "fs/promises";
+import { chmod, mkdir, open, readFile, rename, rm, stat, writeFile } from "fs/promises";
 import { createHash } from "crypto";
 import { homedir } from "os";
 import { dirname, join } from "path";
@@ -16,6 +16,9 @@ var DEFAULT_MAX_REPEATED_FAILURES = 3;
 var DEFAULT_MAX_REPEATED_TOOL_CALLS = 3;
 var DEFAULT_RETRY_BASE_SECONDS = 1;
 var DEFAULT_RETRY_MAX_SECONDS = 60;
+var STATE_LOCK_RETRY_MS = 25;
+var STATE_LOCK_TIMEOUT_MS = 30 * 1e3;
+var STATE_LOCK_STALE_MS = 2 * 60 * 1e3;
 var PLAN_MODE_STOP_REASON = "plan mode";
 var PLAN_MODE_BLOCKER = "Goal execution is paused while the session is in Plan mode. Switch to Build mode and resume the goal to continue.";
 var PROGRESS_KINDS = new Set([
@@ -116,6 +119,45 @@ function defaultStateFile() {
 function statePath() {
   return process.env.OPENCODE_GOAL_STATE_PATH || defaultStateFile();
 }
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+async function acquireStateLock() {
+  const lockFile = `${statePath()}.lock`;
+  await mkdir(dirname(lockFile), { recursive: true, mode: 448 });
+  const deadline = Date.now() + STATE_LOCK_TIMEOUT_MS;
+  while (true) {
+    try {
+      return await open(lockFile, "wx", 384);
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      try {
+        const lock = await stat(lockFile);
+        if (Date.now() - lock.mtimeMs > STATE_LOCK_STALE_MS) {
+          await rm(lockFile, { force: true });
+        }
+      } catch (lockError) {
+        if (lockError?.code !== "ENOENT") throw lockError;
+      }
+      if (Date.now() >= deadline) {
+        throw new Error("timed out waiting for the goal state lock");
+      }
+      await sleep(STATE_LOCK_RETRY_MS);
+    }
+  }
+}
+async function withStateLock(operation) {
+  const lock = await acquireStateLock();
+  try {
+    return await operation();
+  } finally {
+    try {
+      await lock.close();
+    } finally {
+      await rm(`${statePath()}.lock`, { force: true });
+    }
+  }
+}
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
@@ -187,12 +229,12 @@ function enqueueMutation(operation) {
   return current;
 }
 async function mutate(fn) {
-  return enqueueMutation(async () => {
+  return enqueueMutation(() => withStateLock(async () => {
     const state = await readState();
     const result = await fn(state);
     await writeState(state);
     return result;
-  });
+  }));
 }
 function validateObjective(objective) {
   const value = objective.trim();
@@ -210,15 +252,24 @@ function validateEvidence(evidence, label) {
     throw new Error(`${label} must be at most 4000 characters`);
   return value;
 }
+function validateSafeText(value, label) {
+  const text = validateEvidence(value, label);
+  if (/\r|\n|```/.test(text)) {
+    throw new Error(`${label} must be a concise single-line summary, not raw output or source content`);
+  }
+  if (/(?:\b(?:cookie|set-cookie|session_cookie|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(text)) {
+    throw new Error(`${label} must not contain credentials or secret material`);
+  }
+  if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(text)) {
+    throw new Error(`${label} must not contain source code`);
+  }
+  return text;
+}
 function validateSafeBlocker(blocker) {
-  const value = validateEvidence(blocker, "blocker");
-  if (/\r|\n|```/.test(value))
-    throw new Error("blocker must be a concise single-line summary, not raw output or source content");
-  if (/(?:\b(?:cookie|set-cookie|session_cookie|authorization)\s*[:=]|\bBearer\s+\S+|\b(?:aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\b\s*[:=]|-----BEGIN(?: [A-Z]+)? PRIVATE KEY-----|\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=|\bgh[pous]_[A-Za-z0-9_]+|\b(?:sk|rk)_[A-Za-z0-9]{20,})/i.test(value))
-    throw new Error("blocker must not contain credentials or secret material");
-  if (/(?:^|\s)(?:function|class|const|let|var|import|export)\s+[A-Za-z_$]/.test(value))
-    throw new Error("blocker must not contain source code");
-  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+  return `sha256:${createHash("sha256").update(validateSafeText(blocker, "blocker")).digest("hex")}`;
+}
+function validateSafeFailureAction(nextAction) {
+  return validateSafeText(nextAction, "next_action");
 }
 function assertCompletionCoversRequiredOutcomes(goal, evidence) {
   let value;
@@ -830,7 +881,7 @@ function normalizeFailureEvent(input) {
     source: opaqueText(input?.source, "failure source", 200),
     fingerprint: opaqueText(input?.fingerprint, "failure fingerprint", 200),
     summary: opaqueText(input?.summary, "failure summary"),
-    nextAction: defaultNextAction(failureClass)
+    nextAction: validateSafeFailureAction(input?.next_action ?? input?.nextAction)
   };
 }
 function progressSignature(event) {
@@ -1053,11 +1104,11 @@ function toolArguments(input) {
   }
   return null;
 }
-function toolCallFingerprint(input) {
-  return stableFingerprint({ tool: normalizedToolName(input), arguments: toolArguments(input) });
+function toolCallFingerprint(input, toolArgs = toolArguments(input)) {
+  return stableFingerprint({ tool: normalizedToolName(input), arguments: toolArgs });
 }
-function toolInputText(input) {
-  const value = toolArguments(input);
+function toolInputText(input, toolArgs = toolArguments(input)) {
+  const value = toolArgs;
   if (typeof value === "string")
     return value;
   if (isRecord(value)) {
@@ -1070,16 +1121,17 @@ function toolInputText(input) {
 }
 function toolOutputFailed(output) {
   const status = output?.status ?? output?.state?.status;
-  return status === "error" || status === "failed" || typeof output?.error === "string" || output?.error instanceof Error;
+  const exit = output?.metadata?.exit;
+  return status === "error" || status === "failed" || typeof output?.error === "string" || output?.error instanceof Error || typeof exit === "number" && exit !== 0 || typeof exit === "string" && exit !== "0";
 }
 function isValidationCommand(command) {
   return /\b(?:test|tests|lint|typecheck|check|build|pytest|xcodebuild|gradlew)\b/i.test(command);
 }
-async function recordToolCall(sessionID, input, maxRepeatedToolCalls) {
+async function recordToolCall(sessionID, input, maxRepeatedToolCalls, toolArgs) {
   const tool = normalizedToolName(input);
   if (!sessionID || !tool || GOAL_MANAGEMENT_TOOLS.has(tool))
     return null;
-  const fingerprint = toolCallFingerprint(input);
+  const fingerprint = toolCallFingerprint(input, toolArgs);
   return mutate((state) => {
     const goal = state.goals[sessionID];
     if (!goal || goal.status !== "active")
@@ -1094,9 +1146,9 @@ async function recordToolCall(sessionID, input, maxRepeatedToolCalls) {
     return snapshot(goal);
   });
 }
-async function stopForRepeatedToolCall(sessionID, input, maxRepeatedToolCalls) {
+async function stopForRepeatedToolCall(sessionID, input, maxRepeatedToolCalls, toolArgs) {
   const tool = normalizedToolName(input);
-  const fingerprint = toolCallFingerprint(input);
+  const fingerprint = toolCallFingerprint(input, toolArgs);
   return mutate((state) => {
     const goal = state.goals[sessionID];
     if (!goal || goal.status !== "active" || goal.repeatedToolSignature !== fingerprint || goal.repeatedToolCalls < maxRepeatedToolCalls)
@@ -1106,11 +1158,11 @@ async function stopForRepeatedToolCall(sessionID, input, maxRepeatedToolCalls) {
     return snapshot(goal);
   });
 }
-async function recordObservedToolResult(sessionID, input, output, maxRepeatedFailures) {
+async function recordObservedToolResult(sessionID, input, output, maxRepeatedFailures, toolArgs) {
   const tool = normalizedToolName(input);
   if (!sessionID || !tool || GOAL_MANAGEMENT_TOOLS.has(tool))
     return;
-  const fingerprint = toolCallFingerprint(input);
+  const fingerprint = toolCallFingerprint(input, toolArgs);
   if (SOURCE_MUTATION_TOOLS.has(tool) && !toolOutputFailed(output)) {
     const goal = await recordGoalProgress(sessionID, {
       kind: "source-mutation",
@@ -1120,7 +1172,7 @@ async function recordObservedToolResult(sessionID, input, output, maxRepeatedFai
     }, maxRepeatedFailures);
     return goal?.repeatedToolCalls === 0;
   }
-  const command = toolInputText(input);
+  const command = toolInputText(input, toolArgs);
   if (tool === "bash" && isValidationCommand(command)) {
     const goal = await recordGoalProgress(sessionID, {
       kind: "validation",
@@ -1143,14 +1195,14 @@ async function recordAssistantProgress(sessionID, input) {
     const outputTokens = positiveIntegerOrNull(input.outputTokens) ?? 0;
     const threshold = positiveIntegerOrNull(input.noProgressTokenThreshold) ?? goal.noProgressTokenThreshold;
     const maxNoProgressTurns = positiveIntegerOrNull(input.maxNoProgressTurns) ?? goal.maxNoProgressTurns;
-    const summary = summarizeText(text);
-    const previousSummary = summarizeText(goal.lastAssistantText);
+    const summary = summarizeAssistantText(text);
+    const previousSummary = goal.lastAssistantText;
     const repeatedMessage = Boolean(messageID && messageID === goal.lastAssistantMessageID);
     const changed = Boolean(summary && summary !== previousSummary);
     if (summary && (!repeatedMessage || changed))
       recordCheckpoint(goal, summary);
     if (text)
-      goal.lastAssistantText = text;
+      goal.lastAssistantText = summary;
     if (messageID)
       goal.lastAssistantMessageID = messageID;
     const continuationTurnCompleted = input.evaluateContinuation === true && goal.awaitingContinuationProgress && Boolean(messageID) && messageID !== goal.continuationBaselineMessageID;
@@ -1195,7 +1247,7 @@ async function reserveContinuation(sessionID, maxAutoTurns, minIntervalSeconds) 
     goal.autoTurns += 1;
     goal.lastContinuationAt = now;
     goal.continuationBaselineMessageID = goal.lastAssistantMessageID;
-    goal.continuationBaselineSummary = summarizeText(goal.lastAssistantText);
+    goal.continuationBaselineSummary = goal.lastAssistantText;
     goal.continuationBaselineProgressEpoch = goal.progressEpoch;
     goal.lastStatus = `Auto-continue ${goal.autoTurns} reserved.`;
     pushHistory(goal, "autoContinue", goal.lastStatus);
@@ -1293,6 +1345,25 @@ function summarizeText(text, limit = CHECKPOINT_CHAR_LIMIT) {
   if (!normalized)
     return "";
   return normalized.length > limit ? `${normalized.slice(0, limit - 1)}...` : normalized;
+}
+function redactPersistedText(text) {
+  return text
+    .replace(/\b(Bearer)\s+\S+/gi, "$1 [redacted]")
+    .replace(
+      /((?:["'](?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization|aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)["']\s*:\s*["']))[^"']*(["'])/gi,
+      "$1[redacted]$2",
+    )
+    .replace(
+      /((?:cookie|set-cookie|session_cookie|access_token|refresh_token|client_secret|session_id|authorization|aws_secret_access_key|aws_access_key_id|private[_ -]?key|api[_ -]?key|token|secret|password)\s*[:=]\s*)[^\s,;]+/gi,
+      "$1[redacted]",
+    )
+    .replace(
+      /\b[A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=\s*[^\s,;]+/g,
+      "[redacted-env-assignment]",
+    );
+}
+function summarizeAssistantText(text) {
+  return summarizeText(redactPersistedText(text));
 }
 function goalLimitSummary(goal) {
   const limits = [
@@ -1788,7 +1859,8 @@ class TaskTracker {
       this.markRunning(parentSessionID, status.taskID);
       return;
     }
-    this.markTerminal(status.taskID, status.state, parentSessionID, { resetReconciled: true });
+    this.markTerminal(status.taskID, status.state, parentSessionID, { resetReconciled: true, settled: true });
+    return parentSessionID;
   }
   observeSessionCreated(event) {
     const info = event.properties?.info;
@@ -1805,9 +1877,13 @@ class TaskTracker {
       return;
     }
     if (status === "idle")
-      this.markTerminal(sessionID, "completed", task.parentSessionID);
+      {
+        this.markTerminal(sessionID, "completed", task.parentSessionID, { settled: true });
+        return task.parentSessionID;
+      }
   }
   observeSessionDeleted(sessionID) {
+    const parentSessionID = this.tasks.get(sessionID)?.parentSessionID ?? null;
     this.tasks.delete(sessionID);
     for (const task of this.tasks.values()) {
       if (task.parentSessionID === sessionID)
@@ -1815,6 +1891,7 @@ class TaskTracker {
     }
     this.latestAssistantBySession.delete(sessionID);
     this.clearSnapshotIdleForSession(sessionID);
+    return parentSessionID;
   }
   observeMessages(messages) {
     for (const message of messages) {
@@ -1833,7 +1910,7 @@ class TaskTracker {
         if (status.state === "running")
           this.markRunning(sessionID, status.taskID);
         else
-          this.markTerminal(status.taskID, status.state, sessionID, { resetReconciled: true });
+          this.markTerminal(status.taskID, status.state, sessionID, { resetReconciled: true, settled: true });
       }
     }
   }
@@ -1928,7 +2005,7 @@ class TaskTracker {
       taskID,
       parentSessionID: resolvedParentSessionID,
       state,
-      terminalUnreconciled: true,
+      terminalUnreconciled: options.settled !== true,
       terminalAt: Date.now(),
       lastAssistantMessageIDAtTerminal: this.latestAssistantBySession.get(resolvedParentSessionID)?.id ?? null
     });
@@ -2043,6 +2120,8 @@ var server = async ({ client }, options) => {
   const taskDeferredSessions = new Set;
   const scheduledContinuations = new Map;
   const busySessions = new Set;
+  const toolArgumentsByCallID = new Map;
+  const toolCallKey = (input) => typeof input?.sessionID === "string" && typeof input?.callID === "string" ? `${input.sessionID}\0${input.callID}` : null;
   const planAgents = restrictedAgentSet(options);
   const isPlanAgent = (agent) => typeof agent === "string" && planAgents.has(agent.trim().toLowerCase());
   const toolOptions = (input) => isRecord(input.options) ? input.options : {};
@@ -2317,17 +2396,27 @@ var server = async ({ client }, options) => {
         }
       }
     },
-    async "tool.execute.before"(input) {
+    async "tool.execute.before"(input, output) {
       taskTracker.noteTaskCall(input);
-      if (typeof input?.sessionID === "string")
-        await recordToolCall(input.sessionID, input, maxRepeatedToolCalls);
+      if (typeof input?.sessionID === "string") {
+        const toolArgs = output?.args ?? toolArguments(input);
+        const key = toolCallKey(input);
+        if (key) toolArgumentsByCallID.set(key, toolArgs);
+        await recordToolCall(input.sessionID, input, maxRepeatedToolCalls, toolArgs);
+      }
     },
     async "tool.execute.after"(input, output) {
-      taskTracker.noteTaskOutput(input, output);
+      const taskParentSessionID = taskTracker.noteTaskOutput(input, output);
+      if (autoContinue && taskParentSessionID && taskDeferredSessions.has(taskParentSessionID)) {
+        scheduleSettledContinuation(taskParentSessionID);
+      }
       if (typeof input?.sessionID === "string") {
-        const progressRecorded = await recordObservedToolResult(input.sessionID, input, output, maxRepeatedFailures);
+        const key = toolCallKey(input);
+        const toolArgs = (key ? toolArgumentsByCallID.get(key) : undefined) ?? toolArguments(input);
+        if (key) toolArgumentsByCallID.delete(key);
+        const progressRecorded = await recordObservedToolResult(input.sessionID, input, output, maxRepeatedFailures, toolArgs);
         if (!progressRecorded)
-          await stopForRepeatedToolCall(input.sessionID, input, maxRepeatedToolCalls);
+          await stopForRepeatedToolCall(input.sessionID, input, maxRepeatedToolCalls, toolArgs);
       }
     },
     async "chat.message"(input, output) {
@@ -2365,6 +2454,7 @@ var server = async ({ client }, options) => {
     async event({ event }) {
       const sessionID = sessionIDFromEvent(event);
       const eventType = event.type;
+      let taskParentSessionID = null;
       if (eventType === "session.created") {
         taskTracker.observeSessionCreated(event);
       }
@@ -2375,16 +2465,16 @@ var server = async ({ client }, options) => {
             busySessions.add(sessionID);
           if (status.type === "idle")
             busySessions.delete(sessionID);
-          taskTracker.observeSessionStatus(sessionID, status.type);
+          taskParentSessionID = taskTracker.observeSessionStatus(sessionID, status.type);
         }
       }
       if (sessionID && eventType === "session.idle") {
         busySessions.delete(sessionID);
-        taskTracker.observeSessionStatus(sessionID, "idle");
+        taskParentSessionID = taskTracker.observeSessionStatus(sessionID, "idle") ?? taskParentSessionID;
       }
       if (sessionID && eventType === "session.deleted") {
         busySessions.delete(sessionID);
-        taskTracker.observeSessionDeleted(sessionID);
+        taskParentSessionID = taskTracker.observeSessionDeleted(sessionID) ?? taskParentSessionID;
       }
       if (sessionID && event.type === "message.updated") {
         const props = event.properties ?? {};
@@ -2392,7 +2482,11 @@ var server = async ({ client }, options) => {
         taskTracker.observeAssistantMessage(sessionID, message);
         await recordAssistantMessage(sessionID, message, options ?? {});
       }
-      if (!autoContinue || !isIdleEvent(event))
+      if (!autoContinue)
+        return;
+      if (taskParentSessionID && taskDeferredSessions.has(taskParentSessionID))
+        scheduleSettledContinuation(taskParentSessionID);
+      if (!isIdleEvent(event))
         return;
       if (!sessionID)
         return;

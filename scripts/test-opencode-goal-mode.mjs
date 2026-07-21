@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-goal-mode-test-"));
@@ -319,6 +320,22 @@ try {
   assert.equal(contextFailure.terminalFailure.failureClass, "context-limit");
   assert.match(contextFailure.terminalFailure.nextAction, /Reduce the next request/);
 
+  await createGoalFor(hooks, "concrete-next-action");
+  const concreteNextAction = "Request the approval for the external dependency, then resume this goal.";
+  const concreteFailure = JSON.parse(
+    await hooks.tool.record_goal_failure.execute(
+      {
+        failure_class: "external-dependency-blocked",
+        source: "dependency:release-service",
+        fingerprint: "dependency:approval-required",
+        summary: "The release service requires an approval before it can continue.",
+        next_action: concreteNextAction,
+      },
+      { sessionID: "concrete-next-action", agent: "build" },
+    ),
+  ).goal;
+  assert.equal(concreteFailure.terminalFailure.nextAction, concreteNextAction);
+
   await createGoalFor(hooks, "validation-stalled");
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     await hooks.tool.record_goal_progress.execute(
@@ -379,6 +396,34 @@ try {
   assert.equal(successfulThirdCall.status, "active");
   assert.equal(successfulThirdCall.repeatedToolCalls, 0);
   assert.equal(successfulThirdCall.progressEvents.at(-1).kind, "source-mutation");
+
+  await createGoalFor(hooks, "before-hook-arguments");
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const callID = `before-hook-${attempt}`;
+    await hooks["tool.execute.before"](
+      { sessionID: "before-hook-arguments", callID, tool: "read" },
+      { args: { filePath: "unchanged.txt" } },
+    );
+    await hooks["tool.execute.after"](
+      { sessionID: "before-hook-arguments", callID, tool: "read" },
+      { output: "unchanged" },
+    );
+  }
+  assert.equal((await goalFor(hooks, "before-hook-arguments")).status, "stopped");
+
+  await createGoalFor(hooks, "failed-bash-exit");
+  await hooks["tool.execute.before"](
+    { sessionID: "failed-bash-exit", callID: "failed-bash", tool: "bash" },
+    { args: { command: "bun test" } },
+  );
+  await hooks["tool.execute.after"](
+    { sessionID: "failed-bash-exit", callID: "failed-bash", tool: "bash" },
+    { output: "validation failed", metadata: { exit: 1 } },
+  );
+  assert.equal(
+    (await goalFor(hooks, "failed-bash-exit")).validationResults.at(-1).status,
+    "failed",
+  );
 
   const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
   state.goals.legacy = {
@@ -563,6 +608,61 @@ try {
       { sessionID: "invalid-handoff", agent: "build" },
     )
   );
+
+  const parentPrompts = [];
+  const parentHooks = await goalMode.server({
+    client: {
+      session: {
+        messages: async () => ({ data: [] }),
+        promptAsync: async (request) => {
+          parentPrompts.push(request);
+        },
+      },
+    },
+  }, { auto_continue: true });
+  await createGoalFor(parentHooks, "deferred-parent");
+  await parentHooks.event({
+    event: {
+      type: "session.created",
+      properties: { info: { id: "deferred-child", parentID: "deferred-parent" } },
+    },
+  });
+  await parentHooks.event({
+    event: { type: "session.idle", properties: { sessionID: "deferred-parent" } },
+  });
+  await parentHooks.event({
+    event: { type: "session.idle", properties: { sessionID: "deferred-child" } },
+  });
+  await Bun.sleep(100);
+  assert.equal(parentPrompts.length, 1);
+  assert.equal(parentPrompts[0].path.id, "deferred-parent");
+  await parentHooks.dispose();
+
+  const lockDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-goal-lock-test-"));
+  const lockStatePath = path.join(lockDirectory, "goals.json");
+  const childSource = `import plugin from ${JSON.stringify(pathToFileURL(goalModePath).href)}; const hooks = await plugin.server({ client: {} }, { auto_continue: false }); await hooks.tool.create_goal.execute({ objective: process.env.GOAL_OBJECTIVE, options: {} }, { sessionID: process.env.GOAL_SESSION, agent: "build" });`;
+  const createConcurrentGoal = async (sessionID) => {
+    const child = Bun.spawn(["bun", "--eval", childSource], {
+      env: {
+        ...process.env,
+        GOAL_OBJECTIVE: `Goal for ${sessionID}.`,
+        GOAL_SESSION: sessionID,
+        OPENCODE_GOAL_STATE_PATH: lockStatePath,
+      },
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    const exitCode = await child.exited;
+    assert.equal(exitCode, 0, await new Response(child.stderr).text());
+  };
+  try {
+    await Promise.all([createConcurrentGoal("lock-one"), createConcurrentGoal("lock-two")]);
+    const lockedState = JSON.parse(fs.readFileSync(lockStatePath, "utf8"));
+    assert.deepEqual(Object.keys(lockedState.goals).sort(), ["lock-one", "lock-two"]);
+    assert.equal(fs.existsSync(`${lockStatePath}.lock`), false);
+  } finally {
+    fs.rmSync(lockDirectory, { recursive: true, force: true });
+  }
 
   let ordinaryBuildPrompts = 0;
   const noGoalHooks = await goalMode.server({

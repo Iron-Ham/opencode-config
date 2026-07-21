@@ -192,6 +192,14 @@ try {
   const parsed = parseCompletionEvidence(prettyEvidence);
   assert.deepEqual(parsed.manifest, validEvidence);
   assert.equal(parsed.canonical, JSON.stringify(validEvidence));
+  const codeRequirement = {
+    ...validEvidence,
+    checks: [{ ...validEvidence.checks[0], requirement: "Implement function completeGoal() safely." }],
+  };
+  assert.equal(
+    parseCompletionEvidence(JSON.stringify(codeRequirement)).manifest.checks[0].requirement,
+    "Implement function completeGoal() safely.",
+  );
   assert.deepEqual(
     parseGoalHandoff(validHandoff, { status: "complete", fallback: validEvidence.summary }),
     validHandoff,
@@ -234,6 +242,7 @@ try {
     JSON.stringify({ ...validEvidence, summary: "Cookie: session=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "session_cookie=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "session_id=super-secret-value" }),
+    JSON.stringify({ ...validEvidence, summary: '{"access_token":"super-secret-value"}' }),
     JSON.stringify({ ...validEvidence, summary: "client_secret=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "AWS_SECRET_ACCESS_KEY=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "ghp_abcdefghijklmnopqrstuvwxyz1234567890" }),
