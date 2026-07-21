@@ -6,6 +6,7 @@ import {
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
+  ripgrepTypeFilterArguments,
   runRipgrepLines,
   utf8Prefix,
   visibleRelativePath,
@@ -27,11 +28,14 @@ export default tool({
       return `Path does not exist: ${searchRoot}`;
     }
 
-    let matchesPath: (relativePath: string) => boolean;
-    try {
-      matchesPath = createPathGlobMatcher(args.pattern);
-    } catch {
-      return `Invalid glob pattern: ${args.pattern}`;
+    const filterArguments = ripgrepTypeFilterArguments(args.pattern);
+    let matchesPath: ((relativePath: string) => boolean) | undefined;
+    if (filterArguments.length === 0) {
+      try {
+        matchesPath = createPathGlobMatcher(args.pattern);
+      } catch {
+        return `Invalid glob pattern: ${args.pattern}`;
+      }
     }
 
     const files: string[] = [];
@@ -39,11 +43,12 @@ export default tool({
       "--files",
       "--sortr",
       "modified",
+      ...filterArguments,
       ...ignoreArguments(),
       ".",
     ], searchRoot, (line) => {
       if (!line) return true;
-      if (!matchesPath(line)) return true;
+      if (matchesPath && !matchesPath(line)) return true;
       if (files.length >= MAX_RESULTS) return false;
       files.push(path.resolve(searchRoot, line));
       return true;

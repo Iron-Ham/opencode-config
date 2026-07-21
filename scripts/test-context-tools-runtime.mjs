@@ -12,6 +12,7 @@ import {
   ignoreArguments,
   isBinary,
   positiveInteger,
+  ripgrepTypeFilterArguments,
   runCommandLines,
   resolvePath,
   sortedDirectoryEntries,
@@ -32,6 +33,13 @@ assert.equal(matchesTypeScript("nested/file.ts"), true);
 assert.equal(matchesTypeScript("nested/file.js"), false);
 assert.equal(createPathGlobMatcher("!*.env")("nested/.env"), false);
 assert.equal(createPathGlobMatcher("!*.env")("nested/file.txt"), true);
+assert.deepEqual(ripgrepTypeFilterArguments("*.ts"), [
+  "--type-add",
+  "opencodecontext:*.ts",
+  "--type",
+  "opencodecontext",
+]);
+assert.deepEqual(ripgrepTypeFilterArguments("!*.env"), []);
 
 const truncatedMatch = truncateMatchText("😀".repeat(MAX_MATCH_TEXT_BYTES));
 assert.ok(Buffer.byteLength(truncatedMatch, "utf8") <= MAX_MATCH_TEXT_BYTES);

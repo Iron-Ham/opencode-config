@@ -6,6 +6,7 @@ import {
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
+  ripgrepTypeFilterArguments,
   runRipgrepLines,
   truncateMatchText,
   utf8Prefix,
@@ -29,8 +30,11 @@ export default tool({
     }
     const searchDirectory = stat.isDirectory() ? searchRoot : path.dirname(searchRoot);
     const target = stat.isDirectory() ? "." : path.basename(searchRoot);
+    const filterArguments = args.include
+      ? ripgrepTypeFilterArguments(args.include)
+      : [];
     let matchesPath: ((relativePath: string) => boolean) | undefined;
-    if (args.include) {
+    if (args.include && filterArguments.length === 0) {
       try {
         matchesPath = createPathGlobMatcher(args.include);
       } catch {
@@ -44,6 +48,7 @@ export default tool({
       "--column",
       "--color",
       "never",
+      ...filterArguments,
       ...ignoreArguments(),
       "--",
       args.pattern,

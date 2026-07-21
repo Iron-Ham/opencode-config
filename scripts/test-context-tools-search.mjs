@@ -57,6 +57,8 @@ try {
   fs.writeFileSync(path.join(workspace, ".env"), "TOP_SECRET=hidden\n");
   fs.writeFileSync(path.join(workspace, "visible.env"), "VISIBLE=value\n");
   fs.writeFileSync(path.join(workspace, ".git"), "gitdir: /private/repository\n");
+  fs.mkdirSync(path.join(workspace, "nested"));
+  fs.writeFileSync(path.join(workspace, "nested", "included.ts"), "NESTED_MATCH\n");
   fs.writeFileSync(
     path.join(workspace, "long.txt"),
     `MARKER ${"x".repeat(MAX_MATCH_TEXT_BYTES * 4)}\n`,
@@ -78,6 +80,10 @@ try {
   assert.equal(
     await grep.execute({ pattern: "gitdir", path: ".", include: ".git" }, context),
     "No matches found.",
+  );
+  assert.match(
+    await grep.execute({ pattern: "NESTED_MATCH", path: ".", include: "*.ts" }, context),
+    /^nested\/included\.ts:1:1: NESTED_MATCH$/m,
   );
 
   const longMatch = await grep.execute(

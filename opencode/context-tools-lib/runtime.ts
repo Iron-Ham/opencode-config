@@ -4,6 +4,7 @@ import path from "node:path";
 export const MAX_RESULTS = 50;
 export const MAX_OUTPUT_BYTES = 8_192;
 export const MAX_MATCH_TEXT_BYTES = 1_024;
+const CONTEXT_TOOL_FILE_TYPE = "opencodecontext";
 
 export function positiveInteger(value: unknown, fallback: number, maximum: number) {
   if (!Number.isInteger(value) || Number(value) < 1) return fallback;
@@ -33,6 +34,17 @@ export function createPathGlobMatcher(pattern: string) {
       (!expression.includes("/") && glob.match(path.posix.basename(normalizedPath)));
     return negated ? !matches : matches;
   };
+}
+
+export function ripgrepTypeFilterArguments(pattern: string) {
+  const expression = pattern.replace(/^\.\//, "");
+  if (!expression || expression.startsWith("!")) return [];
+  return [
+    "--type-add",
+    `${CONTEXT_TOOL_FILE_TYPE}:${expression}`,
+    "--type",
+    CONTEXT_TOOL_FILE_TYPE,
+  ];
 }
 
 export function truncateMatchText(value: string) {
