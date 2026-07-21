@@ -59,9 +59,10 @@ try {
   fs.writeFileSync(path.join(workspace, ".git"), "gitdir: /private/repository\n");
   fs.mkdirSync(path.join(workspace, "nested"));
   fs.writeFileSync(path.join(workspace, "nested", "included.ts"), "NESTED_MATCH\n");
+  const longPrefix = "x".repeat(MAX_MATCH_TEXT_BYTES * 2);
   fs.writeFileSync(
     path.join(workspace, "long.txt"),
-    `MARKER ${"x".repeat(MAX_MATCH_TEXT_BYTES * 4)}\n`,
+    `${longPrefix} MARKER nearby-context ${"y".repeat(MAX_MATCH_TEXT_BYTES * 4)}\n`,
   );
 
   const context = { directory: workspace };
@@ -90,7 +91,7 @@ try {
     { pattern: "MARKER", path: ".", include: "long.txt" },
     context,
   );
-  assert.match(longMatch, /^long\.txt:1:1: MARKER /);
+  assert.match(longMatch, /MARKER nearby-context/);
   assert.match(longMatch, /line truncated/);
   assert.ok(Buffer.byteLength(longMatch, "utf8") <= MAX_MATCH_TEXT_BYTES + 64);
 

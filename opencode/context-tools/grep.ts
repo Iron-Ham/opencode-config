@@ -68,7 +68,10 @@ export default tool({
       if (!filePath || !data?.line_number) return true;
       if (matchesPath && !matchesPath(filePath)) return true;
       const column = (data.submatches?.[0]?.start ?? 0) + 1;
-      const text = truncateMatchText(data.lines?.text ?? "");
+      const text = truncateMatchText(
+        data.lines?.text ?? "",
+        data.submatches?.[0]?.start,
+      );
       matches.push(`${visibleRelativePath(path.resolve(searchDirectory, filePath), context.directory)}:${data.line_number}:${column}: ${text}`);
       return true;
     });

@@ -3,7 +3,7 @@ import path from "node:path";
 
 export const MAX_RESULTS = 50;
 export const MAX_OUTPUT_BYTES = 8_192;
-export const MAX_MATCH_TEXT_BYTES = 1_024;
+export const MAX_MATCH_TEXT_BYTES = MAX_OUTPUT_BYTES - 512;
 const CONTEXT_TOOL_FILE_TYPE = "opencodecontext";
 
 export function positiveInteger(value: unknown, fallback: number, maximum: number) {
@@ -47,17 +47,29 @@ export function ripgrepTypeFilterArguments(pattern: string) {
   ];
 }
 
-export function truncateMatchText(value: string) {
+export function truncateMatchText(value: string, matchStart?: number) {
   const text = value.endsWith("\n")
     ? value.slice(0, value.endsWith("\r\n") ? -2 : -1)
     : value;
   const encoded = Buffer.from(text, "utf8");
   if (encoded.byteLength <= MAX_MATCH_TEXT_BYTES) return text;
 
+  const prefix = "[...]";
   const suffix = " ... [line truncated]";
-  let end = MAX_MATCH_TEXT_BYTES - Buffer.byteLength(suffix, "utf8");
-  while (end > 0 && (encoded[end] & 0xc0) === 0x80) end -= 1;
-  return `${encoded.subarray(0, end).toString("utf8")}${suffix}`;
+  const available = MAX_MATCH_TEXT_BYTES -
+    Buffer.byteLength(prefix, "utf8") -
+    Buffer.byteLength(suffix, "utf8");
+  const focus = typeof matchStart === "number" && Number.isSafeInteger(matchStart)
+    ? Math.min(Math.max(matchStart, 0), encoded.byteLength)
+    : 0;
+  let start = Math.max(
+    0,
+    Math.min(focus - Math.floor(available / 2), encoded.byteLength - available),
+  );
+  while (start < encoded.byteLength && (encoded[start] & 0xc0) === 0x80) start += 1;
+  let end = Math.min(encoded.byteLength, start + available);
+  while (end > start && (encoded[end] & 0xc0) === 0x80) end -= 1;
+  return `${start > 0 ? prefix : ""}${encoded.subarray(start, end).toString("utf8")}${end < encoded.byteLength ? suffix : ""}`;
 }
 
 export function utf8Prefix(value: string, maximumBytes = MAX_OUTPUT_BYTES) {

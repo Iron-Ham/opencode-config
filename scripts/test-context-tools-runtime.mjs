@@ -45,6 +45,14 @@ const truncatedMatch = truncateMatchText("😀".repeat(MAX_MATCH_TEXT_BYTES));
 assert.ok(Buffer.byteLength(truncatedMatch, "utf8") <= MAX_MATCH_TEXT_BYTES);
 assert.match(truncatedMatch, /line truncated/);
 assert.equal(truncateMatchText("line\r\n"), "line");
+const unicodePrefix = "😀".repeat(MAX_MATCH_TEXT_BYTES);
+const lateMatch = truncateMatchText(
+  `${unicodePrefix}MARKER`,
+  Buffer.byteLength(unicodePrefix, "utf8"),
+);
+assert.ok(Buffer.byteLength(lateMatch, "utf8") <= MAX_MATCH_TEXT_BYTES);
+assert.match(lateMatch, /^\[\.\.\.\]/);
+assert.match(lateMatch, /MARKER$/);
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "context-tools-runtime-"));
 try {
