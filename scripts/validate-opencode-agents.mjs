@@ -13,6 +13,15 @@ const requireInstalledAssets = process.argv.includes("--require-installed-assets
 const externalHomeDirectoryPattern = path.join(os.homedir(), "**");
 const cargoCredentialPattern = path.join(os.homedir(), ".cargo", "**");
 const sshCredentialPattern = path.join(os.homedir(), ".ssh", "**");
+const managedWorktreePattern = path.join(
+  os.homedir(),
+  ".local",
+  "share",
+  "opencode",
+  "worktree",
+  "**",
+);
+const temporaryWorktreePattern = "/private/var/folders/**/T/opencode/**";
 const isolatedXdgConfigHome = fs.mkdtempSync(
   path.join(os.tmpdir(), "opencode-agent-validation-xdg-"),
 );
@@ -271,6 +280,12 @@ for (const [name, agent] of Object.entries(agents)) {
   }
   if (finalPermission(agent, "external_directory", cargoCredentialPattern) !== "deny") {
     fail(`${name} must deny external Cargo credential files`);
+  }
+  if (finalPermission(agent, "external_directory", managedWorktreePattern) !== "allow") {
+    fail(`${name} must allow managed OpenCode worktrees`);
+  }
+  if (finalPermission(agent, "external_directory", temporaryWorktreePattern) !== "allow") {
+    fail(`${name} must allow temporary OpenCode worktrees`);
   }
 }
 

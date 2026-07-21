@@ -30,9 +30,11 @@ const externalDirectory = config.permission?.external_directory;
 if (
   externalDirectory?.["~/**"] !== "allow" ||
   externalDirectory?.["~/.cargo/**"] !== "deny" ||
-  externalDirectory?.["~/.ssh/**"] !== "deny"
+  externalDirectory?.["~/.ssh/**"] !== "deny" ||
+  externalDirectory?.["~/.local/share/opencode/worktree/**"] !== "allow" ||
+  externalDirectory?.["/private/var/folders/**/T/opencode/**"] !== "allow"
 ) {
-  fail("the managed home-directory policy is missing or does not protect credentials");
+  fail("the managed worktree policy is missing or does not protect credentials");
 }
 
 for (const pluginName of [
