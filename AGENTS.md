@@ -50,7 +50,7 @@ These instructions apply to every workspace opened in OpenCode. Read the workspa
 
 ## Git And Pull Requests
 
-- Never commit directly to `main` or `master`. Create a `<GitHub username>/<description>` branch before editing.
+- Never commit directly to `main` or `master`. Create a `<GitHub username>/<description>` branch before editing. The prefix must be the authenticated developer's GitHub account username, not the machine or OS username; for example, use `<github-username>/<description>`, not `<machine-username>/<description>`.
 - Use concise Conventional Commit messages unless the repository specifies otherwise. Do not add assistant attribution or co-author trailers.
 - Prefer one well-scoped commit per ordinary feature branch. Create the first commit normally; amend that commit for later changes on the same branch. This rule does not apply to `Working-Branch/*` branches.
 - Commit, push, create pull requests, request reviews, or merge only when the developer explicitly asks.
@@ -83,7 +83,7 @@ Use `Working-Branch/<identifier>` for a multi-phase epic whose parallel work mus
 ### Branch Edge Cases
 
 - If an ordinary branch already contains multiple commits, do not squash or rewrite it without explicit developer approval. `Working-Branch/*` is the exception.
-- Treat branches outside the current developer's username namespace and outside `Working-Branch/*` as shared. Do not force-push shared branches without explicit developer instruction.
+- Treat branches outside the current developer's GitHub username namespace and outside `Working-Branch/*` as shared. Do not force-push shared branches without explicit developer instruction. Do not substitute the machine or OS username for the GitHub username.
 - Rebase a stale branch with `git pull --rebase` before resuming work. Resolve conflicts before pushing.
 
 ### Pre-PR Rebase
