@@ -2,9 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
+  createPathGlobMatcher,
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
+  ripgrepTypeFilterArguments,
   runRipgrepLines,
   utf8Prefix,
   visibleRelativePath,
@@ -26,17 +28,27 @@ export default tool({
       return `Path does not exist: ${searchRoot}`;
     }
 
+    const filterArguments = ripgrepTypeFilterArguments(args.pattern);
+    let matchesPath: ((relativePath: string) => boolean) | undefined;
+    if (filterArguments.length === 0) {
+      try {
+        matchesPath = createPathGlobMatcher(args.pattern);
+      } catch {
+        return `Invalid glob pattern: ${args.pattern}`;
+      }
+    }
+
     const files: string[] = [];
     const result = await runRipgrepLines([
       "--files",
       "--sortr",
       "modified",
-      "--glob",
-      args.pattern,
+      ...filterArguments,
       ...ignoreArguments(),
       ".",
     ], searchRoot, (line) => {
       if (!line) return true;
+      if (matchesPath && !matchesPath(line)) return true;
       if (files.length >= MAX_RESULTS) return false;
       files.push(path.resolve(searchRoot, line));
       return true;

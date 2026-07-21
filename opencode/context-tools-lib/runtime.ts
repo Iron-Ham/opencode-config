@@ -3,6 +3,8 @@ import path from "node:path";
 
 export const MAX_RESULTS = 50;
 export const MAX_OUTPUT_BYTES = 8_192;
+export const MAX_MATCH_TEXT_BYTES = MAX_OUTPUT_BYTES - 512;
+const CONTEXT_TOOL_FILE_TYPE = "opencodecontext";
 
 export function positiveInteger(value: unknown, fallback: number, maximum: number) {
   if (!Number.isInteger(value) || Number(value) < 1) return fallback;
@@ -18,6 +20,56 @@ export function visibleRelativePath(filePath: string, directory: string) {
   return relative && !relative.startsWith(`..${path.sep}`) && relative !== ".."
     ? relative
     : filePath;
+}
+
+export function createPathGlobMatcher(pattern: string) {
+  const negated = pattern.startsWith("!");
+  const expression = (negated ? pattern.slice(1) : pattern).replace(/^\.\//, "");
+  if (!expression) return () => false;
+
+  const glob = new Bun.Glob(expression);
+  return (relativePath: string) => {
+    const normalizedPath = relativePath.split(path.sep).join("/");
+    const matches = glob.match(normalizedPath) ||
+      (!expression.includes("/") && glob.match(path.posix.basename(normalizedPath)));
+    return negated ? !matches : matches;
+  };
+}
+
+export function ripgrepTypeFilterArguments(pattern: string) {
+  const expression = pattern.replace(/^\.\//, "");
+  if (!expression || expression.startsWith("!")) return [];
+  return [
+    "--type-add",
+    `${CONTEXT_TOOL_FILE_TYPE}:${expression}`,
+    "--type",
+    CONTEXT_TOOL_FILE_TYPE,
+  ];
+}
+
+export function truncateMatchText(value: string, matchStart?: number) {
+  const text = value.endsWith("\n")
+    ? value.slice(0, value.endsWith("\r\n") ? -2 : -1)
+    : value;
+  const encoded = Buffer.from(text, "utf8");
+  if (encoded.byteLength <= MAX_MATCH_TEXT_BYTES) return text;
+
+  const prefix = "[...]";
+  const suffix = " ... [line truncated]";
+  const available = MAX_MATCH_TEXT_BYTES -
+    Buffer.byteLength(prefix, "utf8") -
+    Buffer.byteLength(suffix, "utf8");
+  const focus = typeof matchStart === "number" && Number.isSafeInteger(matchStart)
+    ? Math.min(Math.max(matchStart, 0), encoded.byteLength)
+    : 0;
+  let start = Math.max(
+    0,
+    Math.min(focus - Math.floor(available / 2), encoded.byteLength - available),
+  );
+  while (start < encoded.byteLength && (encoded[start] & 0xc0) === 0x80) start += 1;
+  let end = Math.min(encoded.byteLength, start + available);
+  while (end > start && (encoded[end] & 0xc0) === 0x80) end -= 1;
+  return `${start > 0 ? prefix : ""}${encoded.subarray(start, end).toString("utf8")}${end < encoded.byteLength ? suffix : ""}`;
 }
 
 export function utf8Prefix(value: string, maximumBytes = MAX_OUTPUT_BYTES) {
@@ -85,5 +137,5 @@ export function runRipgrepLines(
 }
 
 export function ignoreArguments() {
-  return ["--hidden", "--glob", "!.git/**"];
+  return ["--hidden", "--glob", "!.git", "--glob", "!.git/**"];
 }

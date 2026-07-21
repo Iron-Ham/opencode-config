@@ -17,7 +17,7 @@ export const MAX_DIRECTORY_SCAN_ENTRIES = 10_000;
 const SAMPLE_BYTES = 4_096;
 const OUTPUT_FOOTER_BYTES = 512;
 const OUTPUT_CONTENT_BYTES = MAX_OUTPUT_BYTES - OUTPUT_FOOTER_BYTES;
-const WILDCARD_META_CHARACTERS = /[*?[\]{}()!+\\]/;
+const WILDCARD_META_CHARACTERS = /[*?]/;
 
 type TextReadPermission = {
   permission: "external_directory" | "read";

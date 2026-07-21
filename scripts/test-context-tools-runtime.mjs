@@ -5,13 +5,18 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  MAX_MATCH_TEXT_BYTES,
   MAX_OUTPUT_BYTES,
   MAX_RESULTS,
+  createPathGlobMatcher,
+  ignoreArguments,
   isBinary,
   positiveInteger,
+  ripgrepTypeFilterArguments,
   runCommandLines,
   resolvePath,
   sortedDirectoryEntries,
+  truncateMatchText,
   utf8Prefix,
 } from "../opencode/context-tools-lib/runtime.ts";
 
@@ -21,6 +26,33 @@ assert.equal(positiveInteger(21, 10, 20), 20);
 assert.equal(positiveInteger(15, 10, 20), 15);
 assert.equal(MAX_RESULTS, 50);
 assert.equal(resolvePath("src", "/tmp/project"), "/tmp/project/src");
+assert.deepEqual(ignoreArguments(), ["--hidden", "--glob", "!.git", "--glob", "!.git/**"]);
+
+const matchesTypeScript = createPathGlobMatcher("*.ts");
+assert.equal(matchesTypeScript("nested/file.ts"), true);
+assert.equal(matchesTypeScript("nested/file.js"), false);
+assert.equal(createPathGlobMatcher("!*.env")("nested/.env"), false);
+assert.equal(createPathGlobMatcher("!*.env")("nested/file.txt"), true);
+assert.deepEqual(ripgrepTypeFilterArguments("*.ts"), [
+  "--type-add",
+  "opencodecontext:*.ts",
+  "--type",
+  "opencodecontext",
+]);
+assert.deepEqual(ripgrepTypeFilterArguments("!*.env"), []);
+
+const truncatedMatch = truncateMatchText("😀".repeat(MAX_MATCH_TEXT_BYTES));
+assert.ok(Buffer.byteLength(truncatedMatch, "utf8") <= MAX_MATCH_TEXT_BYTES);
+assert.match(truncatedMatch, /line truncated/);
+assert.equal(truncateMatchText("line\r\n"), "line");
+const unicodePrefix = "😀".repeat(MAX_MATCH_TEXT_BYTES);
+const lateMatch = truncateMatchText(
+  `${unicodePrefix}MARKER`,
+  Buffer.byteLength(unicodePrefix, "utf8"),
+);
+assert.ok(Buffer.byteLength(lateMatch, "utf8") <= MAX_MATCH_TEXT_BYTES);
+assert.match(lateMatch, /^\[\.\.\.\]/);
+assert.match(lateMatch, /MARKER$/);
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "context-tools-runtime-"));
 try {
