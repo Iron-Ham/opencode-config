@@ -162,6 +162,24 @@ try {
     /read denied/,
   );
 
+  const literalPath = path.join(
+    workspace,
+    "patches",
+    "patch-package",
+    "@jest+core+(test)+29.5.0+001+initial.patch",
+  );
+  fs.mkdirSync(path.dirname(literalPath), { recursive: true });
+  fs.writeFileSync(literalPath, "literal\n", "utf8");
+  const literalCalls = [];
+  const literal = await executeTextRead(
+    { filePath: literalPath },
+    createContext(workspace, async (request) => {
+      literalCalls.push(request);
+    }),
+  );
+  assert.match(literal, /^1: literal$/m);
+  assert.equal(literalCalls[0].patterns[0], fs.realpathSync(literalPath));
+
   const wildcardPath = path.join(workspace, "literal*.txt");
   fs.writeFileSync(wildcardPath, "literal\n", "utf8");
   let permissionCalls = 0;

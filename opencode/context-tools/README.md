@@ -5,9 +5,10 @@ copies them into the active `tools/` directory.
 
 ## Tool behavior
 
-- `glob` uses ripgrep's ignore handling, limits results to 50, and sorts by
-  modification time with a path tie-breaker.
-- `grep` emits file, line, column, and source text for at most 50 matches.
+- `glob` applies the requested pattern after ripgrep's ignore handling, limits
+  results to 50, and sorts by modification time with a path tie-breaker.
+- `grep` emits file, line, column, and source text for at most 50 matches;
+  optional include patterns are applied after ripgrep's ignore handling.
 - `ast_grep` is an additive structural-search candidate. It requires an
   explicit ast-grep language and pattern. Use it for structural syntax queries;
   use `grep` for lexical discovery.

@@ -2,10 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
+  createPathGlobMatcher,
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
   runRipgrepLines,
+  truncateMatchText,
   utf8Prefix,
   visibleRelativePath,
 } from "../context-tools-lib/runtime";
@@ -27,6 +29,14 @@ export default tool({
     }
     const searchDirectory = stat.isDirectory() ? searchRoot : path.dirname(searchRoot);
     const target = stat.isDirectory() ? "." : path.basename(searchRoot);
+    let matchesPath: ((relativePath: string) => boolean) | undefined;
+    if (args.include) {
+      try {
+        matchesPath = createPathGlobMatcher(args.include);
+      } catch {
+        return `Invalid glob pattern: ${args.include}`;
+      }
+    }
     const matches: string[] = [];
     const result = await runRipgrepLines([
       "--json",
@@ -34,7 +44,6 @@ export default tool({
       "--column",
       "--color",
       "never",
-      ...(args.include ? ["--glob", args.include] : []),
       ...ignoreArguments(),
       "--",
       args.pattern,
@@ -52,8 +61,9 @@ export default tool({
       const data = event.data;
       const filePath = data?.path?.text;
       if (!filePath || !data?.line_number) return true;
+      if (matchesPath && !matchesPath(filePath)) return true;
       const column = (data.submatches?.[0]?.start ?? 0) + 1;
-      const text = data.lines?.text?.replace(/\r?\n$/, "") ?? "";
+      const text = truncateMatchText(data.lines?.text ?? "");
       matches.push(`${visibleRelativePath(path.resolve(searchDirectory, filePath), context.directory)}:${data.line_number}:${column}: ${text}`);
       return true;
     });
