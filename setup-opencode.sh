@@ -331,6 +331,7 @@ cp -R "$REPO_DIR/opencode/tui/." "$preflight_dir/tui/"
 cp "$REPO_DIR/opencode/context-tools/glob.ts" "$preflight_dir/tools/glob.ts"
 cp "$REPO_DIR/opencode/context-tools/grep.ts" "$preflight_dir/tools/grep.ts"
 cp "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$preflight_dir/tools/ast_grep.ts"
+cp "$REPO_DIR/opencode/context-tools/text_read.ts" "$preflight_dir/tools/text_read.ts"
 cp -R "$REPO_DIR/opencode/context-tools/." "$preflight_dir/context-tools/"
 cp -R "$REPO_DIR/opencode/context-tools-lib/." "$preflight_dir/context-tools-lib/"
 if [ "$advisor_enabled" != "true" ]; then
