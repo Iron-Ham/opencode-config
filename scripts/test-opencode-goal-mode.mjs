@@ -27,12 +27,15 @@ try {
   assert.match(goalModeTuiSource, /"record_goal_progress"/);
   assert.match(goalModeTuiSource, /"record_goal_failure"/);
   assert.match(goalModeTuiSource, /Handoff: \$\{goal\.handoff\.classification\}/);
+  assert.match(goalModeTuiSource, /history\?: GoalHistoryEntry\[\]/);
+  assert.match(goalModeTuiSource, /value\.history != null/);
 
   const goalMode = (await import(goalModePath)).default;
   const { persistCompletionEvidence } = (await import(
     path.join(repoRoot, "opencode", "plugins", "goal-workflow-guard.js"),
   )).testHelpers;
   assert.equal(goalMode.id, "claude-config-goal-mode");
+  const goalContextMetrics = {};
   const hooks = await goalMode.server({ client: {} }, { auto_continue: false });
   const context = { sessionID: "goal-test", agent: "build" };
   const created = JSON.parse(
@@ -50,6 +53,19 @@ try {
   const active = JSON.parse(await hooks.tool.get_goal.execute({}, context));
   assert.equal(active.goal.sessionID, "goal-test");
   assert.equal(fs.statSync(statePath).mode & 0o777, 0o600);
+  const activeSystem = { system: ["Base system prompt."] };
+  await hooks["experimental.chat.system.transform"](
+    { sessionID: "goal-test" },
+    activeSystem,
+  );
+  const activeReminder = activeSystem.system.at(-1);
+  assert.match(activeReminder, /OpenCode goal mode active reminder:/);
+  assert.match(activeReminder, /Vendor the managed goal workflow/);
+  assert.match(activeReminder, /Current state:/);
+  assert.doesNotMatch(activeReminder, /Continuation behavior:/);
+  assert.doesNotMatch(activeReminder, /Completion audit:/);
+  assert.ok(activeReminder.length < 2_000);
+  goalContextMetrics.activeReminderBytes = activeReminder.length;
 
   const paused = JSON.parse(
     await hooks.tool.update_goal_status.execute({ status: "paused" }, context),
@@ -59,6 +75,18 @@ try {
   const cleared = JSON.parse(await hooks.tool.clear_goal.execute({}, context));
   assert.equal(cleared.cleared, true);
   assert.equal(JSON.parse(await hooks.tool.get_goal.execute({}, context)).goal, null);
+
+  await hooks.tool.create_goal.execute(
+    { objective: "x".repeat(4_000), options: {} },
+    { sessionID: "long-active-reminder", agent: "build" },
+  );
+  const longActiveSystem = { system: ["Base system prompt."] };
+  await hooks["experimental.chat.system.transform"](
+    { sessionID: "long-active-reminder" },
+    longActiveSystem,
+  );
+  assert.ok(longActiveSystem.system.at(-1).length < 2_000);
+  assert.match(longActiveSystem.system.at(-1), /x{20}.*\.\.\./);
 
   async function createGoalFor(pluginHooks, sessionID, agent = "build") {
     return JSON.parse(
@@ -111,6 +139,88 @@ try {
   assert.equal(validationProgress.progressEvents.at(-1).kind, "validation");
   assert.equal(validationProgress.validationResults.at(-1).status, "passed");
   assert.match(validationProgress.lastProgressSignature, /^validation:sha256:/);
+
+  await createGoalFor(hooks, "bounded-tool-responses");
+  let firstProgressResponse;
+  let latestProgressResponse;
+  for (let index = 0; index < 60; index += 1) {
+    const response = await hooks.tool.record_goal_progress.execute(
+      {
+        kind: "repository-discovery",
+        source: `bounded-test-${index}`,
+        fingerprint: `bounded-fingerprint-${index}`,
+        summary: `Observed bounded progress event ${index}.`,
+      },
+      { sessionID: "bounded-tool-responses", agent: "build" },
+    );
+    if (index === 0) firstProgressResponse = response;
+    latestProgressResponse = response;
+  }
+  const latestProgress = JSON.parse(latestProgressResponse).goal;
+  assert.equal(latestProgress.history, undefined);
+  assert.equal(latestProgress.checkpoints, undefined);
+  assert.equal(latestProgress.failureEvents, undefined);
+  assert.equal(latestProgress.progressEvents.length, 1);
+  assert.equal(latestProgress.progressEventCount, 50);
+  assert.ok(latestProgressResponse.length < 5_000);
+  assert.ok(latestProgressResponse.length - firstProgressResponse.length < 300);
+
+  const boundedFailureResponse = await hooks.tool.record_goal_failure.execute(
+    {
+      failure_class: "provider-transient",
+      source: "provider:fixture",
+      fingerprint: "bounded-failure",
+      summary: "The fixture provider timed out.",
+      next_action: "Retry the same route after the recorded backoff.",
+    },
+    { sessionID: "bounded-tool-responses", agent: "build" },
+  );
+  const boundedFailure = JSON.parse(boundedFailureResponse);
+  assert.equal(boundedFailure.goal.history, undefined);
+  assert.equal(boundedFailure.goal.failureEvents, undefined);
+  assert.equal(boundedFailure.goal.progressEvents.length, 1);
+  assert.ok(boundedFailureResponse.length < 5_000);
+
+  const storedBoundedGoal = JSON.parse(fs.readFileSync(statePath, "utf8")).goals["bounded-tool-responses"];
+  assert.equal(storedBoundedGoal.history.length, 50);
+  assert.equal(storedBoundedGoal.progressEvents.length, 50);
+  assert.equal(storedBoundedGoal.failureEvents.length, 1);
+  await assert.rejects(() =>
+    hooks.tool.get_goal_history.execute(
+      { limit: 21 },
+      { sessionID: "bounded-tool-responses", agent: "build" },
+    ),
+  /history limit must be an integer between 1 and 20/);
+  await assert.rejects(() =>
+    hooks.tool.get_goal_history.execute(
+      { offset: -1 },
+      { sessionID: "bounded-tool-responses", agent: "build" },
+    ),
+  /history offset must be a non-negative integer/);
+  const fullGoalResponse = await hooks.tool.get_goal.execute(
+    {},
+    { sessionID: "bounded-tool-responses", agent: "build" },
+  );
+  assert.ok(fullGoalResponse.length >= latestProgressResponse.length * 5);
+  goalContextMetrics.fullGoalBytes = fullGoalResponse.length;
+  goalContextMetrics.progressAcknowledgementBytes = latestProgressResponse.length;
+  goalContextMetrics.failureAcknowledgementBytes = boundedFailureResponse.length;
+  const recoveredHistory = [];
+  let historyOffset = 0;
+  do {
+    const historyResponse = await hooks.tool.get_goal_history.execute(
+      { limit: 7, offset: historyOffset },
+      { sessionID: "bounded-tool-responses", agent: "build" },
+    );
+    if (historyOffset === 0) goalContextMetrics.historyPageBytes = historyResponse.length;
+    const page = JSON.parse(historyResponse);
+    assert.ok(page.history.length <= 7);
+    assert.equal(page.goal.history, undefined);
+    assert.equal(page.goal.historyCount, storedBoundedGoal.history.length);
+    recoveredHistory.unshift(...page.history);
+    historyOffset = page.page.next_offset;
+  } while (historyOffset != null);
+  assert.deepEqual(recoveredHistory, storedBoundedGoal.history);
 
   let prosePrompts = 0;
   const proseAssistant = {
@@ -661,6 +771,11 @@ try {
   await Bun.sleep(100);
   assert.equal(parentPrompts.length, 1);
   assert.equal(parentPrompts[0].path.id, "deferred-parent");
+  const syntheticContinuation = parentPrompts[0].body.parts[0].text;
+  assert.match(syntheticContinuation, /Continuation behavior:/);
+  assert.match(syntheticContinuation, /Completion audit:/);
+  assert.ok(syntheticContinuation.length >= activeReminder.length * 3);
+  goalContextMetrics.syntheticContinuationBytes = syntheticContinuation.length;
   await parentHooks.dispose();
 
   const deletedChildPrompts = [];
@@ -736,6 +851,7 @@ try {
   assert.equal(await goalFor(noGoalHooks, "ordinary-build-without-goal"), null);
   await noGoalHooks.dispose();
 
+  console.log(`METRIC goal context bytes ${JSON.stringify(goalContextMetrics)}`);
   console.log("OK     Vendored OpenCode goal mode");
 } finally {
   if (originalStatePath === undefined) {

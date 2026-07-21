@@ -72,11 +72,11 @@ type GoalSnapshot = {
   noProgressTurns: number
   budgetWrapupSent: boolean
   stopReason: string | null
-  history: GoalHistoryEntry[]
-  checkpoints: GoalCheckpoint[]
+  history?: GoalHistoryEntry[]
+  checkpoints?: GoalCheckpoint[]
   lastCheckpoint: GoalCheckpoint | null
-  lastAssistantText: string
-  lastAssistantMessageID: string
+  lastAssistantText?: string
+  lastAssistantMessageID?: string
   continuationBaselineProgressEpoch?: number
   progressEvents?: GoalProgressEvent[]
   lastProgressSignature?: string
@@ -322,11 +322,11 @@ function isGoalSnapshot(value: unknown): value is GoalSnapshot {
   if (typeof value.noProgressTurns !== "number") return false
   if (typeof value.budgetWrapupSent !== "boolean") return false
   if (value.stopReason !== null && typeof value.stopReason !== "string") return false
-  if (!Array.isArray(value.history) || !value.history.every(isHistoryEntry)) return false
-  if (!Array.isArray(value.checkpoints) || !value.checkpoints.every(isCheckpoint)) return false
+  if (value.history != null && (!Array.isArray(value.history) || !value.history.every(isHistoryEntry))) return false
+  if (value.checkpoints != null && (!Array.isArray(value.checkpoints) || !value.checkpoints.every(isCheckpoint))) return false
   if (value.lastCheckpoint !== null && !isCheckpoint(value.lastCheckpoint)) return false
-  if (typeof value.lastAssistantText !== "string") return false
-  if (typeof value.lastAssistantMessageID !== "string") return false
+  if (value.lastAssistantText != null && typeof value.lastAssistantText !== "string") return false
+  if (value.lastAssistantMessageID != null && typeof value.lastAssistantMessageID !== "string") return false
   if (typeof value.autoTurns !== "number") return false
   if (value.lastContinuationAt != null && typeof value.lastContinuationAt !== "number") return false
   if (value.continuationBaselineProgressEpoch != null && typeof value.continuationBaselineProgressEpoch !== "number") return false

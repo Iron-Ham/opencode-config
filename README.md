@@ -103,6 +103,8 @@ Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed
 
 The doctor also reports compaction retention settings, configured tool-output bounds, and the static compaction threshold for the active model (`input limit - reserved tokens`). These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth; use the explicit `/kimi` and `/advise` briefs when delegating isolated work.
 
+Goal mutation tools return compact acknowledgements rather than replaying retained lifecycle state. Use paged `get_goal_history` only when explicit audit history is needed. `bun scripts/test-opencode-goal-mode.mjs` emits byte metrics for compact goal acknowledgements, paged history, and ordinary versus synthetic continuation prompts; its size-ratio assertions guard against context-growth regressions.
+
 ## Verify Changes
 
 Regenerate and validate generated agents after changing an agent source:
