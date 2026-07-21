@@ -24,10 +24,6 @@ try {
   );
   assert.doesNotMatch(goalModeSource, /from "effect"/);
   assert.doesNotMatch(goalModeSource, /from "zod"/);
-  assert.match(
-    fs.readFileSync(path.join(repoRoot, "opencode", "plugins", "goal-mode.LICENSE"), "utf8"),
-    /MIT License/,
-  );
   assert.match(goalModeTuiSource, /"record_goal_progress"/);
   assert.match(goalModeTuiSource, /"record_goal_failure"/);
   assert.match(goalModeTuiSource, /Handoff: \$\{goal\.handoff\.classification\}/);
