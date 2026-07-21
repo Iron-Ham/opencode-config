@@ -166,6 +166,7 @@
         },
         "glob": "allow",
         "grep": "allow",
+        "text_read": "allow",
         "webfetch": "allow",
         "skill": "allow",
         "edit": "deny",
@@ -225,6 +226,7 @@
         },
         "glob": "allow",
         "grep": "allow",
+        "text_read": "allow",
         "webfetch": "allow",
         "skill": "allow",
         "edit": "allow",
@@ -285,6 +287,7 @@
         },
         "glob": "allow",
         "grep": "allow",
+        "text_read": "allow",
         "webfetch": "allow",
         "skill": "allow",
         "edit": "deny",
@@ -403,6 +406,7 @@
       ".env.example": "allow",
       "*.env.example": "allow"
     },
+    "text_read": "allow",
     "bash": {
       "*": "allow",
       "rm -rf *": "ask",

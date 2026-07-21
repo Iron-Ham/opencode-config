@@ -416,6 +416,7 @@ copy_item "$REPO_DIR/opencode/context-tools-lib" "$OPENCODE_CONTEXT_TOOLS_LIB_DI
 copy_item "$REPO_DIR/opencode/context-tools/glob.ts" "$OPENCODE_TOOLS_DIR/glob.ts" "context-efficient glob override"
 copy_item "$REPO_DIR/opencode/context-tools/grep.ts" "$OPENCODE_TOOLS_DIR/grep.ts" "context-efficient grep override"
 copy_item "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$OPENCODE_TOOLS_DIR/ast_grep.ts" "structural ast-grep search tool"
+copy_item "$REPO_DIR/opencode/context-tools/text_read.ts" "$OPENCODE_TOOLS_DIR/text_read.ts" "context-efficient text read tool"
 
 if [ "$notion_cli_available" = true ]; then
   bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \

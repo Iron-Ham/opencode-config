@@ -476,7 +476,7 @@ function mergeOpenCodeConfig(modelRouting) {
     delete merged.small_model;
   }
   merged.permission ??= {};
-  for (const permission of ["read", "bash"]) {
+  for (const permission of ["read", "text_read", "bash"]) {
     merged.permission[permission] = mergeManagedPermissionMap(
       existing.permission?.[permission],
       managed.permission?.[permission],

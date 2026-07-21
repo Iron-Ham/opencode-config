@@ -109,6 +109,7 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         '    "~/Library/**": deny',
         "  glob: allow",
         "  grep: deny",
+        "  text_read: allow",
         "  skill: allow",
     ]
     if name in READ_ONLY_AGENTS:

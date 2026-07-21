@@ -25,11 +25,16 @@ const candidateSource = path.join(repositoryRoot, "opencode", "context-tools");
 const runtimeSource = path.join(repositoryRoot, "opencode", "context-tools-lib");
 
 function usage() {
-  console.error("Usage: benchmark-opencode-context-tools.mjs --task-file PATH --workdir PATH --output-dir PATH --model PROVIDER/MODEL --tool-node-modules PATH [--repeat N] [--timeout-ms N]");
+  console.error("Usage: benchmark-opencode-context-tools.mjs --task-file PATH --workdir PATH --output-dir PATH --model PROVIDER/MODEL --tool-node-modules PATH [--repeat N] [--timeout-ms N] [--candidate-tools TOOLS] [--require-candidate-tool-use TOOLS]");
 }
 
 function parseArguments(argv) {
-  const args = { repeat: 3, timeout_ms: 3_600_000, candidate_tools: "glob,grep" };
+  const args = {
+    repeat: 3,
+    timeout_ms: 3_600_000,
+    candidate_tools: "glob,grep",
+    require_candidate_tool_use: "",
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const name = argv[index];
     const value = argv[index + 1];
@@ -54,13 +59,35 @@ function parseArguments(argv) {
   return args;
 }
 
-function candidateTools(value) {
+export function candidateTools(value) {
   const tools = String(value).split(",").map((tool) => tool.trim()).filter(Boolean);
-  const allowed = new Set(["glob", "grep", "ast_grep"]);
+  const allowed = new Set(["glob", "grep", "ast_grep", "text_read"]);
   if (tools.length === 0 || tools.some((tool) => !allowed.has(tool))) {
-    throw new Error("--candidate-tools must be a comma-separated subset of glob,grep,ast_grep");
+    throw new Error("--candidate-tools must be a comma-separated subset of glob,grep,ast_grep,text_read");
   }
   return tools;
+}
+
+export function requiredCandidateTools(value, candidates) {
+  const required = String(value).split(",").map((tool) => tool.trim()).filter(Boolean);
+  if (required.some((tool) => !candidates.includes(tool))) {
+    throw new Error("--require-candidate-tool-use must be a subset of --candidate-tools");
+  }
+  return required;
+}
+
+export function candidateToolUsage(events, required) {
+  const calls = events.filter((event) => event.type === "tool_use")
+    .map((event) => event.part?.tool)
+    .filter((tool) => typeof tool === "string");
+  const counts = Object.fromEntries(
+    [...new Set(required)].sort().map((tool) => [tool, calls.filter((call) => call === tool).length]),
+  );
+  return {
+    required,
+    counts,
+    missing: required.filter((tool) => counts[tool] === 0),
+  };
 }
 
 function ensurePrivateDirectory(directory) {
@@ -77,6 +104,27 @@ function writePrivateFile(filePath, content) {
   ensurePrivateDirectory(path.dirname(filePath));
   fs.writeFileSync(filePath, content, { mode: 0o600 });
   fs.chmodSync(filePath, 0o600);
+}
+
+function sourceTreeHash(root) {
+  const digest = createHash("sha256");
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(entryPath);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      digest.update(path.relative(root, entryPath));
+      digest.update("\0");
+      digest.update(fs.readFileSync(entryPath));
+      digest.update("\0");
+    }
+  };
+  visit(root);
+  return digest.digest("hex");
 }
 
 function parseEvents(output) {
@@ -141,11 +189,11 @@ function createConfig(workdir) {
     share: "disabled",
     snapshot: false,
     mcp: {},
-    permission: { "*": "deny", read: "allow", glob: "allow", grep: "allow", ast_grep: "allow", external_directory: "deny" },
+    permission: { "*": "deny", read: "allow", glob: "allow", grep: "allow", ast_grep: "allow", text_read: "allow", external_directory: "deny" },
     agent: {
       context_tool_benchmark: {
         mode: "primary",
-        permission: { "*": "deny", read: "allow", glob: "allow", grep: "allow", ast_grep: "allow", external_directory: "deny" },
+        permission: { "*": "deny", read: "allow", glob: "allow", grep: "allow", ast_grep: "allow", text_read: "allow", external_directory: "deny" },
       },
     },
   });
@@ -161,7 +209,7 @@ function configureCandidate(configDirectory, nodeModules, tools) {
   fs.symlinkSync(nodeModules, path.join(configDirectory, "node_modules"));
 }
 
-async function runArm({ arm, repetition, task, workdir, outputDir, model, nodeModules, timeoutMs, authContent, validationCommand, tools }) {
+async function runArm({ arm, repetition, task, workdir, outputDir, model, nodeModules, timeoutMs, authContent, validationCommand, tools, requiredTools }) {
   const stateDirectory = path.join(outputDir, "state", `${String(repetition).padStart(2, "0")}-${arm}`);
   const configHome = path.join(stateDirectory, "xdg-config");
   const configDirectory = path.join(configHome, "opencode");
@@ -199,6 +247,9 @@ async function runArm({ arm, repetition, task, workdir, outputDir, model, nodeMo
   ]);
   clearTimeout(timer);
   const events = parseEvents(stdout);
+  const candidateUsage = arm === "candidate"
+    ? candidateToolUsage(events, requiredTools)
+    : undefined;
   const answerPath = path.join(outputDir, "answers", `${String(repetition).padStart(2, "0")}-${arm}.md`);
   writePrivateFile(answerPath, `${extractText(events)}\n`);
   const validation = runValidation(validationCommand, workdir, answerPath);
@@ -217,10 +268,11 @@ async function runArm({ arm, repetition, task, workdir, outputDir, model, nodeMo
   return {
     arm,
     repetition,
-    status: policyViolation ? "policy_violation" : timedOut ? "timeout" : exitCode !== 0 ? "failed" : !validation.passed ? "validation_failed" : "completed",
+    status: policyViolation ? "policy_violation" : timedOut ? "timeout" : exitCode !== 0 ? "failed" : !validation.passed ? "validation_failed" : candidateUsage?.missing.length ? "candidate_unused" : "completed",
     exit_code: exitCode,
     policy_violation: policyViolation,
     validation: { passed: validation.passed, exit_code: validation.exit_code },
+    candidate_tool_usage: candidateUsage,
     raw_event_sha256: createHash("sha256").update(stdout).digest("hex"),
     metrics: summarize(events, performance.now() - startedAt, model, startedAtMs),
   };
@@ -229,6 +281,7 @@ async function runArm({ arm, repetition, task, workdir, outputDir, model, nodeMo
 async function main() {
   const args = parseArguments(process.argv.slice(2));
   const tools = candidateTools(args.candidate_tools);
+  const requiredTools = requiredCandidateTools(args.require_candidate_tool_use, tools);
   const outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
   const workdir = fs.realpathSync(args.workdir);
   const taskFile = fs.realpathSync(args.task_file);
@@ -249,7 +302,7 @@ async function main() {
   for (let repetition = 1; repetition <= args.repeat; repetition += 1) {
     const arms = repetition % 2 === 0 ? ["candidate", "baseline"] : ["baseline", "candidate"];
     for (const arm of arms) {
-      trials.push(await runArm({ arm, repetition, task, workdir, outputDir, model: args.model, nodeModules, timeoutMs: args.timeout_ms, authContent, validationCommand: args.validation_command, tools }));
+      trials.push(await runArm({ arm, repetition, task, workdir, outputDir, model: args.model, nodeModules, timeoutMs: args.timeout_ms, authContent, validationCommand: args.validation_command, tools, requiredTools }));
     }
   }
   writePrivateFile(path.join(outputDir, "summary.json"), `${JSON.stringify({
@@ -258,9 +311,17 @@ async function main() {
     privacy: "raw task, events, stderr, and state remain only in this private output directory",
     task_sha256: createHash("sha256").update(task).digest("hex"),
     candidate_tools: tools,
+    required_candidate_tool_use: requiredTools,
+    candidate_tool_source_sha256: Object.fromEntries(tools.map((tool) => [
+      tool,
+      createHash("sha256").update(fs.readFileSync(path.join(candidateSource, `${tool}.ts`))).digest("hex"),
+    ])),
+    candidate_runtime_source_sha256: sourceTreeHash(runtimeSource),
     trials,
   }, null, 2)}\n`);
   console.log(`Private benchmark results written to ${outputDir}`);
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}

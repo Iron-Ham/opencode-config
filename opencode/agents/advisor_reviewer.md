@@ -34,6 +34,7 @@ permission:
     "~/Library/**": deny
   glob: allow
   grep: deny
+  text_read: allow
   edit: deny
   bash: deny
   task: deny

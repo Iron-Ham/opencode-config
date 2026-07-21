@@ -47,18 +47,20 @@ for (const pluginName of [
   }
 }
 
-for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts", "text_read.ts"]) {
   if (!fs.existsSync(path.join(configDir, "context-tools", toolName))) {
     fail(`the managed context-efficient ${toolName} asset is not installed`);
   }
 }
-for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts"]) {
+for (const toolName of ["glob.ts", "grep.ts", "ast_grep.ts", "text_read.ts"]) {
   if (!fs.existsSync(path.join(configDir, "tools", toolName))) {
-    fail(`the managed context-efficient ${toolName} override is not installed`);
+    fail(`the managed context-efficient ${toolName} tool is not installed`);
   }
 }
-if (!fs.existsSync(path.join(configDir, "context-tools-lib", "runtime.ts"))) {
-  fail("the managed context-efficient tool runtime is not installed");
+for (const runtimeFile of ["runtime.ts", "text-read.ts"]) {
+  if (!fs.existsSync(path.join(configDir, "context-tools-lib", runtimeFile))) {
+    fail(`the managed context-efficient ${runtimeFile} runtime is not installed`);
+  }
 }
 
 for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
