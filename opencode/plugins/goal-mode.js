@@ -1,4 +1,3 @@
-// Derived from https://github.com/prevalentWare/opencode-goal-plugin/tree/02ffc88cb5b9665b8a0688b6358d0bc620ff175b under the MIT License in goal-mode.LICENSE.
 // @bun
 import { chmod, mkdir, open, readFile, rename, rm, stat, writeFile } from "fs/promises";
 import { createHash } from "crypto";
@@ -1614,9 +1613,6 @@ function textFromPart(part) {
 function textFromMessage(message) {
   return (message.parts ?? []).map(textFromPart).filter(Boolean).join(`
 `).trim();
-}
-function isRecord(value) {
-  return typeof value === "object" && value !== null;
 }
 function sessionIDFromMessage(message) {
   if (typeof message.sessionID === "string")
