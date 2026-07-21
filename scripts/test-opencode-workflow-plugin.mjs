@@ -246,6 +246,7 @@ try {
     JSON.stringify({ ...validEvidence, summary: "client_secret=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "AWS_SECRET_ACCESS_KEY=super-secret-value" }),
     JSON.stringify({ ...validEvidence, summary: "ghp_abcdefghijklmnopqrstuvwxyz1234567890" }),
+    JSON.stringify({ ...validEvidence, summary: "sk-proj-abcdefghijklmnopqrstuvwxyz" }),
     JSON.stringify({ ...validEvidence, summary: "-----BEGIN PRIVATE KEY-----" }),
     JSON.stringify({
       ...validEvidence,

@@ -33,6 +33,17 @@ await hooks.event({ event: { type: "session.status", properties: { sessionID: "c
 await hooks.event({ event: { type: "session.status", properties: { sessionID: "child-three", status: { type: "idle" } } } });
 await assert.rejects(() => start("four"), /total limit/);
 
+const foregroundHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 2 });
+async function completeForeground(callID) {
+  const childID = `foreground-child-${callID}`;
+  await foregroundHooks["tool.execute.before"]({ tool: "task", sessionID: "foreground-parent", callID }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+  await foregroundHooks.event({ event: { type: "session.created", properties: { info: { id: childID, parentID: "foreground-parent" } } } });
+  await foregroundHooks.event({ event: { type: "session.status", properties: { sessionID: childID, status: { type: "idle" } } } });
+  await foregroundHooks["tool.execute.after"]({ tool: "task", sessionID: "foreground-parent", callID }, { output: JSON.stringify({ task_id: childID }) });
+}
+await completeForeground("one");
+await completeForeground("two");
+
 const metadataHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
 await metadataHooks["tool.execute.before"]({ tool: "task", sessionID: "metadata-parent", callID: "metadata" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } });
 await metadataHooks["tool.execute.after"]({ tool: "task", sessionID: "metadata-parent", callID: "metadata" }, { output: "task started", metadata: { sessionId: "metadata-child" } });

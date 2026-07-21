@@ -575,17 +575,46 @@ try {
     assert.equal(result.status, "unmet");
     assert.equal(result.handoff.classification, classification);
   }
-  await createGoalFor(hooks, "unsafe-blocker");
-  await assert.rejects(() =>
-    hooks.tool.update_goal.execute(
+  const actionableBlocker = "Grant the required service access, then resume the goal.";
+  await createGoalFor(hooks, "actionable-unmet-blocker");
+  const actionableUnmet = JSON.parse(
+    await hooks.tool.update_goal.execute(
       {
         status: "unmet",
-        options: { blocker: "Authorization: Bearer super-secret-value" },
+        options: { blocker: actionableBlocker },
       },
-      { sessionID: "unsafe-blocker", agent: "build" },
+      { sessionID: "actionable-unmet-blocker", agent: "build" },
     ),
-    /must not contain credentials/,
   );
+  assert.equal(actionableUnmet.goal.blocker, actionableBlocker);
+  assert.equal(actionableUnmet.goal.history.at(-1).detail, actionableBlocker);
+  assert.match(actionableUnmet.unmet_report, /Grant the required service access/);
+  const actionableCompaction = { context: [] };
+  await hooks["experimental.session.compacting"](
+    { sessionID: "actionable-unmet-blocker" },
+    actionableCompaction,
+  );
+  assert.match(actionableCompaction.context.at(-1), /Grant the required service access/);
+  await createGoalFor(hooks, "unsafe-blocker");
+  for (const unsafeBlocker of [
+    "Authorization: Bearer super-secret-value",
+    "access_token=super-secret-value",
+    "refresh_token=super-secret-value",
+    "client_secret=super-secret-value",
+    "session_id=super-secret-value",
+    "sk-proj-abcdefghijklmnopqrstuvwxyz",
+  ]) {
+    await assert.rejects(() =>
+      hooks.tool.update_goal.execute(
+        {
+          status: "unmet",
+          options: { blocker: unsafeBlocker },
+        },
+        { sessionID: "unsafe-blocker", agent: "build" },
+      ),
+      /must not contain credentials/,
+    );
+  }
   await createGoalFor(hooks, "invalid-handoff");
   await assert.rejects(() =>
     hooks.tool.update_goal.execute(
@@ -637,6 +666,35 @@ try {
   assert.equal(parentPrompts.length, 1);
   assert.equal(parentPrompts[0].path.id, "deferred-parent");
   await parentHooks.dispose();
+
+  const deletedChildPrompts = [];
+  const deletedChildHooks = await goalMode.server({
+    client: {
+      session: {
+        messages: async () => ({ data: [] }),
+        promptAsync: async (request) => {
+          deletedChildPrompts.push(request);
+        },
+      },
+    },
+  }, { auto_continue: true });
+  await createGoalFor(deletedChildHooks, "deleted-child-parent");
+  await deletedChildHooks.event({
+    event: {
+      type: "session.created",
+      properties: { info: { id: "deleted-child", parentID: "deleted-child-parent" } },
+    },
+  });
+  await deletedChildHooks.event({
+    event: { type: "session.idle", properties: { sessionID: "deleted-child-parent" } },
+  });
+  await deletedChildHooks.event({
+    event: { type: "session.deleted", properties: { info: { id: "deleted-child" } } },
+  });
+  await Bun.sleep(100);
+  assert.equal(deletedChildPrompts.length, 1);
+  assert.equal(deletedChildPrompts[0].path.id, "deleted-child-parent");
+  await deletedChildHooks.dispose();
 
   const lockDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-goal-lock-test-"));
   const lockStatePath = path.join(lockDirectory, "goals.json");
