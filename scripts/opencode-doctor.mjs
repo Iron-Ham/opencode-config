@@ -65,12 +65,14 @@ export function diagnoseOpenCode({ configDir, environment = process.env } = {}) 
     check(checks, Number.isInteger(toolOutput?.max_lines) && toolOutput.max_lines > 0 && Number.isInteger(toolOutput?.max_bytes) && toolOutput.max_bytes > 0 ? "ok" : "warning", "tool output bounds", Number.isInteger(toolOutput?.max_lines) && Number.isInteger(toolOutput?.max_bytes) ? `${toolOutput.max_lines} lines / ${toolOutput.max_bytes} bytes` : "tool output bounds are not fully configured");
     const budget = configuredModelBudget(config);
     if (!budget) {
-      check(checks, "warning", "context budget", "the configured model has no static operational input limit");
+      check(checks, "warning", "context reserve", "the configured model has no static operational input limit");
     } else {
-      const threshold = budget.input - config.compaction.reserved;
-      check(checks, threshold > 0 ? "ok" : "error", "context budget", threshold > 0 ? `${budget.model}: compaction threshold ${threshold} input tokens with ${config.compaction.reserved} reserved` : `${budget.model}: reserve exceeds the ${budget.input}-token input limit`);
+      const reserve = config.compaction?.reserved;
+      const validReserve = Number.isInteger(reserve) && reserve > 0 && reserve < budget.input;
+      check(checks, validReserve ? "ok" : "error", "context reserve", validReserve ? `${budget.model}: ${reserve}-token reserve inside the ${budget.input}-token input limit` : `${budget.model}: reserve must be a positive integer below the ${budget.input}-token input limit`);
     }
-    const managedPlugins = ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"];
+    check(checks, "warning", "automatic compaction target", "OpenCode does not expose an explicit automatic-compaction target; use manual /compact before context becomes expensive.");
+    const managedPlugins = ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js", "tool-output-containment.js"];
     const configuredPlugins = config.plugin ?? [];
     for (const pluginName of managedPlugins) {
       const pluginPath = `./plugins/${pluginName}`;

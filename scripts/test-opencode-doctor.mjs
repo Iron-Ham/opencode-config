@@ -22,7 +22,7 @@ try {
     metadata: { api_token: "doctor-fixture-sensitive-value" },
   }));
   fs.mkdirSync(path.join(configDir, "plugins"), { recursive: true, mode: 0o700 });
-  for (const pluginName of ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js"]) {
+  for (const pluginName of ["goal-mode.js", "goal-workflow-guard.js", "compaction-observability.js", "delegation-guard.js", "tool-output-containment.js"]) {
     fs.writeFileSync(path.join(configDir, "plugins", pluginName), "export default {};\n");
   }
   fs.writeFileSync(path.join(configDir, "model-routing.config.local.json"), JSON.stringify({ advisor_enabled: false }), { mode: 0o600 });
@@ -34,12 +34,13 @@ try {
   assert.doesNotMatch(JSON.stringify(healthy), /doctor-fixture-sensitive-value/);
   assert.deepEqual(
     healthy.checks
-      .filter((item) => ["tool output bounds", "compaction retention", "context budget"].includes(item.name))
+      .filter((item) => ["tool output bounds", "compaction retention", "context reserve", "automatic compaction target"].includes(item.name))
       .map((item) => [item.name, item.level, item.detail]),
     [
       ["compaction retention", "ok", "prune true, 3 tail turns, 12000 recent tokens"],
       ["tool output bounds", "ok", "300 lines / 16384 bytes"],
-      ["context budget", "ok", "fixture/model: compaction threshold 80000 input tokens with 20000 reserved"],
+      ["context reserve", "ok", "fixture/model: 20000-token reserve inside the 100000-token input limit"],
+      ["automatic compaction target", "warning", "OpenCode does not expose an explicit automatic-compaction target; use manual /compact before context becomes expensive."],
     ],
   );
   assert.deepEqual(
@@ -47,11 +48,13 @@ try {
       .filter((item) => [
         "plugin ./plugins/goal-mode.js",
         "plugin ./plugins/goal-workflow-guard.js",
+        "plugin ./plugins/tool-output-containment.js",
       ].includes(item.name))
       .map((item) => [item.name, item.level]),
     [
       ["plugin ./plugins/goal-mode.js", "ok"],
       ["plugin ./plugins/goal-workflow-guard.js", "ok"],
+      ["plugin ./plugins/tool-output-containment.js", "ok"],
     ],
   );
   fs.writeFileSync(path.join(configDir, "opencode.json"), JSON.stringify({ share: "enabled", compaction: { model: "other" }, plugin: [] }));
@@ -66,7 +69,7 @@ try {
   }));
   const incoherent = diagnoseOpenCode({ configDir, environment: { OPENCODE_COMPACTION_OBSERVATION_DIR: observationDirectory } });
   assert.equal(incoherent.healthy, false);
-  assert.ok(incoherent.checks.some((item) => item.name === "context budget" && item.level === "error"));
+  assert.ok(incoherent.checks.some((item) => item.name === "context reserve" && item.level === "error"));
   console.log("OK     OpenCode doctor diagnostics");
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

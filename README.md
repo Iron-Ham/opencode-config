@@ -101,7 +101,9 @@ The observe-only policy adapter uses the separate `policy_adapter_enabled` kill 
 
 Run `bun scripts/opencode-doctor.mjs` for read-only local diagnostics of managed plugin installation, compaction inheritance, private routing configuration, and redacted compaction observation records. Use `--json` for automation or `--config-dir <path>` to inspect a non-default installation.
 
-The doctor also reports compaction retention settings, configured tool-output bounds, and the static compaction threshold for the active model (`input limit - reserved tokens`). These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth; use the explicit `/kimi` and `/advise` briefs when delegating isolated work.
+The doctor also reports compaction retention settings, configured tool-output bounds, and the active model's reserve. OpenCode does not currently expose an explicit early-compaction target, so the reserve is not a substitute for a manual `/compact` checkpoint. An explicit target requires upstream OpenCode support. These are configuration diagnostics, not measurements of prompt quality. For multi-result tools and MCP calls, aggregate or filter records before returning them to reduce transcript growth; use the explicit `/kimi` and `/advise` briefs when delegating isolated work.
+
+The managed shell-output plugin applies the resolved `tool_output` line and byte bounds after Bash completes. Oversized output is reduced before it reaches the model, while the complete result remains in a private local artifact.
 
 ## Verify Changes
 
@@ -118,6 +120,7 @@ Run the focused regression suite before committing configuration changes:
 bun scripts/test-opencode-policy-resolver.mjs
 bun scripts/test-opencode-config.mjs
 bun scripts/test-opencode-goal-mode.mjs
+bun scripts/test-opencode-tool-output-containment.mjs
 bun scripts/test-opencode-workflow-plugin.mjs
 bun scripts/test-opencode-compaction-observability.mjs
 bun scripts/test-opencode-doctor.mjs

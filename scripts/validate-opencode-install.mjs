@@ -41,9 +41,10 @@ for (const pluginName of [
   "compaction-observability.js",
   "delegation-guard.js",
   "goal-workflow-guard.js",
+  "tool-output-containment.js",
 ]) {
   if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
-    fail(`the managed Goal ${pluginName} plugin asset is not installed`);
+    fail(`the managed OpenCode ${pluginName} plugin asset is not installed`);
   }
 }
 
@@ -75,6 +76,7 @@ for (const pluginPath of [
   "./plugins/goal-workflow-guard.js",
   "./plugins/compaction-observability.js",
   "./plugins/delegation-guard.js",
+  "./plugins/tool-output-containment.js",
 ]) {
   if ((config.plugin ?? []).some((plugin) => pluginSpecifier(plugin) === pluginPath)) {
     fail(`the auto-discovered plugin ${pluginPath} must not also be configured explicitly`);

@@ -747,9 +747,10 @@ if (requireInstalledAssets) {
     "goal-mode.js",
     "goal-mode-tui.tsx",
     "goal-workflow-guard.js",
+    "tool-output-containment.js",
   ]) {
     if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
-      fail(`the managed Goal ${pluginName} plugin asset is not installed`);
+      fail(`the managed OpenCode ${pluginName} plugin asset is not installed`);
     }
   }
 }

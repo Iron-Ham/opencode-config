@@ -147,6 +147,7 @@ try {
       "./plugins/goal-workflow-guard.js",
       ["./plugins/compaction-observability.js", { model_strategy: "active-session" }],
       ["./plugins/delegation-guard.js", { max_concurrent: 4, max_total: 8 }],
+      ["./plugins/tool-output-containment.js", { max_bytes: 32_768 }],
     ],
   }));
 
@@ -368,6 +369,7 @@ try {
     "./plugins/goal-workflow-guard.js",
     "./plugins/compaction-observability.js",
     "./plugins/delegation-guard.js",
+    "./plugins/tool-output-containment.js",
   ]) {
     assert.equal(
       merged.plugin.some((plugin) =>

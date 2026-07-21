@@ -297,6 +297,7 @@ function mergePlugins(existing = [], managed = []) {
     "./plugins/goal-workflow-guard.js",
     "./plugins/compaction-observability.js",
     "./plugins/delegation-guard.js",
+    "./plugins/tool-output-containment.js",
   ]);
   const managedSpecs = new Set(managed.map(pluginSpecifier));
   const retained = existing.filter((entry) => {
