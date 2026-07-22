@@ -288,6 +288,9 @@
       "timeout": 30000
     }
   },
+  "plugin": [
+    "opencode-pty"
+  ],
   "permission": {
     "external_directory": {
       "~/**": "allow",
