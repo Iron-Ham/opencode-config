@@ -321,7 +321,10 @@ function isPackage(specifier, packageName) {
 }
 
 function mergePlugins(existing = [], managed = []) {
-  const managedPackages = ["@prevalentware/opencode-goal-plugin"];
+  const retiredPackages = [
+    "@prevalentware/opencode-goal-plugin",
+    "opencode-pty",
+  ];
   const managedLocalPluginSpecs = new Set([
     "./plugins/goal-mode.js",
     "./plugins/goal-mode-tui.tsx",
@@ -334,9 +337,9 @@ function mergePlugins(existing = [], managed = []) {
     const specifier = pluginSpecifier(entry);
     return !managedSpecs.has(specifier) &&
       !managedLocalPluginSpecs.has(specifier) &&
-      !managedPackages.some((packageName) =>
-      isPackage(specifier, packageName)
-    );
+      !retiredPackages.some((packageName) =>
+        isPackage(specifier, packageName)
+      );
   });
   return [...retained, ...structuredClone(managed)];
 }

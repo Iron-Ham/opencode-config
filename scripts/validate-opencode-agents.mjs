@@ -208,25 +208,21 @@ const inheritedModelAgents = [
   "software_architect",
 ];
 const inheritedModelAgentNames = new Set(inheritedModelAgents);
-const managedBuildTaskTargets = [
-  "accessibility_auditor",
-  "code_reviewer",
-  "database_optimizer",
-  "evidence_analyst",
-  "explore",
-  "general",
-  "security_engineer",
-  "software_architect",
-];
-const expectedManagedBuildTask = Object.fromEntries([
-  ["*", "deny"],
-  ...managedBuildTaskTargets.map((target) => [target, "allow"]),
-]);
 const {
   task: managedBuildTask,
 } = managedDefaults.agent.build.permission;
-if (!isDeepStrictEqual(managedBuildTask, expectedManagedBuildTask)) {
-  fail("the managed Build Task permissions must remain an exact reviewed-agent allowlist");
+if (!isDeepStrictEqual(managedBuildTask, { "*": "allow" })) {
+  fail("managed Build Task permissions must allow every subagent");
+}
+const expectedGeneralTask = [
+  ["*", "deny"],
+  ["code_reviewer", "allow"],
+];
+if (!isDeepStrictEqual(
+  Object.entries(config.agent?.general?.permission?.task ?? {}),
+  expectedGeneralTask,
+)) {
+  fail("managed general Task permissions must only allow code_reviewer");
 }
 if (config.agent?.compaction?.model === "anthropic/claude-sonnet-5") {
   fail("the retired fixed Sonnet compaction override is still configured");
@@ -378,7 +374,23 @@ const general = agents.general;
 if (finalPermission(general, "synthetic_external_mutation") !== "deny") {
   fail("general must deny unknown external tools during unattended delegation");
 }
-for (const permission of ["task", "todowrite", "advisor"]) {
+if (finalPermission(general, "task", "*") !== "deny") {
+  fail("general must deny Task by default");
+}
+for (const name of new Set([
+  "build",
+  "plan",
+  "general",
+  "explore",
+  "compaction",
+  ...managedAgentNames,
+])) {
+  const expected = name === "code_reviewer" ? "allow" : "deny";
+  if (finalPermission(general, "task", name) !== expected) {
+    fail(`general must ${expected} task delegation to ${name}`);
+  }
+}
+for (const permission of ["todowrite", "advisor"]) {
   if (finalPermission(general, permission) !== "deny") {
     fail(`general must deny recursive ${permission}`);
   }
@@ -399,8 +411,11 @@ for (const pattern of [
     fail(`general must deny authority-requiring shell pattern ${pattern}`);
   }
 }
-if (general.tools?.task === true || general.tools?.todowrite === true) {
-  fail("general must not expose recursive Task or TodoWrite tools");
+if (general.tools?.task !== true) {
+  fail("general must expose Task for code_reviewer delegation");
+}
+if (general.tools?.todowrite === true) {
+  fail("general must not expose TodoWrite");
 }
 for (const tool of ["apply_patch", "edit", "write", "bash", "task", "todowrite"]) {
   if (explore.tools?.[tool] === true) {
@@ -409,8 +424,20 @@ for (const tool of ["apply_patch", "edit", "write", "bash", "task", "todowrite"]
 }
 
 const plan = agents.plan;
-if (finalPermission(plan, "edit") !== "deny") {
-  fail("plan must deny editing");
+if (finalPermission(plan, "edit", "*") !== "deny") {
+  fail("plan must deny non-Markdown edits by default");
+}
+if (finalPermission(plan, "edit", "*.md") !== "allow") {
+  fail("plan must allow Markdown edits");
+}
+if (finalPermission(plan, "edit", "**/*.md") !== "allow") {
+  fail("plan must allow Markdown edits in subdirectories");
+}
+if (finalPermission(plan, "edit", "*.ts") !== "deny") {
+  fail("plan must deny source-file edits");
+}
+if (plan.tools?.apply_patch !== true) {
+  fail("plan must expose ApplyPatch for Markdown plans");
 }
 if (finalPermission(plan, "bash") !== "ask") {
   fail("plan must ask before shell execution");

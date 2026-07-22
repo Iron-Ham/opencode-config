@@ -85,6 +85,8 @@ Use `opencode --no-auto` or `opencode run --no-auto ...` when a session must req
 
 The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`.
 
+In the managed global configuration, `build` may delegate to any subagent. `general` may delegate only to `code_reviewer` for a bounded, read-only review. `plan` may edit only `*.md` files. The reviewer still requires a concrete source boundary.
+
 The local routing file is private and has this shape:
 
 ```json
