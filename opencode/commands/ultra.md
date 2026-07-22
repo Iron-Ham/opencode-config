@@ -15,6 +15,6 @@ Delegate selectively. Use a child only for an independent, bounded question or n
 
 The managed native Task ceiling is 10 concurrent and 20 total child tasks per root session. It is a safety bound, not a target. Delegation remains one level; dispatch needed specialists directly from the controller.
 
-This command creates no durable objective or lifecycle. Do not create Goal state, schedule or trigger another turn, auto-continue in the background, add a token budget, or treat an incomplete response as authority to continue without the user. If blocked or unable to finish, report verified progress, remaining work, and the exact blocker.
+This command creates no durable objective or Goal-mode lifecycle. Do not create Goal state, add a token budget, schedule background work, or treat an incomplete response as authority to create a persistent retry or continuation loop. Ordinary OpenCode compaction may continue a context-limited turn. If blocked or unable to finish, report verified progress, remaining work, and the exact blocker.
 
 Before reporting completion, check every explicit requirement against current evidence. Match each check's scope to the requirement, run proportionate validation, inspect the final result or diff when changed, and name unverified items rather than inferring completion.

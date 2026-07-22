@@ -32,6 +32,24 @@ for (let index = 1; index <= 10; index += 1) {
 }
 await assert.rejects(() => startDefault("total-twenty-first"), /total limit/);
 
+const idleEventHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 2 });
+async function startIdleEvent(callID) {
+  await idleEventHooks["tool.execute.before"]({ tool: "task", sessionID: "idle-event-parent", callID }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+  await idleEventHooks["tool.execute.after"]({ tool: "task", sessionID: "idle-event-parent", callID }, { output: JSON.stringify({ task_id: `idle-event-child-${callID}` }) });
+}
+await startIdleEvent("one");
+await idleEventHooks.event({ event: { type: "session.idle", properties: { sessionID: "idle-event-child-one" } } });
+await startIdleEvent("two");
+
+const deletedRootHooks = await createDelegationGuard();
+for (let index = 1; index <= 1000; index += 1) {
+  await deletedRootHooks["tool.execute.before"]({ tool: "task", sessionID: `deleted-root-${index}`, callID: `deleted-call-${index}` }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+}
+for (let index = 1; index <= 1000; index += 1) {
+  await deletedRootHooks.event({ event: { type: "session.deleted", properties: { sessionID: `deleted-root-${index}` } } });
+}
+await deletedRootHooks["tool.execute.before"]({ tool: "task", sessionID: "deleted-root-fresh", callID: "deleted-call-fresh" }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+
 async function start(callID, agent = "code_reviewer", prompt = reviewPrompt) {
   await hooks["tool.execute.before"]({ tool: "task", sessionID: "parent", callID }, { args: { subagent_type: agent, prompt } });
   await hooks["tool.execute.after"]({ tool: "task", sessionID: "parent", callID }, { output: JSON.stringify({ task_id: `child-${callID}` }) });

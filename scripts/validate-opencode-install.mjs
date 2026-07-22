@@ -129,9 +129,10 @@ for (const command of [
   "kimi",
   "kimi-fireworks",
   "kimi-fireworks-fast",
+  "ultra",
 ]) {
   if (config.command?.[command] !== undefined) {
-    fail(`retired /${command} command configuration remains active`);
+    fail(`retired inline /${command} command configuration remains active`);
   }
 }
 const sourceUltraCommand = path.join(repoRoot, "opencode", "commands", "ultra.md");

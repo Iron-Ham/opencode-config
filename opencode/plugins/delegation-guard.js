@@ -103,6 +103,11 @@ async function createDelegationGuard(options = {}) {
     if (reserved <= 1) reservedByParent.delete(parentID);
     else reservedByParent.set(parentID, reserved - 1);
   };
+  const clearPendingCalls = (parentID) => {
+    for (const [callID, pendingParentID] of pendingCalls) {
+      if (pendingParentID === parentID) pendingCalls.delete(callID);
+    }
+  };
   return {
     async "tool.execute.before"(input, output) {
       if (String(input?.tool).toLowerCase() !== "task" || typeof input?.sessionID !== "string") return;
@@ -156,11 +161,17 @@ async function createDelegationGuard(options = {}) {
         return;
       }
       const sessionID = sessionFromEvent(event);
+      const rootID = sessionID ? rootFor(sessionID) : null;
       const status = event?.properties?.status;
-      if (event?.type === "session.deleted" || (event?.type === "session.status" && status?.type === "idle")) {
+      if (
+        event?.type === "session.deleted" ||
+        event?.type === "session.idle" ||
+        (event?.type === "session.status" && status?.type === "idle")
+      ) {
         if (sessionID) markTerminal(sessionID);
       }
       if (event?.type === "session.deleted" && sessionID) {
+        if (rootID === sessionID) clearPendingCalls(sessionID);
         activeByParent.delete(sessionID);
         totalByParent.delete(sessionID);
         reservedByParent.delete(sessionID);

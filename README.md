@@ -90,7 +90,8 @@ In the managed global configuration, `build` may delegate to any subagent. `gene
 `/ultra <request>` is an opt-in, stateless, Build-backed template for
 evidence-driven work. It preserves ordinary model and permission selection;
 native `Task` delegation is bounded to 10 concurrent and 20 total children,
-with one-level depth. It has no Goal state or automatic continuation.
+with one-level depth. It has no Goal state or Goal-mode continuation loop;
+ordinary OpenCode compaction may continue a context-limited turn.
 
 The local routing file is private and has this shape:
 
