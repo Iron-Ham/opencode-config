@@ -53,10 +53,13 @@ try {
   ]);
   const workspace = path.join(root, "workspace");
   fs.mkdirSync(workspace);
-  fs.writeFileSync(path.join(workspace, ".gitignore"), ".env\n");
+  fs.writeFileSync(path.join(workspace, ".gitignore"), ".env\nprivate/\n");
   fs.writeFileSync(path.join(workspace, ".env"), "TOP_SECRET=hidden\n");
   fs.writeFileSync(path.join(workspace, "visible.env"), "VISIBLE=value\n");
-  fs.writeFileSync(path.join(workspace, ".git"), "gitdir: /private/repository\n");
+  fs.mkdirSync(path.join(workspace, ".git"));
+  fs.writeFileSync(path.join(workspace, ".git", "config"), "GIT_SECRET=hidden\n");
+  fs.mkdirSync(path.join(workspace, "private"));
+  fs.writeFileSync(path.join(workspace, "private", "secret.txt"), "PRIVATE_SECRET=hidden\n");
   fs.mkdirSync(path.join(workspace, "nested"));
   fs.writeFileSync(path.join(workspace, "nested", "included.ts"), "NESTED_MATCH\n");
   const longPrefix = "x".repeat(MAX_MATCH_TEXT_BYTES * 2);
@@ -75,6 +78,14 @@ try {
     "No matches found.",
   );
   assert.equal(
+    await grep.execute({ pattern: "TOP_SECRET", path: ".env" }, context),
+    "No matches found.",
+  );
+  assert.equal(
+    await grep.execute({ pattern: "VISIBLE", path: "visible.env" }, context),
+    "visible.env:1:1: VISIBLE=value",
+  );
+  assert.equal(
     await glob.execute({ pattern: ".git", path: "." }, context),
     "No files found.",
   );
@@ -82,8 +93,32 @@ try {
     await grep.execute({ pattern: "gitdir", path: ".", include: ".git" }, context),
     "No matches found.",
   );
+  assert.equal(
+    await glob.execute({ pattern: "*", path: ".git" }, context),
+    "No files found.",
+  );
+  assert.equal(
+    await grep.execute({ pattern: "GIT_SECRET", path: ".git" }, context),
+    "No matches found.",
+  );
+  assert.equal(
+    await glob.execute({ pattern: "*", path: "private" }, context),
+    "No files found.",
+  );
+  assert.equal(
+    await grep.execute({ pattern: "PRIVATE_SECRET", path: "private" }, context),
+    "No matches found.",
+  );
   assert.match(
     await grep.execute({ pattern: "NESTED_MATCH", path: ".", include: "*.ts" }, context),
+    /^nested\/included\.ts:1:1: NESTED_MATCH$/m,
+  );
+  assert.equal(
+    await glob.execute({ pattern: "nested/*.ts", path: "." }, context),
+    "nested/included.ts",
+  );
+  assert.match(
+    await grep.execute({ pattern: "NESTED_MATCH", path: ".", include: "nested/*.ts" }, context),
     /^nested\/included\.ts:1:1: NESTED_MATCH$/m,
   );
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
   createPathGlobMatcher,
+  isPathWithinDirectory,
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
@@ -27,6 +28,9 @@ export default tool({
     } catch {
       return `Path does not exist: ${searchRoot}`;
     }
+    const searchDirectory = path.resolve(searchRoot) === path.resolve(context.directory)
+      ? searchRoot
+      : path.dirname(searchRoot);
 
     const filterArguments = ripgrepTypeFilterArguments(args.pattern);
     let matchesPath: ((relativePath: string) => boolean) | undefined;
@@ -46,11 +50,14 @@ export default tool({
       ...filterArguments,
       ...ignoreArguments(),
       ".",
-    ], searchRoot, (line) => {
+    ], searchDirectory, (line) => {
       if (!line) return true;
-      if (matchesPath && !matchesPath(line)) return true;
+      const filePath = path.resolve(searchDirectory, line);
+      const relativePath = path.relative(searchRoot, filePath);
+      if (!isPathWithinDirectory(filePath, searchRoot)) return true;
+      if (matchesPath && !matchesPath(relativePath)) return true;
       if (files.length >= MAX_RESULTS) return false;
-      files.push(path.resolve(searchRoot, line));
+      files.push(filePath);
       return true;
     });
     if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {
