@@ -92,7 +92,8 @@ const retiredGoalToolNames = new Set([
   "record_goal_progress",
   "record_goal_failure",
 ]);
-const retiredCommandNames = new Set([
+// Inline JSON /ultra targets the retired agent; the managed Markdown command remains installable.
+const retiredInlineCommandNames = new Set([
   "advise",
   "glm",
   "glm-fireworks",
@@ -451,7 +452,7 @@ function removeRetiredFeatureConfiguration(config) {
     }
   }
   if (isPlainObject(config.command)) {
-    for (const commandName of retiredCommandNames) {
+    for (const commandName of retiredInlineCommandNames) {
       delete config.command[commandName];
     }
   }

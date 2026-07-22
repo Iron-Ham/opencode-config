@@ -16,6 +16,40 @@ await Promise.all([
 ]);
 await assert.rejects(() => reservationHooks["tool.execute.before"]({ tool: "task", sessionID: "reservation-parent", callID: "reservation-three" }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } }), /concurrency limit/);
 
+const defaultHooks = await createDelegationGuard();
+async function startDefault(callID) {
+  await defaultHooks["tool.execute.before"]({ tool: "task", sessionID: "default-parent", callID }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+  await defaultHooks["tool.execute.after"]({ tool: "task", sessionID: "default-parent", callID }, { output: JSON.stringify({ task_id: `default-child-${callID}` }) });
+}
+for (let index = 1; index <= 10; index += 1) await startDefault(`concurrent-${index}`);
+await assert.rejects(() => startDefault("concurrent-eleventh"), /concurrency limit/);
+for (let index = 1; index <= 10; index += 1) {
+  await defaultHooks.event({ event: { type: "session.status", properties: { sessionID: `default-child-concurrent-${index}`, status: { type: "idle" } } } });
+}
+for (let index = 1; index <= 10; index += 1) {
+  await startDefault(`total-${index}`);
+  await defaultHooks.event({ event: { type: "session.status", properties: { sessionID: `default-child-total-${index}`, status: { type: "idle" } } } });
+}
+await assert.rejects(() => startDefault("total-twenty-first"), /total limit/);
+
+const idleEventHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 2 });
+async function startIdleEvent(callID) {
+  await idleEventHooks["tool.execute.before"]({ tool: "task", sessionID: "idle-event-parent", callID }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+  await idleEventHooks["tool.execute.after"]({ tool: "task", sessionID: "idle-event-parent", callID }, { output: JSON.stringify({ task_id: `idle-event-child-${callID}` }) });
+}
+await startIdleEvent("one");
+await idleEventHooks.event({ event: { type: "session.idle", properties: { sessionID: "idle-event-child-one" } } });
+await startIdleEvent("two");
+
+const deletedRootHooks = await createDelegationGuard();
+for (let index = 1; index <= 1000; index += 1) {
+  await deletedRootHooks["tool.execute.before"]({ tool: "task", sessionID: `deleted-root-${index}`, callID: `deleted-call-${index}` }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+}
+for (let index = 1; index <= 1000; index += 1) {
+  await deletedRootHooks.event({ event: { type: "session.deleted", properties: { sessionID: `deleted-root-${index}` } } });
+}
+await deletedRootHooks["tool.execute.before"]({ tool: "task", sessionID: "deleted-root-fresh", callID: "deleted-call-fresh" }, { args: { subagent_type: "explore", prompt: "Inspect the exact source boundary." } });
+
 async function start(callID, agent = "code_reviewer", prompt = reviewPrompt) {
   await hooks["tool.execute.before"]({ tool: "task", sessionID: "parent", callID }, { args: { subagent_type: agent, prompt } });
   await hooks["tool.execute.after"]({ tool: "task", sessionID: "parent", callID }, { output: JSON.stringify({ task_id: `child-${callID}` }) });
@@ -51,6 +85,7 @@ await metadataHooks.event({ event: { type: "session.status", properties: { sessi
 await assert.rejects(() => metadataHooks["tool.execute.before"]({ tool: "task", sessionID: "metadata-parent", callID: "after-metadata" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } }), /total limit/);
 
 const nestedHooks = await createDelegationGuard({ max_concurrent: 2, max_total: 2 });
+// Managed subagent_depth: 1 prevents nested native Task calls in normal operation.
 await nestedHooks["tool.execute.before"]({ tool: "task", sessionID: "nested-parent", callID: "nested-root" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } });
 await nestedHooks["tool.execute.after"]({ tool: "task", sessionID: "nested-parent", callID: "nested-root" }, { output: JSON.stringify({ task_id: "nested-child" }) });
 await nestedHooks["tool.execute.before"]({ tool: "task", sessionID: "nested-child", callID: "nested-grandchild" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } });

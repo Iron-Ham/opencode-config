@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_version": 2,
+  "policy_version": 3,
   "changelog": [
     {
       "policy_version": 1,
@@ -13,6 +13,12 @@
       "date": "2026-07-21",
       "summary": "Remove Goal mode and unused managed command lanes.",
       "evidence_ref": "adrs/006-retire-goal-mode-and-unused-command-lanes.md"
+    },
+    {
+      "policy_version": 3,
+      "date": "2026-07-22",
+      "summary": "Add the stateless Build-backed Ultra template with one-level 10/20 native Task bounds.",
+      "evidence_ref": "adrs/007-stateless-ultra-prompt-template.md"
     }
   ],
   "routes": [

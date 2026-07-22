@@ -60,8 +60,8 @@ function requestsMutation(prompt) {
 }
 
 async function createDelegationGuard(options = {}) {
-  const maxConcurrent = options.max_concurrent ?? 4;
-  const maxTotal = options.max_total ?? 8;
+  const maxConcurrent = options.max_concurrent ?? 10;
+  const maxTotal = options.max_total ?? 20;
   const reviewAgents = new Set(options.isolated_review_agents ?? DEFAULT_REVIEW_AGENTS);
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || !Number.isInteger(maxTotal) || maxTotal < maxConcurrent) {
     throw new Error("delegation guard requires positive integer concurrency and total limits");
@@ -102,6 +102,11 @@ async function createDelegationGuard(options = {}) {
     const reserved = reservedByParent.get(parentID) ?? 0;
     if (reserved <= 1) reservedByParent.delete(parentID);
     else reservedByParent.set(parentID, reserved - 1);
+  };
+  const clearPendingCalls = (parentID) => {
+    for (const [callID, pendingParentID] of pendingCalls) {
+      if (pendingParentID === parentID) pendingCalls.delete(callID);
+    }
   };
   return {
     async "tool.execute.before"(input, output) {
@@ -156,11 +161,17 @@ async function createDelegationGuard(options = {}) {
         return;
       }
       const sessionID = sessionFromEvent(event);
+      const rootID = sessionID ? rootFor(sessionID) : null;
       const status = event?.properties?.status;
-      if (event?.type === "session.deleted" || (event?.type === "session.status" && status?.type === "idle")) {
+      if (
+        event?.type === "session.deleted" ||
+        event?.type === "session.idle" ||
+        (event?.type === "session.status" && status?.type === "idle")
+      ) {
         if (sessionID) markTerminal(sessionID);
       }
       if (event?.type === "session.deleted" && sessionID) {
+        if (rootID === sessionID) clearPendingCalls(sessionID);
         activeByParent.delete(sessionID);
         totalByParent.delete(sessionID);
         reservedByParent.delete(sessionID);
