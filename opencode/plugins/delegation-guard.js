@@ -60,8 +60,8 @@ function requestsMutation(prompt) {
 }
 
 async function createDelegationGuard(options = {}) {
-  const maxConcurrent = options.max_concurrent ?? 4;
-  const maxTotal = options.max_total ?? 8;
+  const maxConcurrent = options.max_concurrent ?? 10;
+  const maxTotal = options.max_total ?? 20;
   const reviewAgents = new Set(options.isolated_review_agents ?? DEFAULT_REVIEW_AGENTS);
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || !Number.isInteger(maxTotal) || maxTotal < maxConcurrent) {
     throw new Error("delegation guard requires positive integer concurrency and total limits");

@@ -345,7 +345,7 @@ begin_transaction
 for name in advisor_reviewer glm_worker kimi_reader ultra; do
   retire_managed_file "$OPENCODE_AGENTS_DIR/$name.md" "retired managed agent"
 done
-for name in advise glm glm-fireworks glm-fireworks-fast goal kimi kimi-fireworks kimi-fireworks-fast ultra; do
+for name in advise glm glm-fireworks glm-fireworks-fast goal kimi kimi-fireworks kimi-fireworks-fast; do
   retire_managed_file "$OPENCODE_COMMANDS_DIR/$name.md" "retired managed command"
 done
 for name in goal-mode.js goal-mode.LICENSE goal-mode-tui.tsx goal-workflow-guard.js; do

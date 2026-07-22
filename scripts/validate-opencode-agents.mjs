@@ -348,11 +348,35 @@ for (const command of [
   "kimi",
   "kimi-fireworks",
   "kimi-fireworks-fast",
-  "ultra",
 ]) {
   if (resolvedConfig.command?.[command] !== undefined) {
     fail(`retired /${command} command remains resolved`);
   }
+}
+const ultraCommand = resolvedConfig.command?.ultra;
+if (!ultraCommand || ultraCommand.agent !== "build") {
+  fail("/ultra must resolve to the build agent");
+}
+if (ultraCommand.model !== undefined || ultraCommand.variant !== undefined) {
+  fail("/ultra must not override the model or variant");
+}
+const ultraSource = fs.readFileSync(
+  path.join(repoRoot, "opencode", "commands", "ultra.md"),
+  "utf8",
+);
+if (Buffer.byteLength(ultraSource, "utf8") > 2500) {
+  fail("managed /ultra command exceeds the 2,500-byte source cap");
+}
+if ((ultraCommand.template ?? "").split("$ARGUMENTS").length - 1 !== 1) {
+  fail("/ultra must retain exactly one $ARGUMENTS expansion");
+}
+for (const goalTool of retiredGoalTools) {
+  if (ultraSource.includes(goalTool)) {
+    fail(`/ultra retains retired Goal tool identifier ${goalTool}`);
+  }
+}
+if (/Goal continuation/iu.test(ultraSource)) {
+  fail("/ultra retains retired Goal-continuation text");
 }
 for (const agent of ["advisor_reviewer", "glm_worker", "kimi_reader", "ultra"]) {
   if (modelRouting.agents?.[agent] !== undefined || modelRouting.steps?.[agent] !== undefined) {
@@ -577,7 +601,6 @@ if (requireInstalledAssets) {
     path.join("commands", "kimi.md"),
     path.join("commands", "kimi-fireworks.md"),
     path.join("commands", "kimi-fireworks-fast.md"),
-    path.join("commands", "ultra.md"),
     path.join("plugins", "goal-mode.js"),
     path.join("plugins", "goal-mode.LICENSE"),
     path.join("plugins", "goal-mode-tui.tsx"),

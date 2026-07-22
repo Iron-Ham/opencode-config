@@ -23,7 +23,7 @@ const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "
 const manifest = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "opencode", "control-plane-policy.json"), "utf8"),
 );
-const EXPECTED_MANIFEST_HASH = "sha256:0a987d73da0c0c39372796d280fff53d158efa5fc3accaedecaa1bf11da9c13a";
+const EXPECTED_MANIFEST_HASH = "sha256:f66bbf843ec26c0eaa5d6aee70bae862bef8459715e3baeacd7785aa3a181ed7";
 const buildRoute = {
   provider: "openai",
   model: "gpt-5.6-terra",
@@ -316,15 +316,15 @@ caseOf("invalid schema or unsupported version", () => {
 
 caseOf("manifest semantic change", () => {
   const changed = structuredClone(manifest);
-  changed.policy_version = 3;
+  changed.policy_version = 4;
   changed.changelog.push({
-    policy_version: 3,
+    policy_version: 4,
     date: "2026-07-18",
     summary: "Record the current unpinned route identities.",
     evidence_ref: "reports/opencode-model-routing/report.md",
   });
   const parsed = parsePolicyManifest(changed);
-  assert.equal(parsed.policy_version, 3);
+  assert.equal(parsed.policy_version, 4);
   assert.notEqual(policyConfigurationHash(parsed), EXPECTED_MANIFEST_HASH);
   assert.match(canonicalJson(parsed), /gpt-5\.6-terra/);
 });

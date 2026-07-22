@@ -2,7 +2,7 @@
 
 ## Status
 
-This document defines policy contract version 2 for an observe-only control
+This document defines policy contract version 3 for an observe-only control
 plane. The resolver may report a selected policy route, but it must not set an
 OpenCode model, provider, reasoning effort, fallback, agent permission, or
 default.
@@ -29,6 +29,9 @@ Provider/model fallback, automatic review, model-branded convenience commands,
 and role-based route selection are outside this contract. A route is always a
 complete provider, model, and serving-path identity; reasoning effort is
 optional runtime metadata and a role name is never evidence of model quality.
+
+`/ultra` is a Build command template, not a policy invocation mode. The policy
+resolver remains Build-only and rejects `ultra` as an invocation mode.
 
 ## Files And Ownership
 

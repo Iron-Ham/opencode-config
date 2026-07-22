@@ -63,6 +63,7 @@ try {
       ultra: { model: "openai/gpt-5.6-sol" },
       custom_controller: { model: "openai/gpt-5.6-luna-xhigh-pinned" },
     },
+    subagent_depth: 3,
     provider: {
       custom: { models: { local: { name: "Local" } } },
       baseten: {
@@ -191,6 +192,7 @@ try {
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
   assert.equal(merged.agent.ultra, undefined);
+  assert.equal(merged.subagent_depth, 1);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
   assert.deepEqual(Object.entries(merged.agent.general.permission.task), [
