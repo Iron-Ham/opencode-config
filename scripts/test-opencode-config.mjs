@@ -43,12 +43,13 @@ try {
           create_goal: "allow",
         },
       },
+      general: { permission: { task: { build: "allow" } } },
       frontend_developer: { model: "openai/gpt-5.6-luna" },
       git_workflow_master: { model: "anthropic/claude-sonnet-5" },
       plan: {
         variant: "max",
         options: { reasoningEffort: "max" },
-        permission: { task: { general: "allow" } },
+        permission: { edit: "deny", task: { general: "allow" } },
       },
       explore: {
         model: "anthropic/claude-sonnet-5-default-pinned",
@@ -114,6 +115,7 @@ try {
     plugin: [
       "machine-local-plugin@9.9.9",
       "opencode-dynamic-workflows@1.2.3",
+      "opencode-pty@0.3.6",
       "@prevalentware/opencode-goal-plugin@0.0.1",
       ["./plugins/goal-mode.js", { max_repeated_tool_calls: 3 }],
       "./plugins/goal-workflow-guard.js",
@@ -152,6 +154,11 @@ try {
   assert.equal(merged.agent.plan.permission.task.general, undefined);
   assert.equal(merged.agent.plan.permission["*"], "ask");
   assert.equal(merged.agent.plan.permission.advisor, "deny");
+  assert.deepEqual(Object.entries(merged.agent.plan.permission.edit), [
+    ["*", "deny"],
+    ["*.md", "allow"],
+    ["**/*.md", "allow"],
+  ]);
   assert.equal(merged.agent.plan.variant, undefined);
   assert.equal(merged.agent.plan.options, undefined);
   assert.equal(merged.agent.plan.model, "openai/gpt-5.6-terra");
@@ -178,11 +185,7 @@ try {
   assert.equal(merged.agent.build.permission.record_goal_failure, undefined);
   assert.equal(merged.agent.build.permission.advisor, "deny");
   assert.equal(merged.agent.build.permission.external_directory, undefined);
-  assert.equal(merged.agent.build.permission.task["*"], "deny");
-  assert.equal(merged.agent.build.permission.task.general, "allow");
-  assert.equal(merged.agent.build.permission.task.evidence_analyst, "allow");
-  assert.equal(merged.agent.build.permission.task.glm_worker, undefined);
-  assert.equal(merged.agent.build.permission.task["machine-local-agent"], undefined);
+  assert.deepEqual(merged.agent.build.permission.task, { "*": "allow" });
   assert.equal(merged.model, "openai/gpt-5.6-terra");
   assert.equal(merged.agent.build.model, undefined);
   assert.equal(merged.agent.build.steps, undefined);
@@ -190,6 +193,10 @@ try {
   assert.equal(merged.agent.ultra, undefined);
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.question, "deny");
+  assert.deepEqual(Object.entries(merged.agent.general.permission.task), [
+    ["*", "deny"],
+    ["code_reviewer", "allow"],
+  ]);
   assert.equal(
     merged.agent.general.permission.external_directory["~/**"],
     "allow",
@@ -294,7 +301,11 @@ try {
   assert.equal(compactAt, 902_000);
   assert.ok(merged.plugin.includes("machine-local-plugin@9.9.9"));
   assert.ok(merged.plugin.includes("opencode-dynamic-workflows@1.2.3"));
-  assert.ok(merged.plugin.includes("opencode-pty"));
+  assert.equal(merged.plugin.some((plugin) => {
+    const specifier = Array.isArray(plugin) ? plugin[0] : plugin;
+    return specifier === "opencode-pty" ||
+      String(specifier).startsWith("opencode-pty@");
+  }), false);
   assert.ok(
     !merged.plugin.some((plugin) =>
       String(Array.isArray(plugin) ? plugin[0] : plugin).startsWith(
@@ -486,6 +497,41 @@ try {
     assert.equal(softwareArchitect.model.providerID, "openai");
     assert.equal(softwareArchitect.model.modelID, "gpt-5.6-luna");
     assert.equal(softwareArchitect.steps, 150);
+
+    const generalDebug = Bun.spawnSync([
+      "opencode",
+      "debug",
+      "agent",
+      "general",
+      "--pure",
+    ], {
+      cwd: os.tmpdir(),
+      env: {
+        ...process.env,
+        XDG_CONFIG_HOME: isolatedXdgConfigHome,
+        OPENCODE_CONFIG_DIR: routingConfigDir,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    assert.equal(
+      generalDebug.exitCode,
+      0,
+      generalDebug.stderr.toString(),
+    );
+    assert.equal(JSON.parse(generalDebug.stdout.toString()).tools.task, true);
+
+    const agentValidation = Bun.spawnSync([
+      "bun",
+      path.join(repoRoot, "scripts", "validate-opencode-agents.mjs"),
+      repoRoot,
+      routingConfigDir,
+    ], { stdout: "pipe", stderr: "pipe" });
+    assert.equal(
+      agentValidation.exitCode,
+      0,
+      `${agentValidation.stdout.toString()}${agentValidation.stderr.toString()}`,
+    );
 
    } finally {
      fs.rmSync(routingConfigDir, { recursive: true, force: true });

@@ -81,15 +81,7 @@
       "permission": {
         "advisor": "deny",
         "task": {
-          "*": "deny",
-          "accessibility_auditor": "allow",
-          "code_reviewer": "allow",
-          "database_optimizer": "allow",
-          "evidence_analyst": "allow",
-          "explore": "allow",
-          "general": "allow",
-          "security_engineer": "allow",
-          "software_architect": "allow"
+          "*": "allow"
         }
       }
     },
@@ -134,7 +126,11 @@
         "text_read": "allow",
         "webfetch": "allow",
         "skill": "allow",
-        "edit": "deny",
+        "edit": {
+          "*": "deny",
+          "*.md": "allow",
+          "**/*.md": "allow"
+        },
         "bash": "ask",
         "todowrite": "allow",
         "advisor": "deny",
@@ -199,7 +195,10 @@
           "git push": "deny",
           "git push *": "deny"
         },
-        "task": "deny",
+        "task": {
+          "*": "deny",
+          "code_reviewer": "allow"
+        },
         "todowrite": "deny",
         "advisor": "deny"
       }
@@ -288,9 +287,6 @@
       "timeout": 30000
     }
   },
-  "plugin": [
-    "opencode-pty"
-  ],
   "permission": {
     "external_directory": {
       "~/**": "allow",

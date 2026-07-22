@@ -100,6 +100,13 @@ for (const plugins of [config.plugin ?? [], tui.plugin ?? []]) {
   )) {
     fail("the retired external Goal plugin remains configured");
   }
+  if (plugins.some((plugin) => {
+    const specifier = pluginSpecifier(plugin);
+    return specifier === "opencode-pty" ||
+      String(specifier).startsWith("opencode-pty@");
+  })) {
+    fail("the incompatible opencode-pty plugin remains configured");
+  }
 }
 for (const pluginPath of [
   "./plugins/compaction-observability.js",
