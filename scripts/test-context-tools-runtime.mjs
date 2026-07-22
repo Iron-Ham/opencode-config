@@ -10,6 +10,7 @@ import {
   MAX_RESULTS,
   createPathGlobMatcher,
   ignoreArguments,
+  isPathWithinDirectory,
   isBinary,
   positiveInteger,
   ripgrepTypeFilterArguments,
@@ -26,6 +27,8 @@ assert.equal(positiveInteger(21, 10, 20), 20);
 assert.equal(positiveInteger(15, 10, 20), 15);
 assert.equal(MAX_RESULTS, 50);
 assert.equal(resolvePath("src", "/tmp/project"), "/tmp/project/src");
+assert.equal(isPathWithinDirectory("/tmp/project/src", "/tmp/project"), true);
+assert.equal(isPathWithinDirectory("/tmp/other", "/tmp/project"), false);
 assert.deepEqual(ignoreArguments(), ["--hidden", "--glob", "!.git", "--glob", "!.git/**"]);
 
 const matchesTypeScript = createPathGlobMatcher("*.ts");
@@ -39,6 +42,7 @@ assert.deepEqual(ripgrepTypeFilterArguments("*.ts"), [
   "--type",
   "opencodecontext",
 ]);
+assert.deepEqual(ripgrepTypeFilterArguments("nested/*.ts"), []);
 assert.deepEqual(ripgrepTypeFilterArguments("!*.env"), []);
 
 const truncatedMatch = truncateMatchText("😀".repeat(MAX_MATCH_TEXT_BYTES));

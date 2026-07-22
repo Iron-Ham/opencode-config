@@ -3,6 +3,7 @@ import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
   createPathGlobMatcher,
+  isPathWithinDirectory,
   MAX_RESULTS,
   ignoreArguments,
   resolvePath,
@@ -28,8 +29,11 @@ export default tool({
     } catch {
       return `Path does not exist: ${searchRoot}`;
     }
-    const searchDirectory = stat.isDirectory() ? searchRoot : path.dirname(searchRoot);
-    const target = stat.isDirectory() ? "." : path.basename(searchRoot);
+    const searchRootIsDirectory = stat.isDirectory();
+    const searchDirectory = searchRootIsDirectory &&
+        path.resolve(searchRoot) === path.resolve(context.directory)
+      ? searchRoot
+      : path.dirname(searchRoot);
     const filterArguments = args.include
       ? ripgrepTypeFilterArguments(args.include)
       : [];
@@ -52,7 +56,7 @@ export default tool({
       ...ignoreArguments(),
       "--",
       args.pattern,
-      target,
+      ".",
     ], searchDirectory, (line) => {
       if (!line) return true;
       let event: { type?: string; data?: { path?: { text?: string }; line_number?: number; lines?: { text?: string }; submatches?: Array<{ start?: number }> } };
@@ -66,13 +70,19 @@ export default tool({
       const data = event.data;
       const filePath = data?.path?.text;
       if (!filePath || !data?.line_number) return true;
-      if (matchesPath && !matchesPath(filePath)) return true;
+      const absoluteFilePath = path.resolve(searchDirectory, filePath);
+      const relativePath = path.relative(searchRoot, absoluteFilePath);
+      if (!isPathWithinDirectory(absoluteFilePath, searchRoot)) return true;
+      const matchPath = searchRootIsDirectory
+        ? relativePath
+        : path.basename(searchRoot);
+      if (matchesPath && !matchesPath(matchPath)) return true;
       const column = (data.submatches?.[0]?.start ?? 0) + 1;
       const text = truncateMatchText(
         data.lines?.text ?? "",
         data.submatches?.[0]?.start,
       );
-      matches.push(`${visibleRelativePath(path.resolve(searchDirectory, filePath), context.directory)}:${data.line_number}:${column}: ${text}`);
+      matches.push(`${visibleRelativePath(absoluteFilePath, context.directory)}:${data.line_number}:${column}: ${text}`);
       return true;
     });
     if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {

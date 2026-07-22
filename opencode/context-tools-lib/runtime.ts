@@ -15,6 +15,12 @@ export function resolvePath(candidate: string | undefined, directory: string) {
   return path.resolve(directory, candidate || ".");
 }
 
+export function isPathWithinDirectory(filePath: string, directory: string) {
+  const relative = path.relative(directory, filePath);
+  return relative === "" ||
+    (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
 export function visibleRelativePath(filePath: string, directory: string) {
   const relative = path.relative(directory, filePath);
   return relative && !relative.startsWith(`..${path.sep}`) && relative !== ".."
@@ -38,7 +44,7 @@ export function createPathGlobMatcher(pattern: string) {
 
 export function ripgrepTypeFilterArguments(pattern: string) {
   const expression = pattern.replace(/^\.\//, "");
-  if (!expression || expression.startsWith("!")) return [];
+  if (!expression || expression.startsWith("!") || expression.includes("/")) return [];
   return [
     "--type-add",
     `${CONTEXT_TOOL_FILE_TYPE}:${expression}`,
