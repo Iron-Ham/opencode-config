@@ -294,6 +294,7 @@ try {
   assert.equal(compactAt, 902_000);
   assert.ok(merged.plugin.includes("machine-local-plugin@9.9.9"));
   assert.ok(merged.plugin.includes("opencode-dynamic-workflows@1.2.3"));
+  assert.ok(merged.plugin.includes("opencode-pty"));
   assert.ok(
     !merged.plugin.some((plugin) =>
       String(Array.isArray(plugin) ? plugin[0] : plugin).startsWith(
