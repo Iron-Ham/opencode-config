@@ -8,11 +8,9 @@ Personal OpenCode TUI configuration: global instructions, agents, commands, skil
 git clone git@github.com:Iron-Ham/claude-config.git ~/Developer/claude-config
 cd ~/Developer/claude-config
 ./setup-opencode.sh
-# Or, when cached plugin bundles are already installed:
-./setup-opencode.sh --skip-notion-cli
 ```
 
-The installer requires `python3`, `bun`, and `opencode`. A fresh installation also needs the workspace CLI to install the supported OpenCode plugin bundles; later installs can use validated cached bundles when that CLI is unavailable. Pass `--skip-notion-cli` to explicitly avoid calling the workspace CLI; cached plugin bundles must already be installed.
+The installer requires `python3`, `bun`, and `opencode`. Configure workspace-specific plugins and dependencies separately.
 
 On macOS, install the optional command-line tools used by this configuration:
 
@@ -85,9 +83,9 @@ Use `opencode --no-auto` or `opencode run --no-auto ...` when a session must req
 
 The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`.
 
-`luna_implementer` is the fixed exception: an opt-in, subagent-only GPT-5.6 Luna High lane for small, isolated, reversible changes. It is not an automatic route or a command. A Build controller may invoke it only with `Source boundary:`, `Acceptance criteria:`, and `Deterministic validation command:` fields; the delegation guard rejects incomplete requests. Luna can run the repository's focused local validation, including platform-native tooling and project-specific CLIs, under the same project-tooling trust boundary as other code implementers. The controller retains task decomposition, integration, and final review.
+`luna_implementer` is the fixed exception: an opt-in, subagent-only GPT-5.6 Luna High lane for small, isolated, reversible changes. It is not an automatic route or a command. It autonomously discovers the narrow source boundary and focused validation command from the request and repository instructions. Luna can run repository-local validation, including platform-native tooling and project-specific CLIs, under the same project-tooling trust boundary as other code implementers. The controller retains task decomposition, integration, and final review.
 
-`luna_reader` is a separate opt-in, subagent-only GPT-5.6 Luna Medium lane for an independent source-research workstream. It is not an automatic `explore` route or a command. A controller must provide `Investigation:`, `Search boundary:`, and `Delegation value:` fields; the boundary may be a module, directory, file set, or an explicitly justified repository-wide evidence need. The reader uses bounded read-only search tools and returns a compact source-grounded `path:line` evidence digest while the controller continues non-overlapping work or needs the context compression.
+`luna_reader` is a separate opt-in, subagent-only GPT-5.6 Luna Medium lane for an independent source-research workstream. It is not an automatic `explore` route or a command. It establishes an investigation and practical search boundary from the request, then returns a compact source-grounded `path:line` evidence digest while the controller continues non-overlapping work or needs the context compression.
 
 `evidence_reader` is the analogous opt-in, model-inheriting evidence-gathering subagent. It is for broad bounded source and artifact research, not final validation; `evidence_analyst` remains restricted to an exact claim checklist and already-produced artifacts.
 

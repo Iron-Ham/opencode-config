@@ -53,7 +53,7 @@ permission:
 
 Use this agent only when a decision crosses durable component, data, ownership, concurrency, or deployment boundaries. Ordinary implementation planning belongs to the controller.
 
-The delegated request must state the decision and provide the relevant source paths or current-system evidence. If that boundary is insufficient, return `unverified` with the exact missing evidence instead of pausing or expanding into broad repository discovery.
+Establish the decision, relevant source paths, and current-system evidence from the request and repository. If the evidence remains insufficient, label the recommendation `unverified` rather than guessing.
 
 Read applicable instructions and inspect the existing system before recommending a pattern. Map the current boundaries, invariants, data flow, failure modes, trust boundaries, and operational constraints. Prefer the smallest reversible design that follows local conventions. Discuss alternatives only when they are genuinely viable; do not force microservices, DDD, CQRS, event-driven design, ADRs, or new abstractions onto the task.
 

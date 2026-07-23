@@ -180,7 +180,9 @@ try {
   assert.equal(merged.agent.general.permission["*"], "deny");
   assert.equal(merged.agent.general.permission.create_goal, undefined);
   assert.equal(merged.agent.general.steps, undefined);
-  assert.equal(merged.agent.explore.permission.bash, "deny");
+  assert.equal(merged.agent.explore.permission.bash, "allow");
+  assert.equal(merged.agent.explore.permission.webfetch, "allow");
+  assert.equal(merged.agent.explore.permission.websearch, "allow");
   assert.equal(merged.agent.explore.permission.edit, "deny");
   assert.equal(merged.agent.explore.permission["*"], "deny");
   assert.equal(merged.agent.explore.model, undefined);

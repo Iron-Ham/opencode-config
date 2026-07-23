@@ -133,6 +133,8 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
             "  grep: allow",
             "  ast_grep: allow",
             "  text_read: allow",
+            "  webfetch: allow",
+            "  websearch: allow",
             "  skill: deny",
         ])
     else:
@@ -142,10 +144,11 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
             "  skill: allow",
         ])
     if name in READ_ONLY_AGENTS:
-        permission_lines.extend([
-            "  edit: deny",
-            "  bash: deny",
-        ])
+        permission_lines.append("  edit: deny")
+        if name in BROAD_READER_AGENTS:
+            permission_lines.append("  bash: allow")
+        else:
+            permission_lines.append("  bash: deny")
     elif name in IMPLEMENTATION_AGENTS:
         permission_lines.extend([
             "  edit: allow",

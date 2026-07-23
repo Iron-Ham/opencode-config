@@ -24,20 +24,6 @@ preflight_dir=""
 transaction_snapshot_dir=""
 transaction_active=false
 transaction_committed=false
-notion_cli_enabled=true
-
-for arg in "$@"; do
-  case "$arg" in
-    --skip-notion-cli)
-      notion_cli_enabled=false
-      ;;
-    *)
-      echo "Usage: $0 [--skip-notion-cli]" >&2
-      exit 2
-      ;;
-  esac
-done
-
 for command in python3 bun opencode; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "ERROR  $command is required for OpenCode setup" >&2
@@ -269,44 +255,12 @@ retire_managed_file() {
   fi
 }
 
-has_usable_notion_cli() {
-  local notion_path
-  notion_path="$(command -v notion 2>/dev/null || true)"
-  [ -n "$notion_path" ] || return 1
-
-  case "$notion_path" in
-    */mise/shims/notion)
-      return 1
-      ;;
-  esac
-
-  [ -x "$notion_path" ]
-}
-
-notion_cli_available=false
-if [ "$notion_cli_enabled" = true ] && has_usable_notion_cli; then
-  notion_cli_available=true
-fi
-
-if [ "$notion_cli_available" != true ] && ! {
-  [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
-    [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
-    [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
-    [ -e "$OPENCODE_DIR/skills/tuist-generated-projects/SKILL.md" ];
-}; then
-  echo "ERROR  Notion OpenCode plugins are missing and the notion CLI is unavailable" >&2
-  exit 1
-fi
-
 python3 "$REPO_DIR/scripts/generate-opencode-agents.py" --check
 bun "$REPO_DIR/scripts/test-opencode-policy-resolver.mjs"
 bun "$REPO_DIR/scripts/resolve-opencode-policy.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --check --validate-model-routing
-bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-  "$OPENCODE_DIR" --check-refresh
-
 preflight_dir="$(mktemp -d "$TRANSACTION_TMP_ROOT/opencode-config-preflight.XXXXXX")"
 mkdir -p "$preflight_dir/plugins" "$preflight_dir/agents" "$preflight_dir/commands" "$preflight_dir/tui" "$preflight_dir/tools" "$preflight_dir/context-tools" "$preflight_dir/context-tools-lib"
 for relative_path in \
@@ -335,7 +289,6 @@ cp "$REPO_DIR/opencode/context-tools/text_read.ts" "$preflight_dir/tools/text_re
 cp -R "$REPO_DIR/opencode/context-tools/." "$preflight_dir/context-tools/"
 cp -R "$REPO_DIR/opencode/context-tools-lib/." "$preflight_dir/context-tools-lib/"
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" "$REPO_DIR" "$preflight_dir" >/dev/null
-bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" "$REPO_DIR" "$preflight_dir"
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" "$REPO_DIR" "$preflight_dir"
 rm -R "$preflight_dir"
 preflight_dir=""
@@ -351,9 +304,6 @@ done
 for name in goal-mode.js goal-mode.LICENSE goal-mode-tui.tsx goal-workflow-guard.js; do
   retire_managed_file "$OPENCODE_PLUGINS_DIR/$name" "retired Goal mode asset"
 done
-
-bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-  "$OPENCODE_DIR" --retire-obsolete
 
 mkdir -p "$OPENCODE_DIR" "$OPENCODE_AGENTS_DIR" "$OPENCODE_COMMANDS_DIR" "$OPENCODE_PLUGINS_DIR" "$OPENCODE_TUI_DIR" "$OPENCODE_SKILLS_DIR" "$OPENCODE_TOOLS_DIR"
 chmod 700 "$OPENCODE_DIR"
@@ -418,40 +368,11 @@ copy_item "$REPO_DIR/opencode/context-tools/grep.ts" "$OPENCODE_TOOLS_DIR/grep.t
 copy_item "$REPO_DIR/opencode/context-tools/ast_grep.ts" "$OPENCODE_TOOLS_DIR/ast_grep.ts" "structural ast-grep search tool"
 copy_item "$REPO_DIR/opencode/context-tools/text_read.ts" "$OPENCODE_TOOLS_DIR/text_read.ts" "context-efficient text read tool"
 
-if [ "$notion_cli_available" = true ]; then
-  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-    "$OPENCODE_DIR" --prepare-refresh
-  notion ai plugins add --agent opencode --strict \
-    mobile mobile-ios observability tuist
-  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
-elif [ -e "$OPENCODE_DIR/skills/mobile-review-pr/SKILL.md" ] && \
-  [ -e "$OPENCODE_DIR/skills/mobile-ios-tma-module/SKILL.md" ] && \
-  [ -e "$OPENCODE_DIR/skills/honeycomb/SKILL.md" ] && \
-  [ -e "$OPENCODE_DIR/skills/tuist-generated-projects/SKILL.md" ]; then
-  echo "WARN   Notion OpenCode plugins could not be refreshed (the notion CLI is unavailable)" >&2
-else
-  echo "ERROR  Notion OpenCode plugins are missing and the notion CLI is unavailable" >&2
-  exit 1
-fi
-if [ "$notion_cli_available" != true ]; then
-  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" "$OPENCODE_DIR"
-fi
-bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-  "$OPENCODE_DIR" --retire-unsupported-agents
-
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate-model-routing
 
-bun "$REPO_DIR/scripts/validate-opencode-agents.mjs" \
-  "$REPO_DIR" "$OPENCODE_DIR"
-
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets
-
-if [ "$notion_cli_available" = true ]; then
-  bun "$REPO_DIR/scripts/normalize-opencode-notion-assets.mjs" \
-    "$OPENCODE_DIR" --commit-refresh
-fi
 
 commit_transaction
 
