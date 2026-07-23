@@ -85,6 +85,8 @@ Use `opencode --no-auto` or `opencode run --no-auto ...` when a session must req
 
 The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning variant. `build`, `general`, `explore`, and the reviewed specialists inherit the invoking controller's model unless a developer explicitly sets an override in `model-routing.config.local.json`.
 
+`luna_implementer` is the fixed exception: an opt-in, subagent-only GPT-5.6 Luna High lane for small, isolated, reversible changes. It is not an automatic route or a command. A Build controller may invoke it only with `Source boundary:`, `Acceptance criteria:`, and `Deterministic validation command:` fields; the delegation guard rejects incomplete requests. Luna can run the repository's focused local validation, including platform-native tooling and project-specific CLIs, under the same project-tooling trust boundary as other code implementers. The controller retains task decomposition, integration, and final review.
+
 In the managed global configuration, `build` may delegate to any subagent. `general` may delegate only to `code_reviewer` for a bounded, read-only review. `plan` may edit only `*.md` files. The reviewer still requires a concrete source boundary.
 
 `/ultra <request>` is an opt-in, stateless, Build-backed template for

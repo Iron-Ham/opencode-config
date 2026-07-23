@@ -264,6 +264,11 @@
     "evidence_analyst": {
       "steps": 100
     },
+    "luna_implementer": {
+      "model": "openai/gpt-5.6-luna",
+      "variant": "high",
+      "steps": 100
+    },
     "security_engineer": {
       "steps": 100
     },

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_version": 3,
+  "policy_version": 4,
   "changelog": [
     {
       "policy_version": 1,
@@ -19,6 +19,12 @@
       "date": "2026-07-22",
       "summary": "Add the stateless Build-backed Ultra template with one-level 10/20 native Task bounds.",
       "evidence_ref": "adrs/007-stateless-ultra-prompt-template.md"
+    },
+    {
+      "policy_version": 4,
+      "date": "2026-07-22",
+      "summary": "Add an explicit bounded Luna implementation subagent without changing the Build controller route.",
+      "evidence_ref": "reports/opencode-model-routing/report.md"
     }
   ],
   "routes": [
