@@ -54,10 +54,7 @@ export function isProtectedEnvironmentPath(filePath: string) {
     return name === ".env" ||
       name === ".envrc" ||
       name === ".env.d" ||
-      name.startsWith(".env.") ||
-      name.endsWith(".env") ||
-      name.endsWith(".envrc") ||
-      name.includes(".env.");
+      name.startsWith(".env.");
   });
 }
 

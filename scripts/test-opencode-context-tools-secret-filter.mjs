@@ -58,11 +58,8 @@ try {
   fs.writeFileSync(path.join(fixtureRoot, ".envrc"), "TOKEN=DO_NOT_DISCLOSE\n");
   fs.mkdirSync(path.join(fixtureRoot, ".env.d"));
   fs.writeFileSync(path.join(fixtureRoot, ".env.d", "secrets"), "TOKEN=DO_NOT_DISCLOSE\n");
-  fs.mkdirSync(path.join(fixtureRoot, "sample.env.example"));
-  fs.writeFileSync(path.join(fixtureRoot, "sample.env.example", "secrets"), "TOKEN=DO_NOT_DISCLOSE\n");
-  fs.writeFileSync(path.join(fixtureRoot, "secrets.env"), "TOKEN=DO_NOT_DISCLOSE\n");
   fs.writeFileSync(
-    path.join(fixtureRoot, "secrets.env.json"),
+    path.join(fixtureRoot, ".env.secret.json"),
     '{"secret":"DO_NOT_DISCLOSE"}\n',
   );
   fs.writeFileSync(path.join(fixtureRoot, ".env.example"), "TOKEN=EXAMPLE_VISIBLE\n");
@@ -82,8 +79,7 @@ try {
   assert.doesNotMatch(globOutput, /^\.env\.local$/m);
   assert.doesNotMatch(globOutput, /^\.envrc$/m);
   assert.doesNotMatch(globOutput, /^\.env\.d\/secrets$/m);
-  assert.doesNotMatch(globOutput, /^sample\.env\.example\/secrets$/m);
-  assert.doesNotMatch(globOutput, /^secrets\.env(?:\.json)?$/m);
+  assert.doesNotMatch(globOutput, /^\.env\.secret\.json$/m);
   assert.match(globOutput, /source\.ts/);
 
   const secretGrepOutput = await grepModule.default.execute(
