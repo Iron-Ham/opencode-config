@@ -20,6 +20,12 @@ const customCliImplementationPrompt = [
   "Acceptance criteria: the native feature behavior is covered by the supplied test.",
   "Deterministic validation command: `./tools/buildctl test feature`.",
 ].join("\n");
+const readerPrompt = [
+  "Read-only source retrieval. Do not edit or run commands.",
+  "Search boundary: `src/tools/`.",
+  "Investigation: return the compact path:line behavior summary.",
+  "Delegation value: the controller will reconcile a separate implementation boundary.",
+].join("\n");
 
 const implementationHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
 await assert.rejects(
@@ -46,6 +52,60 @@ await customCliImplementationHooks["tool.execute.before"](
 await customCliImplementationHooks["tool.execute.after"](
   { tool: "task", sessionID: "custom-cli-parent", callID: "custom-cli-contract" },
   { output: JSON.stringify({ task_id: "custom-cli-child" }) },
+);
+
+const readerHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await assert.rejects(
+  () => readerHooks["tool.execute.before"](
+    { tool: "task", sessionID: "reader-parent", callID: "missing-boundary" },
+    { args: { subagent_type: "luna_reader", prompt: "Read-only retrieval. Do not edit or run commands." } },
+  ),
+  /exact diff/,
+);
+await assert.rejects(
+  () => readerHooks["tool.execute.before"](
+    { tool: "task", sessionID: "reader-parent", callID: "missing-value" },
+    { args: { subagent_type: "luna_reader", prompt: "Read-only retrieval. Do not edit or run commands. Search boundary: `src/tools/`. Investigation: map the tools." } },
+  ),
+  /investigation, search boundary, and delegation value/,
+);
+await readerHooks["tool.execute.before"](
+  { tool: "task", sessionID: "reader-parent", callID: "complete-contract" },
+  { args: { subagent_type: "luna_reader", prompt: readerPrompt } },
+);
+await readerHooks["tool.execute.after"](
+  { tool: "task", sessionID: "reader-parent", callID: "complete-contract" },
+  { output: JSON.stringify({ task_id: "reader-child" }) },
+);
+
+const vocabularyHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await vocabularyHooks["tool.execute.before"](
+  { tool: "task", sessionID: "vocabulary-parent", callID: "permission-investigation" },
+  {
+    args: {
+      subagent_type: "luna_reader",
+      prompt: [
+        "Read-only source retrieval. Do not edit or run commands.",
+        "Search boundary: `src/tools/`.",
+        "Investigation: explain whether the edit permission is denied for this reader.",
+        "Delegation value: the controller will reconcile a separate implementation boundary.",
+      ].join("\n"),
+    },
+  },
+);
+await vocabularyHooks["tool.execute.after"](
+  { tool: "task", sessionID: "vocabulary-parent", callID: "permission-investigation" },
+  { output: JSON.stringify({ task_id: "vocabulary-child" }) },
+);
+
+const evidenceReaderHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await evidenceReaderHooks["tool.execute.before"](
+  { tool: "task", sessionID: "evidence-reader-parent", callID: "complete-contract" },
+  { args: { subagent_type: "evidence_reader", prompt: readerPrompt } },
+);
+await evidenceReaderHooks["tool.execute.after"](
+  { tool: "task", sessionID: "evidence-reader-parent", callID: "complete-contract" },
+  { output: JSON.stringify({ task_id: "evidence-reader-child" }) },
 );
 
 const reservationHooks = await createDelegationGuard({ max_concurrent: 2, max_total: 3 });
@@ -134,5 +194,5 @@ await nestedHooks.event({ event: { type: "session.status", properties: { session
 await assert.rejects(() => nestedHooks["tool.execute.before"]({ tool: "task", sessionID: "nested-parent", callID: "nested-after" }, { args: { subagent_type: "explore", prompt: "Inspect src/cli/ and return the exact source boundary." } }), /total limit/);
 
 const mutationHooks = await createDelegationGuard();
-await assert.rejects(() => mutationHooks["tool.execute.before"]({ tool: "task", sessionID: "mutation-parent", callID: "mutation" }, { args: { subagent_type: "code_reviewer", prompt: `${reviewPrompt} Apply a patch before reporting.` } }), /read-only contract/);
+await assert.rejects(() => mutationHooks["tool.execute.before"]({ tool: "task", sessionID: "mutation-parent", callID: "mutation" }, { args: { subagent_type: "code_reviewer", prompt: `${reviewPrompt}\nApply a patch before reporting.` } }), /read-only contract/);
 console.log("OK     OpenCode delegation guard");

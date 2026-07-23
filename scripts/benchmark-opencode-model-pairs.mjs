@@ -72,6 +72,12 @@ const combinations = {
     implementer: { model: "openai/gpt-5.6-luna", variant: "high" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "luna-medium": {
+    implementer: { model: "openai/gpt-5.6-luna", variant: "medium" },
+  },
+  "luna-low": {
+    implementer: { model: "openai/gpt-5.6-luna", variant: "low" },
+  },
   "sonnet-sol": {
     implementer: { model: "anthropic/claude-sonnet-5" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
@@ -142,9 +148,15 @@ const combinations = {
     implementer: { model: "baseten/moonshotai/Kimi-K2.7-Code" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
   },
+  "kimi-baseten-direct": {
+    implementer: { model: "baseten/moonshotai/Kimi-K2.7-Code" },
+  },
   "deepseek-baseten": {
     implementer: { model: "baseten/deepseek-ai/DeepSeek-V4-Pro" },
     advisor: { model: "openai/gpt-5.6-sol", variant: "xhigh" },
+  },
+  "deepseek-baseten-direct": {
+    implementer: { model: "baseten/deepseek-ai/DeepSeek-V4-Pro" },
   },
   "kimi-fireworks": {
     implementer: {
@@ -213,6 +225,17 @@ function ensurePrivateDirectory(directory) {
   const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
   if (existing && (!existing.isDirectory() || existing.isSymbolicLink())) {
     throw new Error(`Private benchmark path is not a real directory: ${directory}`);
+  }
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  fs.chmodSync(directory, 0o700);
+}
+
+function createPrivateOutputDirectory(directory) {
+  const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
+  if (existing) {
+    throw new Error(
+      `Private benchmark output directory must not already exist: ${directory}`,
+    );
   }
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   fs.chmodSync(directory, 0o700);
@@ -1952,7 +1975,7 @@ async function main() {
       }
     }
     let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
-    ensurePrivateDirectory(outputDir);
+    createPrivateOutputDirectory(outputDir);
     outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
     const { results } = validatedSummarySource({
       summaryFile: args.summary_file,
@@ -1989,7 +2012,7 @@ async function main() {
   }
 
   let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
-  ensurePrivateDirectory(outputDir);
+  createPrivateOutputDirectory(outputDir);
   outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
 
   const cwd = path.resolve(args.workdir ?? process.cwd());
@@ -2012,6 +2035,15 @@ async function main() {
   }
   for (const name of selected) {
     if (!combinations[name]) throw new Error(`Unknown combination: ${name}`);
+  }
+  if (
+    !args.draft_only &&
+    selected.some((name) => (
+      !combinations[name].advisor &&
+      combinations[name].review_mode !== "self_review"
+    ))
+  ) {
+    throw new Error("Advisor-free routes require --draft-only true");
   }
   if (args.draft_only) {
     const implementers = selected.map((name) => implementerKey(combinations[name].implementer));
@@ -2130,11 +2162,14 @@ async function main() {
     advisor_steps: args.draft_only || selected.every(
       (name) => combinations[name].review_mode === "self_review",
     ) ? 0 : ADVISOR_STEPS,
+    advisor_policy: args.draft_only ? "disabled" : "legacy_experiment_only",
     request_timeout_seconds: args.draft_only
       ? DIRECT_REQUEST_TIMEOUT_MS / 1000
       : REQUEST_TIMEOUT_MS / 1000,
     termination_grace_seconds: TERMINATION_GRACE_MS / 1000,
-    advisor_system_sha256: createHash("sha256").update(ADVISOR_SYSTEM).digest("hex"),
+    advisor_system_sha256: args.draft_only
+      ? undefined
+      : createHash("sha256").update(ADVISOR_SYSTEM).digest("hex"),
     cost_semantics: {
       request_cost:
         "Each stage sums completed OpenCode request events. A timed-out or otherwise incomplete request is a lower bound because no terminal usage event may exist.",
@@ -2145,8 +2180,9 @@ async function main() {
       route_total: args.draft_only
         ? "Each direct route total contains one independent controller draft."
         : "Each route total includes its implementer draft, even when that draft is shared with other advisor routes. Treat this as the counterfactual cost of choosing the route; do not sum route totals to estimate experiment spend.",
-      experiment_spend:
-        "The final metadata records each shared draft once plus each route's advice and revision stages. Reused completed artifacts remain part of the recorded experiment but do not incur new spend in the current invocation.",
+      experiment_spend: args.draft_only
+        ? "The final metadata records each direct controller draft once. Reused completed artifacts remain part of the recorded experiment but do not incur new spend in the current invocation."
+        : "The final metadata records each shared draft once plus each route's advice and revision stages. Reused completed artifacts remain part of the recorded experiment but do not incur new spend in the current invocation.",
     },
     decision_eligibility:
       "Only completed, policy-compliant controller or revised-final artifacts are eligible for routing decisions. Failed, timed-out, incomplete, and policy-violating artifacts may be graded only for diagnosis.",

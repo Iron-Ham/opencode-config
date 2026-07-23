@@ -6,6 +6,9 @@
   "share": "disabled",
   "autoupdate": "notify",
   "lsp": true,
+  "plugin": [
+    "./plugins/delegation-guard.js"
+  ],
   "tool_output": {
     "max_lines": 300,
     "max_bytes": 16384
@@ -95,8 +98,11 @@
           "*": "allow",
           ".env": "deny",
           ".env.*": "deny",
+          ".envrc": "deny",
+          ".env.d/**": "deny",
           "*.env": "deny",
           "*.env.*": "deny",
+          "*.envrc": "deny",
           ".env.example": "allow",
           "*.env.example": "allow"
         },
@@ -153,8 +159,11 @@
           "*": "allow",
           ".env": "deny",
           ".env.*": "deny",
+          ".envrc": "deny",
+          ".env.d/**": "deny",
           "*.env": "deny",
           "*.env.*": "deny",
+          "*.envrc": "deny",
           ".env.example": "allow",
           "*.env.example": "allow"
         },
@@ -213,8 +222,11 @@
           "*": "allow",
           ".env": "deny",
           ".env.*": "deny",
+          ".envrc": "deny",
+          ".env.d/**": "deny",
           "*.env": "deny",
           "*.env.*": "deny",
+          "*.envrc": "deny",
           ".env.example": "allow",
           "*.env.example": "allow"
         },
@@ -264,9 +276,17 @@
     "evidence_analyst": {
       "steps": 100
     },
+    "evidence_reader": {
+      "steps": 100
+    },
     "luna_implementer": {
       "model": "openai/gpt-5.6-luna",
       "variant": "high",
+      "steps": 100
+    },
+    "luna_reader": {
+      "model": "openai/gpt-5.6-luna",
+      "variant": "medium",
       "steps": 100
     },
     "security_engineer": {
@@ -320,8 +340,11 @@
       "*": "allow",
       ".env": "deny",
       ".env.*": "deny",
+      ".envrc": "deny",
+      ".env.d/**": "deny",
       "*.env": "deny",
       "*.env.*": "deny",
+      "*.envrc": "deny",
       ".env.example": "allow",
       "*.env.example": "allow"
     },

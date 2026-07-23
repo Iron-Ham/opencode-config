@@ -15,6 +15,22 @@ export function resolvePath(candidate: string | undefined, directory: string) {
   return path.resolve(directory, candidate || ".");
 }
 
+export function resolveSearchPath(candidate: string | undefined, directory: string) {
+  const resolved = resolvePath(candidate, directory);
+  if (!isPathWithinDirectory(resolved, directory)) {
+    throw new Error("Search path must stay within the active workspace.");
+  }
+  const stat = fs.lstatSync(resolved, { throwIfNoEntry: false });
+  if (stat) {
+    const root = fs.realpathSync(directory);
+    const target = fs.realpathSync(resolved);
+    if (!isPathWithinDirectory(target, root)) {
+      throw new Error("Search path must stay within the active workspace.");
+    }
+  }
+  return resolved;
+}
+
 export function isPathWithinDirectory(filePath: string, directory: string) {
   const relative = path.relative(directory, filePath);
   return relative === "" ||
@@ -26,6 +42,23 @@ export function visibleRelativePath(filePath: string, directory: string) {
   return relative && !relative.startsWith(`..${path.sep}`) && relative !== ".."
     ? relative
     : filePath;
+}
+
+export function isProtectedEnvironmentPath(filePath: string) {
+  const components = filePath.split(path.sep);
+  return components.some((name, index) => {
+    const isFinalComponent = index === components.length - 1;
+    if (isFinalComponent && (name === ".env.example" || name.endsWith(".env.example"))) {
+      return false;
+    }
+    return name === ".env" ||
+      name === ".envrc" ||
+      name === ".env.d" ||
+      name.startsWith(".env.") ||
+      name.endsWith(".env") ||
+      name.endsWith(".envrc") ||
+      name.includes(".env.");
+  });
 }
 
 export function createPathGlobMatcher(pattern: string) {

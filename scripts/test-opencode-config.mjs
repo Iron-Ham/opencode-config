@@ -51,6 +51,12 @@ try {
         variant: "max",
         steps: 3,
       },
+      luna_reader: {
+        model: "openai/gpt-5.6-sol",
+        variant: "max",
+        steps: 3,
+      },
+      evidence_reader: { model: "openai/gpt-5.6-sol" },
       plan: {
         variant: "max",
         options: { reasoningEffort: "max" },
@@ -199,6 +205,11 @@ try {
   assert.equal(merged.agent.luna_implementer.model, "openai/gpt-5.6-luna");
   assert.equal(merged.agent.luna_implementer.variant, "high");
   assert.equal(merged.agent.luna_implementer.steps, 100);
+  assert.equal(merged.agent.luna_reader.model, "openai/gpt-5.6-luna");
+  assert.equal(merged.agent.luna_reader.variant, "medium");
+  assert.equal(merged.agent.luna_reader.steps, 100);
+  assert.equal(merged.agent.evidence_reader.model, undefined);
+  assert.equal(merged.agent.evidence_reader.steps, 100);
   assert.equal(merged.agent.ultra, undefined);
   assert.equal(merged.subagent_depth, 1);
   assert.equal(merged.agent.general.permission["*"], "deny");
@@ -327,7 +338,6 @@ try {
     "./plugins/goal-mode.js",
     "./plugins/goal-workflow-guard.js",
     "./plugins/compaction-observability.js",
-    "./plugins/delegation-guard.js",
   ]) {
     assert.equal(
       merged.plugin.some((plugin) =>
@@ -336,6 +346,13 @@ try {
       false,
     );
   }
+  assert.equal(
+    merged.plugin.filter((plugin) =>
+      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/delegation-guard.js"
+    ).length,
+    1,
+    "the managed delegation guard must remain active after merge",
+  );
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );

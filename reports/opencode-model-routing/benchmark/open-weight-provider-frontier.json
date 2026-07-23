@@ -120,7 +120,7 @@
     "production_defaults_changed": false,
     "automatic_role_assignment": false,
     "small_model_assignment": false,
-    "model_picker": "DeepSeek V4 Pro is selectable through Baseten.",
+    "model_picker": "No managed open-weight model picker is installed; DeepSeek V4 Pro through Baseten remains benchmark-only evidence.",
     "commands": [],
     "rationale": "Historical open-weight outcomes are workload-specific and do not justify a general coding or reader assignment. Existing production defaults remain until repeated iOS-shaped trials establish completion, correctness, cost per valid result, and realized model-session time."
   },
@@ -132,7 +132,7 @@
     },
     {
       "role": "bounded implementer",
-      "decision": "DeepSeek remains a manual route selection",
+      "decision": "No managed open-weight implementer route",
       "required_open_weight_evidence": "repeat strong route-specific outcomes; historical open-weight results did not transfer uniformly across cohorts"
     },
     {
@@ -142,8 +142,8 @@
     },
     {
       "role": "reader or retained specialist",
-      "decision": "Kimi remains an explicit bounded reader",
-      "required_open_weight_evidence": "answer-key citation precision, recall, completion, cost, and latency"
+      "decision": "Kimi remains a provider-pinned reader challenger; Luna medium is a preliminary opt-in source-research lane only when its startup cost is amortized",
+      "required_open_weight_evidence": "broader answer-key citation precision, recall, completion, cost, latency, and native subagent-startup outcomes across the queued reader workload set"
     },
     {
       "role": "session-title utility",

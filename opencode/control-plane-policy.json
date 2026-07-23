@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_version": 4,
+  "policy_version": 5,
   "changelog": [
     {
       "policy_version": 1,
@@ -25,6 +25,12 @@
       "date": "2026-07-22",
       "summary": "Add an explicit bounded Luna implementation subagent without changing the Build controller route.",
       "evidence_ref": "reports/opencode-model-routing/report.md"
+    },
+    {
+      "policy_version": 5,
+      "date": "2026-07-22",
+      "summary": "Add opt-in Luna and model-inheriting reader subagents without changing Explore or controller routing.",
+      "evidence_ref": "reports/opencode-model-routing/benchmark/reader-startup-crossover.json"
     }
   ],
   "routes": [

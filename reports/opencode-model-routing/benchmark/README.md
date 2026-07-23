@@ -9,6 +9,8 @@ This directory contains only privacy-safe aggregates used by the OpenCode routin
 - `production-coding-cohorts.json` records privacy-safe backend, frontend, mixed, tooling, IaC, final ten-route iOS, and Android implementation outcomes, plus a seven-workload default-candidate aggregate. Validation and compliance remain separate from blind quality.
 - `expanded-production-reference-calibration.json` records the privacy-safe 10/10 effective reference-calibration gate for the expanded workload definitions. Candidate trials exist for only three of those ten definitions.
 - `small-model-utility.json` records the repeated session-title and project-copy-name utility comparison.
+- `exact-file-reader.json` records preliminary isolated exact-file reader calibration.
+- `reader-startup-crossover.json` records the preliminary full-config reader startup crossover.
 - `pricing-frontier-sample.json` records the matched GPT-5.5 xhigh and Sol high pricing sample.
 - `open-weight-provider-frontier.json` records the Fireworks/Baseten route catalog, cost and timing evidence boundary, role decisions, and matched evaluation protocol.
 - `matched-switch-gate-final.json` records the final repeated Terra-versus-Sol gate. Its frozen judge-packet provenance is mixed: native editor uses schema v1, while native offline/data and modern client use schema v2. Historical judge outputs were not silently regenerated after the harness changed; final source reconciliation and scoring use the retained outputs under a common decision process, and future matched runs use schema v2.

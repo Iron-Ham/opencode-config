@@ -10,6 +10,9 @@ permission:
     ".env.*": deny
     "*.env": deny
     "*.env.*": deny
+    .envrc: deny
+    ".env.d/**": deny
+    "*.envrc": deny
     .env.example: allow
     "*.env.example": allow
   external_directory:

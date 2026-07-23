@@ -87,6 +87,10 @@ The primary model and `plan` default to GPT-5.6 Terra without a fixed reasoning 
 
 `luna_implementer` is the fixed exception: an opt-in, subagent-only GPT-5.6 Luna High lane for small, isolated, reversible changes. It is not an automatic route or a command. A Build controller may invoke it only with `Source boundary:`, `Acceptance criteria:`, and `Deterministic validation command:` fields; the delegation guard rejects incomplete requests. Luna can run the repository's focused local validation, including platform-native tooling and project-specific CLIs, under the same project-tooling trust boundary as other code implementers. The controller retains task decomposition, integration, and final review.
 
+`luna_reader` is a separate opt-in, subagent-only GPT-5.6 Luna Medium lane for an independent source-research workstream. It is not an automatic `explore` route or a command. A controller must provide `Investigation:`, `Search boundary:`, and `Delegation value:` fields; the boundary may be a module, directory, file set, or an explicitly justified repository-wide evidence need. The reader uses bounded read-only search tools and returns a compact source-grounded `path:line` evidence digest while the controller continues non-overlapping work or needs the context compression.
+
+`evidence_reader` is the analogous opt-in, model-inheriting evidence-gathering subagent. It is for broad bounded source and artifact research, not final validation; `evidence_analyst` remains restricted to an exact claim checklist and already-produced artifacts.
+
 In the managed global configuration, `build` may delegate to any subagent. `general` may delegate only to `code_reviewer` for a bounded, read-only review. `plan` may edit only `*.md` files. The reviewer still requires a concrete source boundary.
 
 `/ultra <request>` is an opt-in, stateless, Build-backed template for
@@ -128,6 +132,7 @@ bun scripts/test-opencode-config.mjs
 bun scripts/test-opencode-compaction-observability.mjs
 bun scripts/test-opencode-doctor.mjs
 bun scripts/test-opencode-delegation-guard.mjs
+bun scripts/test-opencode-context-tools-secret-filter.mjs
 bun scripts/test-opencode-ultra-template.mjs
 bun scripts/test-opencode-total-cost.mjs
 bun scripts/test-opencode-notion-assets.mjs

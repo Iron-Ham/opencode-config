@@ -1,8 +1,10 @@
 import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
+  isPathWithinDirectory,
+  isProtectedEnvironmentPath,
   MAX_RESULTS,
-  resolvePath,
+  resolveSearchPath,
   runCommandLines,
   utf8Prefix,
   visibleRelativePath,
@@ -16,7 +18,12 @@ export default tool({
     path: tool.schema.string().optional().describe("Directory or file to search in"),
   },
   async execute(args, context) {
-    const searchRoot = resolvePath(args.path, context.directory);
+    let searchRoot: string;
+    try {
+      searchRoot = resolveSearchPath(args.path, context.directory);
+    } catch (error) {
+      return error instanceof Error ? error.message : "Search path is invalid.";
+    }
     const matches: string[] = [];
     const result = await runCommandLines([
       "ast-grep",
@@ -36,9 +43,12 @@ export default tool({
         return true;
       }
       if (!match.file || !match.range?.start) return true;
+      const absoluteFilePath = path.resolve(context.directory, match.file);
+      if (!isPathWithinDirectory(absoluteFilePath, searchRoot)) return true;
+      if (isProtectedEnvironmentPath(absoluteFilePath)) return true;
       if (matches.length >= MAX_RESULTS) return false;
       const snippet = (match.text ?? "").replace(/\s+/g, " ").slice(0, 300);
-      matches.push(`${visibleRelativePath(path.resolve(match.file), context.directory)}:${(match.range.start.line ?? 0) + 1}:${(match.range.start.column ?? 0) + 1}: ${snippet}`);
+      matches.push(`${visibleRelativePath(absoluteFilePath, context.directory)}:${(match.range.start.line ?? 0) + 1}:${(match.range.start.column ?? 0) + 1}: ${snippet}`);
       return true;
     });
     if (!result.stopped && result.exitCode !== 0 && result.exitCode !== 1) {

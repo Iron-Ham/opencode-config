@@ -49,6 +49,17 @@ function assertRunnerAllowsExternalOutput(script, arguments_, laterError) {
   assert.match(output, laterError);
 }
 
+function assertRunnerRejectsExistingOutput(script, arguments_, outputDir) {
+  const originalMode = fs.statSync(outputDir).mode & 0o777;
+  const result = runRunner(script, arguments_);
+  assert.notEqual(result.exitCode, 0);
+  assert.match(
+    `${result.stdout.toString()}\n${result.stderr.toString()}`,
+    /Private benchmark output directory must not already exist/,
+  );
+  assert.equal(fs.statSync(outputDir).mode & 0o777, originalMode);
+}
+
 try {
   const insideRepository = path.join(
     repositoryRoot,
@@ -148,6 +159,28 @@ try {
   );
   assert.equal(fs.statSync(externalModelPairsOutput).isDirectory(), true);
 
+  const existingModelPairsOutput = path.join(externalRoot, "existing-model-pairs-output");
+  fs.mkdirSync(existingModelPairsOutput, { mode: 0o755 });
+  fs.chmodSync(existingModelPairsOutput, 0o755);
+  assertRunnerRejectsExistingOutput(
+    "benchmark-opencode-model-pairs.mjs",
+    [
+      "--task-file",
+      path.join(externalRoot, "missing-task.md"),
+      "--round",
+      "containment-test",
+      "--output-dir",
+      existingModelPairsOutput,
+      "--workdir",
+      path.join(externalRoot, "missing-workdir"),
+      "--combos",
+      "luna-sol",
+      "--draft-only",
+      "true",
+    ],
+    existingModelPairsOutput,
+  );
+
   const modelPairsGradingOutput = path.join(
     repositoryRoot,
     ".raw-model-pairs-grading-output-test",
@@ -183,6 +216,14 @@ try {
     ["--output-dir", path.join(externalRoot, "swift-implementers", "results")],
     /Missing --fixture-dir or manifest fixture_dir/,
   );
+  const existingSwiftOutput = path.join(externalRoot, "existing-swift-output");
+  fs.mkdirSync(existingSwiftOutput, { mode: 0o755 });
+  fs.chmodSync(existingSwiftOutput, 0o755);
+  assertRunnerRejectsExistingOutput(
+    "benchmark-opencode-swift-implementers.mjs",
+    ["--output-dir", existingSwiftOutput],
+    existingSwiftOutput,
+  );
 
   const contextToolsOutput = path.join(
     repositoryRoot,
@@ -206,6 +247,31 @@ try {
       "true",
     ],
     contextToolsOutput,
+  );
+  const existingContextToolsOutput = path.join(externalRoot, "existing-context-tools-output");
+  fs.mkdirSync(existingContextToolsOutput, { mode: 0o755 });
+  fs.chmodSync(existingContextToolsOutput, 0o755);
+  assertRunnerRejectsExistingOutput(
+    "benchmark-opencode-context-tools.mjs",
+    [
+      "--task-file",
+      path.join(externalRoot, "missing-task.md"),
+      "--workdir",
+      path.join(externalRoot, "missing-workdir"),
+      "--output-dir",
+      existingContextToolsOutput,
+      "--model",
+      "openai/gpt-5.6-terra",
+      "--tool-node-modules",
+      externalRoot,
+      "--validation-command",
+      "true",
+      "--repeat",
+      "2",
+      "--timeout-ms",
+      "1",
+    ],
+    existingContextToolsOutput,
   );
 
   console.log("PASS raw benchmark output root containment");
