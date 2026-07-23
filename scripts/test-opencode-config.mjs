@@ -46,6 +46,11 @@ try {
       general: { permission: { task: { build: "allow" } } },
       frontend_developer: { model: "openai/gpt-5.6-luna" },
       git_workflow_master: { model: "anthropic/claude-sonnet-5" },
+      luna_implementer: {
+        model: "openai/gpt-5.6-sol",
+        variant: "max",
+        steps: 3,
+      },
       plan: {
         variant: "max",
         options: { reasoningEffort: "max" },
@@ -191,6 +196,9 @@ try {
   assert.equal(merged.agent.build.model, undefined);
   assert.equal(merged.agent.build.steps, undefined);
   assert.equal(merged.agent.general.model, undefined);
+  assert.equal(merged.agent.luna_implementer.model, "openai/gpt-5.6-luna");
+  assert.equal(merged.agent.luna_implementer.variant, "high");
+  assert.equal(merged.agent.luna_implementer.steps, 100);
   assert.equal(merged.agent.ultra, undefined);
   assert.equal(merged.subagent_depth, 1);
   assert.equal(merged.agent.general.permission["*"], "deny");

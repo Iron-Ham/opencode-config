@@ -8,6 +8,45 @@ const { testHelpers } = await import(path.join(repoRoot, "opencode", "plugins", 
 const { createDelegationGuard } = testHelpers;
 const hooks = await createDelegationGuard({ max_concurrent: 2, max_total: 3 });
 const reviewPrompt = "Read-only review of this concrete diff. Do not edit or run commands. Source boundary: opencode/plugins/delegation-guard.js.";
+const implementationPrompt = [
+  "Implement the requested bounded change.",
+  "Source boundary: `src/feature.ts`, `src/feature.test.ts`.",
+  "Acceptance criteria: the focused behavior is covered by the supplied test.",
+  "Deterministic validation command: `bun test src/feature.test.ts`.",
+].join("\n");
+const customCliImplementationPrompt = [
+  "Implement the requested bounded change.",
+  "Source boundary: `Sources/Feature.swift`, `Tests/FeatureTests.swift`.",
+  "Acceptance criteria: the native feature behavior is covered by the supplied test.",
+  "Deterministic validation command: `./tools/buildctl test feature`.",
+].join("\n");
+
+const implementationHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await assert.rejects(
+  () => implementationHooks["tool.execute.before"](
+    { tool: "task", sessionID: "implementation-parent", callID: "missing-contract" },
+    { args: { subagent_type: "luna_implementer", prompt: "Implement this change." } },
+  ),
+  /source boundary, acceptance criteria, and deterministic validation command/,
+);
+await implementationHooks["tool.execute.before"](
+  { tool: "task", sessionID: "implementation-parent", callID: "complete-contract" },
+  { args: { subagent_type: "luna_implementer", prompt: implementationPrompt } },
+);
+await implementationHooks["tool.execute.after"](
+  { tool: "task", sessionID: "implementation-parent", callID: "complete-contract" },
+  { output: JSON.stringify({ task_id: "implementation-child" }) },
+);
+
+const customCliImplementationHooks = await createDelegationGuard({ max_concurrent: 1, max_total: 1 });
+await customCliImplementationHooks["tool.execute.before"](
+  { tool: "task", sessionID: "custom-cli-parent", callID: "custom-cli-contract" },
+  { args: { subagent_type: "luna_implementer", prompt: customCliImplementationPrompt } },
+);
+await customCliImplementationHooks["tool.execute.after"](
+  { tool: "task", sessionID: "custom-cli-parent", callID: "custom-cli-contract" },
+  { output: JSON.stringify({ task_id: "custom-cli-child" }) },
+);
 
 const reservationHooks = await createDelegationGuard({ max_concurrent: 2, max_total: 3 });
 await Promise.all([

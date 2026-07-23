@@ -2,7 +2,7 @@
 
 ## Status
 
-This document defines policy contract version 3 for an observe-only control
+This document defines policy contract version 4 for an observe-only control
 plane. The resolver may report a selected policy route, but it must not set an
 OpenCode model, provider, reasoning effort, fallback, agent permission, or
 default.
@@ -19,19 +19,43 @@ verification strength, production risk, unattended authorization, and the
 live provider catalog. It does not infer intent from prompts, role names, or
 keywords.
 
-The managed route set contains one ordinary execution route:
+The managed route set contains one ordinary controller execution route:
 
 | Invocation | Policy route | Execution route | Notes |
 | --- | --- | --- | --- |
 | Build | `build-terra` | `openai/gpt-5.6-terra` | Current managed Build baseline; no fixed reasoning variant. |
 
+`luna_implementer` is an explicit managed subagent rather than an adapter
+route. It does not alter the controller's effective route or permit the
+resolver to choose a model from task text.
+
 Provider/model fallback, automatic review, model-branded convenience commands,
-and role-based route selection are outside this contract. A route is always a
+and automatic role-based route selection are outside this contract. A route is always a
 complete provider, model, and serving-path identity; reasoning effort is
 optional runtime metadata and a role name is never evidence of model quality.
 
 `/ultra` is a Build command template, not a policy invocation mode. The policy
 resolver remains Build-only and rejects `ultra` as an invocation mode.
+
+## Explicit Luna Implementation Subagent
+
+`luna_implementer` is fixed to `openai/gpt-5.6-luna` with the `high` reasoning
+variant. It is available only as a subagent. The managed primary-agent policy
+allows Build to invoke it only with a complete source boundary, acceptance
+criteria, and deterministic validation command. The delegation guard rejects
+incomplete requests, and the agent rejects ambiguous or high-risk work. It
+cannot delegate or ask questions. It may run focused local validation through
+platform-native tooling or a project-specific CLI, while standard approval
+gates apply to direct destructive commands. Project-provided build and test
+CLIs remain within the repository's ordinary tooling trust boundary rather
+than being restricted by a generic command classifier. The controller retains
+final verification after integrating the change.
+
+This lane is an opt-in bounded implementation mechanism, not a policy route,
+model-branded command, fallback, or automatic role selection. The controller
+retains eligibility decisions, task decomposition, integration, and final
+verification. The evidence supports this limited use only; it does not make
+Luna a general production implementation default.
 
 ## Files And Ownership
 

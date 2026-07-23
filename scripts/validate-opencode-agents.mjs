@@ -543,6 +543,83 @@ for (const [name, expected] of reviewedReadOnlyAgents) {
   }
 }
 
+const lunaImplementer = agents.luna_implementer;
+if (!lunaImplementer) fail("luna_implementer is unavailable");
+if (lunaImplementer.mode !== "subagent") {
+  fail("luna_implementer must remain a subagent");
+}
+if (
+  lunaImplementer.model?.providerID !== "openai" ||
+  lunaImplementer.model?.modelID !== "gpt-5.6-luna"
+) {
+  fail("luna_implementer must use the fixed GPT-5.6 Luna model");
+}
+if (lunaImplementer.variant !== "high") {
+  fail("luna_implementer must use the fixed high reasoning variant");
+}
+if (lunaImplementer.steps !== 100) {
+  fail("luna_implementer must retain the 100-step cap");
+}
+if (finalPermission(lunaImplementer, "edit") !== "allow") {
+  fail("luna_implementer must allow bounded source edits");
+}
+if (finalPermission(lunaImplementer, "bash") !== "allow") {
+  fail("luna_implementer must allow local project validation");
+}
+for (const pattern of [
+  "rm -rf *",
+  "sudo *",
+  "git *",
+  "git reset --hard",
+  "git reset --hard *",
+  "git clean *",
+]) {
+  if (finalPermission(lunaImplementer, "bash", pattern) !== "ask") {
+    fail(`luna_implementer must ask before ${pattern}`);
+  }
+}
+for (const pattern of ["git commit *", "git push", "git push *"]) {
+  if (finalPermission(lunaImplementer, "bash", pattern) !== "deny") {
+    fail(`luna_implementer must deny ${pattern}`);
+  }
+}
+for (const pattern of [
+  "git diff",
+  "git diff *",
+  "git log",
+  "git log *",
+  "git show",
+  "git show *",
+  "git status",
+  "git status *",
+]) {
+  if (finalPermission(lunaImplementer, "bash", pattern) !== "allow") {
+    fail(`luna_implementer must allow ${pattern}`);
+  }
+}
+for (const permission of [
+  "question",
+  "webfetch",
+  "task",
+  "todowrite",
+  "advisor",
+  "synthetic_external_mutation",
+]) {
+  if (finalPermission(lunaImplementer, permission) !== "deny") {
+    fail(`luna_implementer must deny ${permission}`);
+  }
+}
+for (const tool of ["apply_patch", "bash"]) {
+  if (lunaImplementer.tools?.[tool] !== true) {
+    fail(`luna_implementer must expose ${tool}`);
+  }
+}
+for (const tool of ["question", "task", "todowrite", "webfetch"]) {
+  if (lunaImplementer.tools?.[tool] === true) {
+    fail(`luna_implementer must not expose ${tool}`);
+  }
+}
+
 for (const name of ["general", "database_optimizer", "evidence_analyst"]) {
   if (finalPermission(plan, "task", name) !== "deny") {
     fail(`plan must deny writable task delegation to ${name}`);

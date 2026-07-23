@@ -6,6 +6,9 @@ const DEFAULT_REVIEW_AGENTS = new Set([
   "security_engineer",
   "software_architect",
 ]);
+const DEFAULT_IMPLEMENTATION_AGENTS = new Set([
+  "luna_implementer",
+]);
 const MAX_PENDING_CALLS = 1000;
 
 function taskArguments(args) {
@@ -44,6 +47,12 @@ function hasConcreteReviewBoundary(prompt) {
     /\bevidence bundle\s*:\s*(?:`[^`]+`|[^\s][^\n]*\/[^\n]*)/im.test(prompt);
 }
 
+function hasImplementationContract(prompt) {
+  return /\bsource boundary\s*:\s*(?:`[^`]+`|[^\r\n]*[/.][^\r\n]*)/im.test(prompt) &&
+    /\bacceptance criteria\s*:\s*\S/im.test(prompt) &&
+    /\bdeterministic validation command\s*:\s*`[^`]+`/im.test(prompt);
+}
+
 function requestsMutation(prompt) {
   const withoutReadOnlyDirectives = prompt
     .replace(
@@ -63,6 +72,9 @@ async function createDelegationGuard(options = {}) {
   const maxConcurrent = options.max_concurrent ?? 10;
   const maxTotal = options.max_total ?? 20;
   const reviewAgents = new Set(options.isolated_review_agents ?? DEFAULT_REVIEW_AGENTS);
+  const implementationAgents = new Set(
+    options.isolated_implementation_agents ?? DEFAULT_IMPLEMENTATION_AGENTS,
+  );
   if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || !Number.isInteger(maxTotal) || maxTotal < maxConcurrent) {
     throw new Error("delegation guard requires positive integer concurrency and total limits");
   }
@@ -117,6 +129,11 @@ async function createDelegationGuard(options = {}) {
       if (typeof agent !== "string" || typeof prompt !== "string") throw new Error("delegation requires a subagent type and bounded prompt");
       if (reviewAgents.has(agent) && !hasConcreteReviewBoundary(prompt)) {
         throw new Error("isolated review requires an exact diff, source boundary, or evidence bundle");
+      }
+      if (implementationAgents.has(agent) && !hasImplementationContract(prompt)) {
+        throw new Error(
+          "implementation delegation requires a source boundary, acceptance criteria, and deterministic validation command",
+        );
       }
       const hasReadOnlyContract =
         /\bread-only\b/i.test(prompt) &&
