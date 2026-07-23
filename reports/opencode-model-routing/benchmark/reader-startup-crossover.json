@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "protocol": "full-config-reader-startup-proxy-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "source",
+      "repository_identity",
+      "paths",
+      "symbols",
+      "commit_identifiers",
+      "task_text",
+      "rubrics",
+      "raw_answers",
+      "session_identifiers"
+    ]
+  },
+  "coverage": {
+    "workload_clusters": 1,
+    "attempts_per_route": 1,
+    "task_shape": "bounded multi-file source reconnaissance",
+    "configuration_surface": "project instructions, installed plugin, skill, and MCP catalog",
+    "execution_shape": "new primary-session proxy; not a native child Task invocation",
+    "quality_assessment": "tool-use and completion only; no blind quality panel"
+  },
+  "routes": [
+    {
+      "route": {
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "serving_path": "openai",
+        "reasoning_effort": "medium"
+      },
+      "completed": true,
+      "valid_source_retrieval": true,
+      "wall_time_seconds": 118.526,
+      "time_to_first_observed_action_seconds": 58.561,
+      "normalized_cost_usd": 0.0725774,
+      "tokens": {
+        "input": 49595,
+        "output": 1468,
+        "reasoning": 596,
+        "cache_read": 105984,
+        "cache_write": 0
+      },
+      "tool_counts": {
+        "glob": 2,
+        "grep": 2,
+        "read": 14
+      }
+    },
+    {
+      "route": {
+        "provider": "openai",
+        "model": "gpt-5.6-sol",
+        "serving_path": "openai",
+        "reasoning_effort": "high"
+      },
+      "completed": true,
+      "valid_source_retrieval": true,
+      "wall_time_seconds": 93.521,
+      "time_to_first_observed_action_seconds": 21.366,
+      "normalized_cost_usd": 0.414138,
+      "tokens": {
+        "input": 52518,
+        "output": 1849,
+        "reasoning": 745,
+        "cache_read": 147456,
+        "cache_write": 0
+      },
+      "tool_counts": {
+        "glob": 4,
+        "grep": 1,
+        "read": 16
+      }
+    },
+    {
+      "route": {
+        "provider": "openai",
+        "model": "gpt-5.6-terra",
+        "serving_path": "openai",
+        "reasoning_effort": "default"
+      },
+      "completed": true,
+      "valid_source_retrieval": false,
+      "wall_time_seconds": 80.396,
+      "time_to_first_observed_action_seconds": 77.692,
+      "normalized_cost_usd": 0.07654,
+      "tokens": {
+        "input": 30094,
+        "output": 50,
+        "reasoning": 37,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "tool_counts": {}
+    }
+  ],
+  "decision": {
+    "luna_reader": "preliminary opt-in source-research lane",
+    "invocation_contract": "Require an investigation, a declared search boundary, and stated parallel-work or context-compression value.",
+    "selection_rationale": "Luna medium produced a valid multi-file retrieval at materially lower normalized cost than Sol high, but still incurred substantial startup and first-action delay.",
+    "not_a_decision_for": [
+      "one-file lookup",
+      "synchronous controller question",
+      "general explore default",
+      "automatic role routing",
+      "fallback routing"
+    ]
+  },
+  "limitations": [
+    "This is a one-attempt primary-session proxy and does not measure native child Task startup.",
+    "The full configuration surface is intentionally not enumerated because it is installation-specific.",
+    "No blinded quality evaluation or broad reader workload set is attached.",
+    "The Terra default attempt completed without source-tool use and is retained as an invalid source-retrieval outcome rather than a quality comparison."
+  ]
+}

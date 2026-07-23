@@ -12,6 +12,8 @@ copies them into the active `tools/` directory.
 - `ast_grep` is an additive structural-search candidate. It requires an
   explicit ast-grep language and pattern. Use it for structural syntax queries;
   use `grep` for lexical discovery.
+- `glob`, `grep`, and `ast_grep` remain inside the active workspace and exclude
+  protected environment-file paths, including `.env`, `.envrc`, and `.env.d`.
 - `text_read` is an additive text and directory reader. It streams bounded
   output, follows native `read` and `external_directory` permissions, and
   defers images, PDFs, and non-text content to native `read`.

@@ -3,11 +3,12 @@ import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
   createPathGlobMatcher,
+  isProtectedEnvironmentPath,
   isPathWithinDirectory,
   MAX_RESULTS,
   ignoreArguments,
-  resolvePath,
   ripgrepTypeFilterArguments,
+  resolveSearchPath,
   runRipgrepLines,
   utf8Prefix,
   visibleRelativePath,
@@ -20,7 +21,12 @@ export default tool({
     path: tool.schema.string().optional().describe("Directory to search in"),
   },
   async execute(args, context) {
-    const searchRoot = resolvePath(args.path, context.directory);
+    let searchRoot: string;
+    try {
+      searchRoot = resolveSearchPath(args.path, context.directory);
+    } catch (error) {
+      return error instanceof Error ? error.message : "Search path is invalid.";
+    }
     try {
       if (!fs.statSync(searchRoot).isDirectory()) {
         return `Path is not a directory: ${searchRoot}`;
@@ -55,6 +61,7 @@ export default tool({
       const filePath = path.resolve(searchDirectory, line);
       const relativePath = path.relative(searchRoot, filePath);
       if (!isPathWithinDirectory(filePath, searchRoot)) return true;
+      if (isProtectedEnvironmentPath(filePath)) return true;
       if (matchesPath && !matchesPath(relativePath)) return true;
       if (files.length >= MAX_RESULTS) return false;
       files.push(filePath);

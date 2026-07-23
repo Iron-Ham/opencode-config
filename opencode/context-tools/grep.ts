@@ -3,10 +3,11 @@ import path from "node:path";
 import { tool } from "@opencode-ai/plugin";
 import {
   createPathGlobMatcher,
+  isProtectedEnvironmentPath,
   isPathWithinDirectory,
   MAX_RESULTS,
   ignoreArguments,
-  resolvePath,
+  resolveSearchPath,
   ripgrepTypeFilterArguments,
   runRipgrepLines,
   truncateMatchText,
@@ -22,7 +23,12 @@ export default tool({
     include: tool.schema.string().optional().describe("Optional glob restricting searched files"),
   },
   async execute(args, context) {
-    const searchRoot = resolvePath(args.path, context.directory);
+    let searchRoot: string;
+    try {
+      searchRoot = resolveSearchPath(args.path, context.directory);
+    } catch (error) {
+      return error instanceof Error ? error.message : "Search path is invalid.";
+    }
     let stat: fs.Stats;
     try {
       stat = fs.statSync(searchRoot);
@@ -73,6 +79,7 @@ export default tool({
       const absoluteFilePath = path.resolve(searchDirectory, filePath);
       const relativePath = path.relative(searchRoot, absoluteFilePath);
       if (!isPathWithinDirectory(absoluteFilePath, searchRoot)) return true;
+      if (isProtectedEnvironmentPath(absoluteFilePath)) return true;
       const matchPath = searchRootIsDirectory
         ? relativePath
         : path.basename(searchRoot);

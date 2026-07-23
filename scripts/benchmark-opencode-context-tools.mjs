@@ -95,6 +95,17 @@ function ensurePrivateDirectory(directory) {
   fs.chmodSync(directory, 0o700);
 }
 
+function createPrivateOutputDirectory(directory) {
+  const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
+  if (existing) {
+    throw new Error(
+      `Private benchmark output directory must not already exist: ${directory}`,
+    );
+  }
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  fs.chmodSync(directory, 0o700);
+}
+
 function isPathInside(parent, candidate) {
   const relative = path.relative(parent, candidate);
   return relative === "" || (!path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`));
@@ -282,7 +293,9 @@ async function main() {
   const args = parseArguments(process.argv.slice(2));
   const tools = candidateTools(args.candidate_tools);
   const requiredTools = requiredCandidateTools(args.require_candidate_tool_use, tools);
-  const outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
+  let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
+  createPrivateOutputDirectory(outputDir);
+  outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
   const workdir = fs.realpathSync(args.workdir);
   const taskFile = fs.realpathSync(args.task_file);
   const nodeModules = fs.realpathSync(args.tool_node_modules);
@@ -295,7 +308,6 @@ async function main() {
   if (fs.existsSync(path.join(workdir, ".git")) && Bun.spawnSync(["git", "status", "--porcelain"], { cwd: workdir }).stdout.toString().trim()) {
     throw new Error("Benchmark worktree must be clean");
   }
-  ensurePrivateDirectory(outputDir);
   const task = fs.readFileSync(taskFile, "utf8");
   const authContent = loadOpenCodeAuthContent();
   const trials = [];

@@ -8,8 +8,11 @@ permission:
     "*": allow
     .env: deny
     ".env.*": deny
+    .envrc: deny
+    ".env.d/**": deny
     "*.env": deny
     "*.env.*": deny
+    "*.envrc": deny
     .env.example: allow
     "*.env.example": allow
   external_directory:

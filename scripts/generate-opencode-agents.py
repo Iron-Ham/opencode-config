@@ -15,7 +15,9 @@ DEFAULT_AGENT_SOURCES = [
     "opencode/agent-sources/security-engineer.md",
     "opencode/agent-sources/database-optimizer.md",
     "opencode/agent-sources/accessibility-auditor.md",
+    "opencode/agent-sources/evidence-reader.md",
     "opencode/agent-sources/luna-implementer.md",
+    "opencode/agent-sources/luna-reader.md",
 ]
 
 READ_ONLY_AGENTS = {
@@ -23,8 +25,15 @@ READ_ONLY_AGENTS = {
     "code_reviewer",
     "database_optimizer",
     "evidence_analyst",
+    "evidence_reader",
     "security_engineer",
     "software_architect",
+    "luna_reader",
+}
+
+BROAD_READER_AGENTS = {
+    "evidence_reader",
+    "luna_reader",
 }
 
 IMPLEMENTATION_AGENTS = {
@@ -91,6 +100,9 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         '    ".env.*": deny',
         '    "*.env": deny',
         '    "*.env.*": deny',
+        "    .envrc: deny",
+        '    ".env.d/**": deny',
+        '    "*.envrc": deny',
         "    .env.example: allow",
         '    "*.env.example": allow',
         "  external_directory:",
@@ -115,10 +127,20 @@ def render_agent(source: Path, repo_root: Path, name: str) -> str:
         '    "~/.local/share/opencode/worktree/**": allow',
         '    "/private/var/folders/**/T/opencode/**": allow',
         "  glob: allow",
-        "  grep: deny",
-        "  text_read: allow",
-        "  skill: allow",
     ]
+    if name in BROAD_READER_AGENTS:
+        permission_lines.extend([
+            "  grep: allow",
+            "  ast_grep: allow",
+            "  text_read: allow",
+            "  skill: deny",
+        ])
+    else:
+        permission_lines.extend([
+            "  grep: deny",
+            "  text_read: allow",
+            "  skill: allow",
+        ])
     if name in READ_ONLY_AGENTS:
         permission_lines.extend([
             "  edit: deny",

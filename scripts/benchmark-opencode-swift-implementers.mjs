@@ -182,6 +182,17 @@ function ensurePrivateDirectory(directory) {
   fs.chmodSync(directory, 0o700);
 }
 
+function createPrivateOutputDirectory(directory) {
+  const existing = fs.lstatSync(directory, { throwIfNoEntry: false });
+  if (existing) {
+    throw new Error(
+      `Private benchmark output directory must not already exist: ${directory}`,
+    );
+  }
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  fs.chmodSync(directory, 0o700);
+}
+
 function writePrivateFile(filePath, contents) {
   ensurePrivateDirectory(path.dirname(filePath));
   const existing = fs.lstatSync(filePath, { throwIfNoEntry: false });
@@ -1720,6 +1731,8 @@ async function main() {
   }
   if (!args.output_dir) throw new Error("Missing --output-dir");
   let outputDir = assertRawBenchmarkOutputOutsideRepository(args.output_dir);
+  createPrivateOutputDirectory(outputDir);
+  outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
   const {
     spec,
     fixtureDir: sourceFixtureDir,
@@ -1740,8 +1753,6 @@ async function main() {
   if (!validateOnly && singleBlock && args.repeat !== 1) {
     throw new Error("--single-block requires --repeat 1");
   }
-  ensurePrivateDirectory(outputDir);
-  outputDir = assertRawBenchmarkOutputOutsideRepository(outputDir);
   const sourceFixtureHash = hashTree(sourceFixtureDir, new Set([".build"]));
   const fixtureDir = prepareFixtureSnapshot(sourceFixtureDir, outputDir);
   const specHash = createHash("sha256")

@@ -202,6 +202,7 @@ const inheritedModelAgents = [
   "code_reviewer",
   "database_optimizer",
   "evidence_analyst",
+  "evidence_reader",
   "explore",
   "general",
   "security_engineer",
@@ -303,6 +304,8 @@ for (const name of ["general", "explore", "code_reviewer"]) {
 for (const protectedPath of [
   path.join(os.homedir(), ".cargo", "credentials.toml"),
   path.join(os.homedir(), ".ssh", "__opencode_permission_probe__"),
+  path.join(repoRoot, ".envrc"),
+  path.join(repoRoot, ".env.d", "__opencode_permission_probe__"),
 ]) {
   const result = executeAgentTool("code_reviewer", "read", {
     filePath: protectedPath,
@@ -509,8 +512,10 @@ const reviewedReadOnlyAgents = new Map([
   ["code_reviewer", { bash: "deny", grep: "deny" }],
   ["database_optimizer", { bash: "deny", grep: "deny" }],
   ["evidence_analyst", { bash: "deny", grep: "deny" }],
+  ["evidence_reader", { bash: "deny", grep: "allow" }],
   ["security_engineer", { bash: "deny", grep: "deny" }],
   ["software_architect", { bash: "deny", grep: "deny" }],
+  ["luna_reader", { bash: "deny", grep: "allow" }],
 ]);
 for (const [name, expected] of reviewedReadOnlyAgents) {
   const child = agents[name];
@@ -617,6 +622,46 @@ for (const tool of ["apply_patch", "bash"]) {
 for (const tool of ["question", "task", "todowrite", "webfetch"]) {
   if (lunaImplementer.tools?.[tool] === true) {
     fail(`luna_implementer must not expose ${tool}`);
+  }
+}
+
+const lunaReader = agents.luna_reader;
+if (!lunaReader) fail("luna_reader is unavailable");
+if (lunaReader.mode !== "subagent") {
+  fail("luna_reader must remain a subagent");
+}
+if (
+  lunaReader.model?.providerID !== "openai" ||
+  lunaReader.model?.modelID !== "gpt-5.6-luna"
+) {
+  fail("luna_reader must use the fixed GPT-5.6 Luna model");
+}
+if (lunaReader.variant !== "medium") {
+  fail("luna_reader must use the fixed medium reasoning variant");
+}
+if (lunaReader.steps !== 100) {
+  fail("luna_reader must retain the 100-step cap");
+}
+if (finalPermission(lunaReader, "read") !== "allow") {
+  fail("luna_reader must retain bounded source read access");
+}
+for (const permission of [
+  "question",
+  "edit",
+  "bash",
+  "webfetch",
+  "task",
+  "todowrite",
+  "advisor",
+  "synthetic_external_mutation",
+]) {
+  if (finalPermission(lunaReader, permission) !== "deny") {
+    fail(`luna_reader must deny ${permission}`);
+  }
+}
+for (const permission of ["glob", "grep", "ast_grep", "text_read"]) {
+  if (finalPermission(lunaReader, permission) !== "allow") {
+    fail(`luna_reader must allow ${permission}`);
   }
 }
 

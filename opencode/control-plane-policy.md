@@ -2,7 +2,7 @@
 
 ## Status
 
-This document defines policy contract version 4 for an observe-only control
+This document defines policy contract version 5 for an observe-only control
 plane. The resolver may report a selected policy route, but it must not set an
 OpenCode model, provider, reasoning effort, fallback, agent permission, or
 default.
@@ -25,9 +25,9 @@ The managed route set contains one ordinary controller execution route:
 | --- | --- | --- | --- |
 | Build | `build-terra` | `openai/gpt-5.6-terra` | Current managed Build baseline; no fixed reasoning variant. |
 
-`luna_implementer` is an explicit managed subagent rather than an adapter
-route. It does not alter the controller's effective route or permit the
-resolver to choose a model from task text.
+`luna_implementer`, `luna_reader`, and `evidence_reader` are explicit managed
+subagents rather than adapter routes. They do not alter the controller's
+effective route or permit the resolver to choose a model from task text.
 
 Provider/model fallback, automatic review, model-branded convenience commands,
 and automatic role-based route selection are outside this contract. A route is always a
@@ -56,6 +56,33 @@ model-branded command, fallback, or automatic role selection. The controller
 retains eligibility decisions, task decomposition, integration, and final
 verification. The evidence supports this limited use only; it does not make
 Luna a general production implementation default.
+
+## Explicit Luna Reader Subagent
+
+`luna_reader` is fixed to `openai/gpt-5.6-luna` with the `medium` reasoning
+variant. It is available only as an opt-in subagent for an independent,
+read-only reconnaissance workstream. A controller must provide an
+investigation and a module, directory, named file set, or explicitly stated
+repository-wide search boundary, plus the parallel-work or context-compression
+value that justifies a separate session. The delegation guard requires the
+ordinary read-only boundary contract, while the agent returns a compact
+source-grounded `path:line` evidence digest rather than implementation advice.
+
+The reader cannot edit, run commands, delegate, ask questions, access the
+network, or use an advisor. It is not an automatic Explore route, fallback, or
+model-branded command. The preliminary two-repeat exact-file trial supports a
+cost hypothesis only; production-shaped startup and broader-reader trials
+remain required before changing general Explore routing.
+
+## Evidence Reader
+
+`evidence_reader` is an opt-in, read-only subagent that inherits its invoking
+controller's model. It gathers a compact evidence packet for a broad bounded
+investigation while the controller continues independent work or needs context
+compression. It is not a
+replacement for `evidence_analyst`, which remains restricted to claim-by-claim
+evaluation of already-produced validation artifacts. Neither evidence reader
+changes controller, Explore, fallback, or automatic role routing.
 
 ## Files And Ownership
 

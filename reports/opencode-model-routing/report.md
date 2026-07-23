@@ -1,10 +1,10 @@
 # OpenCode model routing
 
-_A cost-aware OpenCode decision memo · 17 July 2026_
+_A cost-aware OpenCode decision memo · 22 July 2026_
 
 ## Decision
 
-Recommend **GPT-5.6 Terra xhigh** as the interim baseline for a controlled shared-default pilot under the prospectively specified API-cost rule. **GPT-5.6 Sol high produced stronger measured quality and reliability in the matched cohort**: across six repeated attempts on three production-shaped tasks, Sol produced more valid results, cleared the 85-point floor twice while Terra never did, and had nearly identical model-session time. Sol met the completion, quality, and time/stability thresholds, but missed the cost threshold: its cost per valid result was **1.349× Terra**, above the locked **1.25×** ceiling. Keep **GPT-5.6 Luna high** as an experimental lane for small, well-specified work with strong deterministic checks. Keep automatic advisor review **off by default**; independent review remains an explicit developer choice rather than an automatic route.
+Recommend **GPT-5.6 Terra xhigh** as the interim baseline for a controlled shared-default pilot under the prospectively specified API-cost rule. **GPT-5.6 Sol high produced stronger measured quality and reliability in the matched cohort**: across six repeated attempts on three production-shaped tasks, Sol produced more valid results, cleared the 85-point floor twice while Terra never did, and had nearly identical model-session time. Sol met the completion, quality, and time/stability thresholds, but missed the cost threshold: its cost per valid result was **1.349× Terra**, above the locked **1.25×** ceiling. Keep **GPT-5.6 Luna high** as an experimental lane for small, well-specified work with strong deterministic checks. Keep advisor routes **disabled**; use an explicit read-only reviewer when independent review is needed.
 
 This is a pilot recommendation under a candidate-spend policy, not evidence that Terra matched Sol's observed quality or is the optimal route across domains. No matched attempt from either route was carry-as-is after source reconciliation, and Terra produced no result at or above 85, so the cost-per-floor-result comparison is undefined. Terra effort is also unresolved: high beat xhigh on the tested backend and mixed workloads, while neither effort produced a valid result on the original iOS comment task. Keep the baseline interim while representative gaps and the downstream cost of repair remain unresolved.
 
@@ -14,12 +14,13 @@ This is a pilot recommendation under a candidate-spend policy, not evidence that
 | Bounded cost-sensitive work | Luna high by explicit selection | **Policy from directional evidence** | Frontend xhigh improved Redrive to Carry with repair, but the benefit did not transfer to IaC; use only where checks make failure inexpensive |
 | Premium implementation | Sol high by explicit selection | **Within-experiment challenger** | More valid and 85-point results, higher valid-artifact quality, and effectively equal model-session time in the matched repeated cohort; explicit because the cost gate failed |
 | Planning | Terra xhigh, provisionally | **Historical aggregate; refresh pending** | Only historical finalist to finish 4/4 retained iOS plans without a fatal safety cap; nine current-protocol follow-ups are queued |
+| Source-research reader | Luna medium via opt-in `luna_reader` | **Preliminary startup crossover** | Use only for parallel multi-file evidence gathering or context compression; not a one-file helper or general `explore` default |
 | Automatic advisor | Disabled | **Historical aggregate policy** | A narrow two-cluster proxy showed modest lift without an outcome change at materially higher cost; raw per-run evidence is not attached |
-| Independent advisor | Developer opt-in only | **Policy** | The study does not justify automatic advice or a universal advisor model |
+| Advisor route | Disabled | **Policy** | Use a developer-invoked, read-only reviewer if review is needed; no advisor route is installed |
 | Compaction | Active session model | **Policy transfer; unmeasured** | Avoids a separate transcript-egress route; no separate compactor has retained evidence |
 | Project-copy naming utility | Luna low, measured recommendation | **Within-experiment; not an installed default** | Zero defects across 16 outputs, an aggregate panel decision of Ship, and the best value rank |
 | Session-title utility | Kimi K2.7 Code · Baseten, measured recommendation | **Within-experiment; not an installed default** | Production-ready quality, best value and speed, and roughly one quarter of Luna low's median latency |
-| Open-weight routes | Selectable DeepSeek Baseten route | **Within-experiment for Baseten; Fireworks unmeasured** | Baseten results are workload-specific and do not justify automatic coding or role routing; Fireworks still lacks matched outcomes |
+| Open-weight routes | Benchmark-only DeepSeek Baseten route | **Within-experiment for Baseten; Fireworks unmeasured** | Baseten results are workload-specific and do not justify automatic coding or role routing; Fireworks still lacks matched outcomes |
 
 ### How to read the labels
 
@@ -178,11 +179,11 @@ Opus 4.8 and Fable 5 were screened twice. Opus scored 45 and 92 at a combined $4
 
 ## Open-weight provider frontier
 
-GLM 5.2 and Kimi K2.7 Code are available through both Baseten and Fireworks; DeepSeek V4 Pro is selectable through Baseten. They are not one treatment: the route is **model + provider + serving path + reasoning setting**. Baseten now has matched production-shaped coding and bounded-utility outcomes. OpenCode resolves the managed Fireworks Standard and Fast IDs, but no Fireworks credential was present for authenticated trials in this snapshot, so Fireworks quality, reliability, and realized latency remain **unmeasured**.
+GLM 5.2 and Kimi K2.7 Code appeared in the benchmark catalog through both Baseten and Fireworks; DeepSeek V4 Pro appeared through Baseten. They are not one treatment: the route is **model + provider + serving path + reasoning setting**. The managed defaults retain DeepSeek's Baseten identity only; GLM, Kimi, and every Fireworks route in this section are benchmark-only evidence, not installed controller or implementer routes. Baseten has matched production-shaped coding and bounded-utility outcomes, while Fireworks quality, reliability, and realized latency remain **unmeasured**.
 
 “DeepSeek V4 Pro” is the retained OpenCode evaluation-route label. Provider catalog display names can differ; comparisons are keyed by the recorded provider and exact route identifier, not the display label alone.
 
-The measured Baseten GLM endpoint rejected inputs above **202,720 tokens**, even though OpenCode's catalog advertised roughly 1.05M. Two retained attempts therefore ended after producing substantive patches. Those are **benchmark-configuration incidents, not model-quality failures**: their patches remain eligible for validation and blind judging, while their completion outcomes are censored. The managed Baseten route now sets a 202,720-token operational input limit; with the 20,000-token reserve, automatic compaction begins around **182,720 tokens**.
+The measured Baseten GLM endpoint rejected inputs above **202,720 tokens**, even though OpenCode's catalog advertised roughly 1.05M. Two retained attempts therefore ended after producing substantive patches. Those are **benchmark-configuration incidents, not model-quality failures**: their patches remain eligible for validation and blind judging, while their completion outcomes are censored. The retained evaluation configuration set a 202,720-token operational input limit; with the 20,000-token reserve, its automatic compaction began around **182,720 tokens**.
 
 ### Cost and time context
 
@@ -205,14 +206,32 @@ The benchmark runners pin trusted provider metadata, reject a selected route tha
 | Candidate role | Proposed pilot decision | Evidence needed to change it |
 |---|---|---|
 | Production controller | Use Terra xhigh as an interim pilot baseline | Sol must clear a prospectively specified cost gate or a prospectively revised rule; Terra effort also needs cross-domain follow-up |
-| Bounded implementer | Keep GLM, Kimi, and DeepSeek explicit only | Results vary materially by workload; require repeated route-specific success before automatic use |
+| Bounded implementer | No managed open-weight implementer route | GLM, Kimi, and DeepSeek remain benchmark-only until repeated route-specific success and explicit managed configuration justify an opt-in lane |
 | Plan | Use Terra xhigh provisionally | Complete the nine queued current-protocol follow-ups and attach raw planning evidence |
-| Reader | **No default; unmeasured** | Five exact-file reader trials are queued; require citation precision, recall, completion, cost, and latency before selecting a route |
-| Advisor | No automatic advisor | Independent review may remain developer-invoked; the narrow aggregate does not establish a universal advisor model |
+| Reader | Luna medium through opt-in `luna_reader` only | Full-config startup is substantial; require investigation, search boundary, and delegation value. Five broader trials and native Task measurement remain required before changing `explore` |
+| Advisor | Disabled | Use a developer-invoked, read-only reviewer if review is needed; no advisor route is installed |
 | Session-title utility | Kimi K2.7 Code · Baseten, measured recommendation | Not an installed default; re-evaluate if provider, prompt, or output contract changes |
 | Project-copy utility | Luna low, measured recommendation | Not an installed default; re-evaluate if provider, prompt, or output contract changes |
 
 Provider-pinned experiment routes should keep model, provider, serving path, and reasoning setting visible. Fireworks Standard and Fast must remain separate treatments until matched outcomes exist; neither should be selected automatically.
+
+### Preliminary reader startup crossover
+
+The isolated exact-file cohort calibrates model cost but does not represent the
+startup surface of a large repository. A full-configuration multi-file
+source-research proxy measured Luna medium at **58.6 seconds** to first action,
+**118.5 seconds** wall time, and **$0.0726** normalized cost. Sol high reached
+first action in **21.4 seconds** and completed in **93.5 seconds**, but cost
+**$0.4141**. Terra default completed without source-tool use and is retained as
+an invalid source-retrieval result rather than a quality comparison.
+
+The opt-in `luna_reader` lane is therefore justified only when the controller
+can continue independent work or needs a compact multi-file evidence digest.
+It requires an investigation, a declared search boundary, and stated
+delegation value; it is not automatic routing, a one-file helper, or a generic
+`explore` model change. The [privacy-safe startup aggregate](benchmark/reader-startup-crossover.json)
+and [exact-file calibration aggregate](benchmark/exact-file-reader.json)
+retain route-level evidence without publishing source or answer material.
 
 ### Bounded small-model utility recommendations
 

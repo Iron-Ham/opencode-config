@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "protocol": "bounded-exact-file-reader-direct-v1",
+  "privacy": {
+    "publication_scope": "aggregate_only",
+    "excluded": [
+      "source",
+      "repository_identity",
+      "paths",
+      "symbols",
+      "commit_identifiers",
+      "task_text",
+      "rubrics",
+      "raw_answers",
+      "grader_keys",
+      "session_identifiers"
+    ]
+  },
+  "coverage": {
+    "workload_clusters": 1,
+    "direct_attempts_per_route": 2,
+    "routes": 4,
+    "controller_boundary": "read-only; edits, shell, network, delegation, and advisor access denied",
+    "quality_assessment": "source-adjudicated against a fixed rubric; no blind panel or promotion-quality floor"
+  },
+  "routes": [
+    {
+      "route": {
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "serving_path": "openai",
+        "reasoning_effort": "low"
+      },
+      "completed": 2,
+      "attempted": 2,
+      "policy_compliant": 2,
+      "mean_cost_usd": 0.0302385,
+      "mean_wall_time_seconds": 53.136757583,
+      "mean_model_session_seconds": 48.877,
+      "mean_time_to_first_observed_action_seconds": 3.0495,
+      "quality_disposition": "One response contained a material source-control-flow error; not selected."
+    },
+    {
+      "route": {
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "serving_path": "openai",
+        "reasoning_effort": "medium"
+      },
+      "completed": 2,
+      "attempted": 2,
+      "policy_compliant": 2,
+      "mean_cost_usd": 0.031605,
+      "mean_wall_time_seconds": 45.73683875,
+      "mean_model_session_seconds": 41.686,
+      "mean_time_to_first_observed_action_seconds": 1.374,
+      "quality_disposition": "Candidate route: both responses completed the fixed retrieval contract; one required source-adjudicated repair."
+    },
+    {
+      "route": {
+        "provider": "baseten",
+        "model": "moonshotai/Kimi-K2.7-Code",
+        "serving_path": "baseten-standard",
+        "reasoning_effort": "default"
+      },
+      "completed": 2,
+      "attempted": 2,
+      "policy_compliant": 2,
+      "mean_cost_usd": 0.037490905,
+      "mean_wall_time_seconds": 27.976857417,
+      "mean_model_session_seconds": 24.428,
+      "mean_time_to_first_observed_action_seconds": 0.567,
+      "quality_disposition": "Fast provider-pinned challenger; no blind quality comparison or general reader promotion."
+    },
+    {
+      "route": {
+        "provider": "baseten",
+        "model": "deepseek-ai/DeepSeek-V4-Pro",
+        "serving_path": "baseten-standard",
+        "reasoning_effort": "default"
+      },
+      "completed": 2,
+      "attempted": 2,
+      "policy_compliant": 2,
+      "mean_cost_usd": 0.06006306,
+      "mean_wall_time_seconds": 37.593575396,
+      "mean_model_session_seconds": 33.027,
+      "mean_time_to_first_observed_action_seconds": 0.304,
+      "quality_disposition": "Higher-cost provider-pinned challenger with inconsistent source-grounded responses; not selected."
+    }
+  ],
+  "decision": {
+    "result": "preliminary_calibration_only",
+    "evidence_status": "preliminary_direct_only_cohort",
+    "rationale": "The isolated exact-file cohort calibrates route cost, completion, and source-adjudication variance. It does not measure full project startup or a native reader-subagent invocation.",
+    "not_a_decision_for": [
+      "installed subagent selection",
+      "general explore routing",
+      "automatic role selection",
+      "fallback routing",
+      "general source analysis"
+    ],
+    "follow_up": "Use the full-config startup crossover and broader multi-file reader tasks before selecting a reader route."
+  },
+  "limitations": [
+    "One fixed exact-file retrieval workload is insufficient to establish a universal reader ranking.",
+    "The two retained attempts per route used source adjudication rather than a blinded citation-precision and recall panel.",
+    "The aggregate intentionally excludes source, task, rubric, raw-answer, and session evidence required for independent reproduction.",
+    "The five broader queued reader trials and a native subagent-startup measurement remain required before changing the general explore route."
+  ]
+}

@@ -23,7 +23,7 @@ const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "
 const manifest = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "opencode", "control-plane-policy.json"), "utf8"),
 );
-const EXPECTED_MANIFEST_HASH = "sha256:b7b98c01b4216f658ce58463547c982576835f91d85d2ecdb208c45344e754ab";
+const EXPECTED_MANIFEST_HASH = "sha256:394296a612dc52ea7941cf2e609bcb8fdccc3552cf94a65e151afd985b34f904";
 const buildRoute = {
   provider: "openai",
   model: "gpt-5.6-terra",
