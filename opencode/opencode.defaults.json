@@ -6,9 +6,6 @@
   "share": "disabled",
   "autoupdate": "notify",
   "lsp": true,
-  "plugin": [
-    "./plugins/delegation-guard.js"
-  ],
   "tool_output": {
     "max_lines": 300,
     "max_bytes": 16384

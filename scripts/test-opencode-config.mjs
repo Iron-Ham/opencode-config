@@ -338,6 +338,7 @@ try {
     "./plugins/goal-mode.js",
     "./plugins/goal-workflow-guard.js",
     "./plugins/compaction-observability.js",
+    "./plugins/delegation-guard.js",
   ]) {
     assert.equal(
       merged.plugin.some((plugin) =>
@@ -346,13 +347,6 @@ try {
       false,
     );
   }
-  assert.equal(
-    merged.plugin.filter((plugin) =>
-      (Array.isArray(plugin) ? plugin[0] : plugin) === "./plugins/delegation-guard.js"
-    ).length,
-    1,
-    "the managed delegation guard must remain active after merge",
-  );
   const mergedTui = JSON.parse(
     fs.readFileSync(path.join(configDir, "tui.json"), "utf8"),
   );
