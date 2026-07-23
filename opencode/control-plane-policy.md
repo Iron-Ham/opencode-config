@@ -41,15 +41,15 @@ resolver remains Build-only and rejects `ultra` as an invocation mode.
 
 `luna_implementer` is fixed to `openai/gpt-5.6-luna` with the `high` reasoning
 variant. It is available only as a subagent. The managed primary-agent policy
-allows Build to invoke it only with a complete source boundary, acceptance
-criteria, and deterministic validation command. The delegation guard rejects
-incomplete requests, and the agent rejects ambiguous or high-risk work. It
-cannot delegate or ask questions. It may run focused local validation through
-platform-native tooling or a project-specific CLI, while standard approval
-gates apply to direct destructive commands. Project-provided build and test
-CLIs remain within the repository's ordinary tooling trust boundary rather
-than being restricted by a generic command classifier. The controller retains
-final verification after integrating the change.
+allows Build to invoke it for a bounded implementation request without a fixed
+prompt template. The agent discovers the narrow source boundary and focused
+validation command from repository instructions, and rejects ambiguous or
+high-risk work. It cannot delegate or ask questions. It may run focused local
+validation through platform-native tooling or a project-specific CLI, while
+standard approval gates apply to direct destructive commands. Project-provided
+build and test CLIs remain within the repository's ordinary tooling trust
+boundary rather than being restricted by a generic command classifier. The
+controller retains final verification after integrating the change.
 
 This lane is an opt-in bounded implementation mechanism, not a policy route,
 model-branded command, fallback, or automatic role selection. The controller
@@ -61,18 +61,15 @@ Luna a general production implementation default.
 
 `luna_reader` is fixed to `openai/gpt-5.6-luna` with the `medium` reasoning
 variant. It is available only as an opt-in subagent for an independent,
-read-only reconnaissance workstream. A controller must provide an
-investigation and a module, directory, named file set, or explicitly stated
-repository-wide search boundary, plus the parallel-work or context-compression
-value that justifies a separate session. The delegation guard requires the
-ordinary read-only boundary contract, while the agent returns a compact
+read-only reconnaissance workstream. It establishes the investigation and a
+practical search boundary from the request, then returns a compact
 source-grounded `path:line` evidence digest rather than implementation advice.
 
-The reader cannot edit, run commands, delegate, ask questions, access the
-network, or use an advisor. It is not an automatic Explore route, fallback, or
-model-branded command. The preliminary two-repeat exact-file trial supports a
-cost hypothesis only; production-shaped startup and broader-reader trials
-remain required before changing general Explore routing.
+The reader cannot edit, delegate, ask questions, or use an advisor. It is not
+an automatic Explore route, fallback, or model-branded command. The
+preliminary two-repeat exact-file trial supports a cost hypothesis only;
+production-shaped startup and broader-reader trials remain required before
+changing general Explore routing.
 
 ## Evidence Reader
 

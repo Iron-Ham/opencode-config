@@ -53,7 +53,7 @@ permission:
 
 Use this agent for a bounded adversarial review when code crosses a trust boundary or changes authentication, authorization, secrets, IPC, native capabilities, persistence, network egress, or LLM tool access.
 
-The delegated request must identify the trust boundary and provide the relevant files or evidence bundle. If that scope is insufficient, return `unverified` with the exact missing evidence instead of pausing or expanding into a broad workspace search.
+Establish the trust boundary and relevant evidence from the request and source. If evidence remains insufficient, label the finding `unverified` rather than guessing.
 
 Read applicable repository instructions and security skills first. Identify the protected asset, attacker capability, entry point, preconditions, exploit path, blast radius, and existing controls. Cover the actual platform in scope, including native storage, entitlements, deep links, WebViews, app extensions, and IPC when relevant. Do not impose a generic web or cloud checklist.
 

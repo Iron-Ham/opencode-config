@@ -335,58 +335,14 @@ esac
     );
   }
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
+  assert.equal(fs.existsSync(path.join(testRoot, "notion-calls.log")), false);
 
-  const notionCallsBeforeSkip = fs.readFileSync(
-    path.join(testRoot, "notion-calls.log"),
-    "utf8",
-  );
-  const skipped = Bun.spawnSync(
-    ["bash", path.join(repoRoot, "setup-opencode.sh"), "--skip-notion-cli"],
-    {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        HOME: homeDir,
-        OPENCODE_CONFIG_DIR: configDir,
-        OPENCODE_SETUP_TMPDIR: transactionTempDir,
-        FAIL_LATE_VALIDATION: "false",
-        NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
-        MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
-        PATH: `${stubBin}:${process.env.PATH}`,
-      },
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  );
-  assert.equal(skipped.exitCode, 0, skipped.stderr.toString());
-  assert.equal(
-    fs.readFileSync(path.join(testRoot, "notion-calls.log"), "utf8"),
-    notionCallsBeforeSkip,
-  );
   assert.equal(fs.readlinkSync(ultraCommandPath), path.join(repoRoot, "opencode", "commands", "ultra.md"));
   assert.equal(
     fs.readdirSync(path.join(configDir, "backups", "setup-opencode"))
       .filter((name) => name.startsWith("commands-ultra.md.bak.")).length,
     ultraBackupCount,
   );
-
-  const shimFallback = Bun.spawnSync(["bash", path.join(repoRoot, "setup-opencode.sh")], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      HOME: homeDir,
-      OPENCODE_CONFIG_DIR: configDir,
-      OPENCODE_SETUP_TMPDIR: transactionTempDir,
-      FAIL_LATE_VALIDATION: "false",
-      NOTION_CALL_LOG: path.join(testRoot, "notion-calls.log"),
-      MISE_TRUSTED_CONFIG_PATHS: path.join(os.homedir(), ".config", "mise", "config.toml"),
-      PATH: `${miseShimBin}:${stubBin}:${process.env.PATH}`,
-    },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  assert.equal(shimFallback.exitCode, 0, shimFallback.stderr.toString());
-  assert.match(shimFallback.stderr.toString(), /Notion OpenCode plugins could not be refreshed/);
   assert.deepEqual(fs.readdirSync(transactionTempDir), []);
 
   console.log("OK     OpenCode setup copies managed plugins and restores late failures");

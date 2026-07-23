@@ -391,10 +391,13 @@ const explore = agents.explore;
 if (finalPermission(explore, "synthetic_external_mutation") !== "deny") {
   fail("explore must deny unknown external tools");
 }
-for (const permission of ["question", "edit", "bash", "task", "todowrite", "advisor"]) {
+for (const permission of ["question", "edit", "task", "todowrite", "advisor"]) {
   if (finalPermission(explore, permission) !== "deny") {
     fail(`explore must deny ${permission}`);
   }
+}
+if (finalPermission(explore, "bash") !== "allow") {
+  fail("explore must allow project CLI retrieval");
 }
 
 const general = agents.general;
@@ -444,7 +447,7 @@ if (general.tools?.task !== true) {
 if (general.tools?.todowrite === true) {
   fail("general must not expose TodoWrite");
 }
-for (const tool of ["apply_patch", "edit", "write", "bash", "task", "todowrite"]) {
+for (const tool of ["apply_patch", "edit", "write", "task", "todowrite"]) {
   if (explore.tools?.[tool] === true) {
     fail(`explore must not expose ${tool}`);
   }
@@ -493,8 +496,9 @@ for (const name of planTaskAllowlist) {
       fail(`plan child ${name} must deny ${permission}`);
     }
   }
-  if (!new Set(["ask", "deny"]).has(finalPermission(child, "bash"))) {
-    fail(`plan child ${name} may only ask or deny shell execution`);
+  const expectedBashActions = name === "explore" ? new Set(["allow"]) : new Set(["ask", "deny"]);
+  if (!expectedBashActions.has(finalPermission(child, "bash"))) {
+    fail(`plan child ${name} has an invalid shell execution permission`);
   }
   if (finalPermission(child, "synthetic_external_mutation") !== "deny") {
     fail(`plan child ${name} must deny unknown external tools`);
@@ -512,10 +516,10 @@ const reviewedReadOnlyAgents = new Map([
   ["code_reviewer", { bash: "deny", grep: "deny" }],
   ["database_optimizer", { bash: "deny", grep: "deny" }],
   ["evidence_analyst", { bash: "deny", grep: "deny" }],
-  ["evidence_reader", { bash: "deny", grep: "allow" }],
+  ["evidence_reader", { bash: "allow", grep: "allow" }],
   ["security_engineer", { bash: "deny", grep: "deny" }],
   ["software_architect", { bash: "deny", grep: "deny" }],
-  ["luna_reader", { bash: "deny", grep: "allow" }],
+  ["luna_reader", { bash: "allow", grep: "allow" }],
 ]);
 for (const [name, expected] of reviewedReadOnlyAgents) {
   const child = agents[name];
@@ -531,10 +535,10 @@ for (const [name, expected] of reviewedReadOnlyAgents) {
       fail(`${name} must ${action} ${permission}`);
     }
   }
+  const allowedResearchNetworkTools = new Set(["evidence_reader", "luna_reader"]);
   for (const permission of [
     "question",
     "edit",
-    "webfetch",
     "task",
     "todowrite",
     "advisor",
@@ -542,6 +546,15 @@ for (const [name, expected] of reviewedReadOnlyAgents) {
     if (finalPermission(child, permission) !== "deny") {
       fail(`${name} must deny ${permission}`);
     }
+  }
+  for (const permission of ["webfetch", "websearch"]) {
+    const expectedAction = allowedResearchNetworkTools.has(name) ? "allow" : "deny";
+    if (finalPermission(child, permission) !== expectedAction) {
+      fail(`${name} must ${expectedAction} ${permission}`);
+    }
+  }
+  if (allowedResearchNetworkTools.has(name) && finalPermission(child, "bash") !== "allow") {
+    fail(`${name} must allow project CLI retrieval`);
   }
   if (finalPermission(child, "synthetic_external_mutation") !== "deny") {
     fail(`${name} must deny unknown external tools`);
@@ -648,8 +661,6 @@ if (finalPermission(lunaReader, "read") !== "allow") {
 for (const permission of [
   "question",
   "edit",
-  "bash",
-  "webfetch",
   "task",
   "todowrite",
   "advisor",
@@ -663,6 +674,14 @@ for (const permission of ["glob", "grep", "ast_grep", "text_read"]) {
   if (finalPermission(lunaReader, permission) !== "allow") {
     fail(`luna_reader must allow ${permission}`);
   }
+}
+for (const permission of ["webfetch", "websearch"]) {
+  if (finalPermission(lunaReader, permission) !== "allow") {
+    fail(`luna_reader must allow ${permission}`);
+  }
+}
+if (finalPermission(lunaReader, "bash") !== "allow") {
+  fail("luna_reader must allow project CLI retrieval");
 }
 
 for (const name of ["general", "database_optimizer", "evidence_analyst"]) {

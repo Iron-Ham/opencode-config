@@ -129,6 +129,7 @@
         "grep": "allow",
         "text_read": "allow",
         "webfetch": "allow",
+        "websearch": "allow",
         "skill": "allow",
         "edit": {
           "*": "deny",
@@ -190,6 +191,7 @@
         "grep": "allow",
         "text_read": "allow",
         "webfetch": "allow",
+        "websearch": "allow",
         "skill": "allow",
         "edit": "allow",
         "bash": {
@@ -253,9 +255,10 @@
         "grep": "allow",
         "text_read": "allow",
         "webfetch": "allow",
+        "websearch": "allow",
         "skill": "allow",
         "edit": "deny",
-        "bash": "deny",
+        "bash": "allow",
         "task": "deny",
         "todowrite": "deny",
         "advisor": "deny"
