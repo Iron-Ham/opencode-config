@@ -8,9 +8,10 @@ Personal OpenCode TUI configuration: global instructions, agents, commands, skil
 git clone git@github.com:Iron-Ham/claude-config.git ~/Developer/claude-config
 cd ~/Developer/claude-config
 ./setup-opencode.sh
+./setup-omp.sh
 ```
 
-The installer requires `python3`, `bun`, and `opencode`. Configure workspace-specific plugins and dependencies separately.
+The OpenCode installer requires `python3`, `bun`, and `opencode`; the OMP installer requires `mise` and runs OMP through Bun 1.3.14. Configure workspace-specific plugins and dependencies separately.
 
 On macOS, install the optional command-line tools used by this configuration:
 
@@ -23,6 +24,8 @@ brew install vjeantet/tap/alerter
 `grep`, and `ast_grep` tools. `alerter` provides native task notifications.
 
 `setup-opencode.sh` manages `${OPENCODE_CONFIG_DIR:-~/.config/opencode}`. It links repository-owned instructions, agents, commands, and skills; copies plugins and TUI support; merges managed JSON defaults; preserves unrelated local configuration; backs up replacements; and rolls back the active configuration if a late validation fails. Restart OpenCode after installation.
+
+`setup-omp.sh` manages the global OMP profile at `~/.omp/agent/config.yml` (inside the agent directory reported by `omp config path`). It installs and verifies OMP 17.1.2 through `mise exec bun@1.3.14`, avoiding project-local Bun versions. It applies the small repo-managed profile through an atomic, offline merge and asks OMP to parse the resulting roles. Existing OMP settings and model roles are preserved except for the explicitly managed roles and the disabled, unassigned advisor. No credentials are read or written.
 
 ## Managed Surface
 
@@ -37,8 +40,10 @@ brew install vjeantet/tap/alerter
 | `opencode/plugins/` | Notifications, workflow guards, and total-cost TUI support |
 | `opencode/tui/` | Shared support code for TUI plugins |
 | `opencode/*.defaults.json` | Managed JSON merged with local configuration |
+| `omp/omp.defaults.yml` | Managed global OMP model, task, advisor, and tool defaults |
 | `skills/` | Global skills installed directly into OpenCode |
-| `scripts/` | Generation, merge, installation, and regression checks |
+| `scripts/` | Generation, merge, installation, and regression checks, including OMP |
+| `setup-omp.sh` | Safe global OMP profile installer |
 | `reports/opencode-model-routing/` | Evidence behind the shipped model-routing choices |
 
 ## Launch Behavior
@@ -74,6 +79,35 @@ opencode() {
 	fi
 
 	_run_notion_local_or_command opencode "$@"
+}
+```
+
+Use the following Pi dispatcher in your shell. It runs the local Notion wrapper from inside `notion-next` and otherwise runs global OMP. Explicit OMP approval flags are preserved without adding a second approval flag.
+
+```zsh
+pi() {
+  local notion_next_dir="${NOTION_NEXT_DIR:-$HOME/Developer/Notion/notion-next}"
+  local approval_flag=false
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --approval-mode|--approval-mode=*|--auto-approve|--yolo)
+        approval_flag=true
+        ;;
+    esac
+  done
+
+  local -a args=("$@")
+  if [[ "$approval_flag" == false ]]; then
+    args+=(--yolo)
+  fi
+
+  if [[ "$PWD" == "$notion_next_dir" || "$PWD" == "$notion_next_dir/"* ]]; then
+    _run_notion_local_or_command pi "${args[@]}"
+    return
+  fi
+
+  command omp "${args[@]}"
 }
 ```
 
@@ -133,6 +167,7 @@ bun scripts/test-opencode-delegation-guard.mjs
 bun scripts/test-opencode-context-tools-secret-filter.mjs
 bun scripts/test-opencode-ultra-template.mjs
 bun scripts/test-opencode-total-cost.mjs
+bun scripts/test-omp-pi-config.mjs
 bun scripts/test-opencode-notion-assets.mjs
 bun scripts/test-setup-opencode-transaction.mjs
 bun scripts/test-opencode-benchmark-runtime.mjs
