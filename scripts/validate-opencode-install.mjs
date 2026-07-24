@@ -40,6 +40,7 @@ if (
 for (const pluginName of [
   "compaction-observability.js",
   "delegation-guard.js",
+  "opencode-stats.tsx",
 ]) {
   if (!fs.existsSync(path.join(configDir, "plugins", pluginName))) {
     fail(`the managed ${pluginName} plugin asset is not installed`);

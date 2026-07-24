@@ -4,7 +4,10 @@
     "@opentui/core": "0.4.3",
     "@opentui/keymap": "0.4.3",
     "@opentui/solid": "0.4.3",
-    "solid-js": "1.9.12"
+    "@oh-my-pi/omp-stats": "17.1.2",
+    "solid-js": "1.9.12",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "detect-terminal": "2.0.0",
