@@ -12,6 +12,19 @@ cd ~/Developer/claude-config
 
 The installer requires `python3`, `bun`, and `opencode`. Configure workspace-specific plugins and dependencies separately.
 
+### Local stats dashboard
+
+`setup-opencode.sh` installs a local OpenCode analytics service and the `/stats`
+TUI command. Run `/stats` from an OpenCode session to open its loopback browser
+dashboard. The service reads the local OpenCode SQLite database and stores only
+normalized metrics, never prompt, response, or tool-output content.
+
+The dashboard client is adapted from the MIT-licensed OMP stats dashboard and
+keeps its Overview, Requests, Errors, Models, Providers, Tools, Costs,
+Behavior, Projects, and Gain views. OpenCode adds a Skills view with purpose,
+reliability, duration, and attributed token/cost analytics. OMP's copyright and
+license notice is installed with the plugin.
+
 On macOS, install the optional command-line tools used by this configuration:
 
 ```bash

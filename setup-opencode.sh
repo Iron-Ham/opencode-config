@@ -371,6 +371,9 @@ copy_item "$REPO_DIR/opencode/context-tools/text_read.ts" "$OPENCODE_TOOLS_DIR/t
 bun "$REPO_DIR/scripts/merge-opencode-config.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --validate-model-routing
 
+# TUI plugins bundle the dashboard client from these managed dependencies.
+bun install --cwd "$OPENCODE_DIR" --ignore-scripts
+
 bun "$REPO_DIR/scripts/validate-opencode-install.mjs" \
   "$REPO_DIR" "$OPENCODE_DIR" --require-installed-assets
 
